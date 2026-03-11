@@ -7,9 +7,14 @@
     "lint": "turbo run lint",
     "check-types": "turbo run check-types",
     "build": "turbo run build",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.4.3",
+    "@commitlint/config-conventional": "^20.4.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.3.3",
     "prettier": "^3.7.4",
     "turbo": "^2.8.16",
     "typescript": "5.9.2"
@@ -17,5 +22,12 @@
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=18"
+  },
+  "lint-staged": {
+    "apps/**/*.{ts,tsx,js}": [
+      "pnpm eslint --fix",
+      "pnpm prettier --write"
+    ],
+    ".{js,jsx,ts,tsx,json,css,md,mdx}": "pnpm prettier --write"
   }
 }

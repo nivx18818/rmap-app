@@ -1,5 +1,6 @@
 {
   "json.schemaDownload.trustedDomains": {
     "https://turborepo.dev/": true
-  }
+  },
+  "js/ts.tsdk.path": "node_modules\\typescript\\lib"
 }

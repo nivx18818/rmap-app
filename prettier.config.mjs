@@ -3,18 +3,18 @@ const config = {
   semi: true,
   singleQuote: true,
   jsxSingleQuote: false,
-  trailingComma: "all",
+  trailingComma: 'all',
   printWidth: 100,
   tabWidth: 2,
   useTabs: false,
   bracketSpacing: true,
-  arrowParens: "always",
+  arrowParens: 'always',
 
-  endOfLine: "lf",
+  endOfLine: 'lf',
 
   overrides: [
     {
-      files: "*.json",
+      files: '*.json',
       options: {
         printWidth: 80,
       },

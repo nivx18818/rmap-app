@@ -7,7 +7,8 @@
     "lint": "turbo run lint",
     "check-types": "turbo run check-types",
     "build": "turbo run build",
-    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md,mdx}\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "prepare": "husky"
   },
   "devDependencies": {

@@ -4,5 +4,8 @@
   },
   "files.associations": {
     "*.css": "tailwindcss"
-  }
+  },
+  "git.inputValidation": true,
+  "git.inputValidationLength": 100,
+  "git.inputValidationSubjectLength": 100,
 }

@@ -6,5 +6,6 @@ out
 .next
 .turbo
 .vercel
+**/next-env.d.ts
 coverage
 pnpm-lock.yaml

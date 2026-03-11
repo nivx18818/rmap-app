@@ -7,7 +7,7 @@
     "lint": "turbo run lint",
     "check-types": "turbo run check-types",
     "build": "turbo run build",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md,mdx}\"",
     "prepare": "husky"
   },
   "devDependencies": {
@@ -24,8 +24,12 @@
     "node": ">=18"
   },
   "lint-staged": {
-    "apps/**/*.{ts,tsx,js}": [
-      "pnpm eslint --fix",
+    "apps/web/**/*.{ts,tsx,js}": [
+      "pnpm --filter web exec eslint --fix",
+      "pnpm prettier --write"
+    ],
+    "apps/api/**/*.{ts,js}": [
+      "pnpm --filter api exec eslint --fix",
       "pnpm prettier --write"
     ],
     ".{js,jsx,ts,tsx,json,css,md,mdx}": "pnpm prettier --write"

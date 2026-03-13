@@ -9,3 +9,4 @@ out
 **/next-env.d.ts
 coverage
 pnpm-lock.yaml
+CODEOWNERS

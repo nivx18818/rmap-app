@@ -8,5 +8,9 @@
   },
   "git.inputValidation": true,
   "git.inputValidationLength": 100,
-  "git.inputValidationSubjectLength": 100
+  "git.inputValidationSubjectLength": 100,
+  "files.trimTrailingWhitespace": true,
+  "[markdown]": {
+    "files.trimTrailingWhitespace": false
+  }
 }

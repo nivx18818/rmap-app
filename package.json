@@ -3,10 +3,13 @@
   "private": true,
   "scripts": {
     "dev": "turbo run dev",
+    "dev:api": "pnpm --filter api dev",
     "test": "turbo run test",
     "lint": "turbo run lint",
     "typecheck": "turbo run check-types",
     "build": "turbo run build",
+    "docker:dev": "docker compose up --build",
+    "docker:down": "docker compose down",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"

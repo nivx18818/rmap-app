@@ -4,6 +4,7 @@
 node_modules
 .pnp
 .pnp.js
+.pnpm-store
 
 # Local env files
 .env
@@ -19,6 +20,7 @@ coverage
 .vscode/*
 !.vscode/settings.json
 !.vscode/extensions.json
+.idea
 
 # Turbo
 .turbo
@@ -37,7 +39,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Misc
-._*
+# OS
 .DS_Store
+._*
+
+# Misc
 *.pem

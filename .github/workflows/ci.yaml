@@ -29,7 +29,7 @@ jobs:
         run: pnpm lint
 
       - name: Typecheck
-        run: pnpm typecheck
+        run: pnpm check-types
 
       - name: Format
         run: pnpm exec prettier --check .

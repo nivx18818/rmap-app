@@ -1,6 +1,7 @@
 {
   "name": "rmap-app",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "turbo run dev",
     "dev:api": "pnpm --filter api dev",

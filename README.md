@@ -13,7 +13,6 @@ Install dependencies:
 
 ```bash
 pnpm install
-pnpm prepare
 ```
 
 Run the development stack (starts apps in dev mode):

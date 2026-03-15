@@ -1,6 +1,7 @@
 {
   "json.schemaDownload.trustedDomains": {
-    "https://turborepo.dev/": true
+    "https://turborepo.dev/": true,
+    "https://ui.shadcn.com/": true
   },
   "js/ts.tsdk.path": "node_modules\\typescript\\lib",
   "files.associations": {

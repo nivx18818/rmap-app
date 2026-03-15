@@ -11,6 +11,8 @@
   "git.inputValidationLength": 100,
   "git.inputValidationSubjectLength": 100,
   "files.trimTrailingWhitespace": true,
+  "editor.formatOnPaste": true,
+  "editor.formatOnSave": true,
   "[markdown]": {
     "files.trimTrailingWhitespace": false
   }

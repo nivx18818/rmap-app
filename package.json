@@ -27,20 +27,5 @@
   "packageManager": "pnpm@9.0.0",
   "engines": {
     "node": ">=18"
-  },
-  "lint-staged": {
-    "apps/web/**/*.{ts,tsx,js}": [
-      "pnpm --filter web exec eslint --fix",
-      "pnpm prettier --write"
-    ],
-    "apps/api/**/*.{ts,js}": [
-      "pnpm --filter api exec eslint --fix",
-      "pnpm prettier --write"
-    ],
-    "packages/ui/**/*.{ts,tsx,js}": [
-      "pnpm --filter @repo/ui exec eslint --fix",
-      "pnpm prettier --write"
-    ],
-    "**/*.{js,jsx,ts,tsx,json,css,md,mdx,yml,yaml}": "pnpm prettier --write"
   }
 }

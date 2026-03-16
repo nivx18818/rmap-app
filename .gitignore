@@ -5,6 +5,7 @@ node_modules
 .pnp
 .pnp.js
 .pnpm-store
+.yarn/install-state.gz
 
 # Local env files
 .env
@@ -15,12 +16,21 @@ node_modules
 
 # Testing
 coverage
+.nyc_output
 
-# IDE
+# IDEs and editors
 .vscode/*
 !.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 !.vscode/extensions.json
 .idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
 
 # Turbo
 .turbo
@@ -28,20 +38,41 @@ coverage
 # Vercel
 .vercel
 
+# Typescript
+*.tsbuildinfo
+next-env.d.ts
+
 # Build Outputs
 .next/
 out/
 build
 dist
 
-# Debug
+# Logs
+logs
+*.log
 npm-debug.log*
+pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+lerna-debug.log*
 
 # OS
 .DS_Store
 ._*
+
+# Temp directory
+.temp
+.tmp
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # Misc
 *.pem

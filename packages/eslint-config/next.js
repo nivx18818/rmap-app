@@ -4,6 +4,7 @@ import pluginReact from 'eslint-plugin-react';
 import globals from 'globals';
 import pluginNext from '@next/eslint-plugin-next';
 import { config as base } from './base.js';
+import { jsxConfig as jsxBase } from './jsx-base.js';
 
 /**
  * A custom ESLint configuration for libraries that use Next.js.
@@ -28,6 +29,7 @@ export const nextJsConfig = [
       },
     },
   },
+  ...jsxBase,
   {
     plugins: {
       '@next/next': pluginNext,

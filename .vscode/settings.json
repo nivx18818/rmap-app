@@ -17,6 +17,8 @@
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit"
   },
+  "chat.useAgentsMdFile": true,
+  "chat.useNestedAgentsMdFiles": true,
   "[markdown]": {
     "files.trimTrailingWhitespace": false
   }

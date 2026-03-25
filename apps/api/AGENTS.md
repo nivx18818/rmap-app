@@ -5,7 +5,7 @@ Extends root AGENTS.md rules.
 ## Stack
 
 - NestJS 11, TypeScript, Express platform.
-- Database access via @repo/prisma (Prisma ORM).
+- Database access via @repo/database (Prisma ORM).
 - Jest for unit tests, Supertest for e2e.
 
 ## Module conventions
@@ -24,7 +24,7 @@ Import and register PrismaModule globally once in AppModule, then inject PrismaS
 
 ```ts
 // app.module.ts
-import { PrismaModule } from '@repo/prisma';
+import { PrismaModule } from '@repo/database';
 
 @Module({
   imports: [PrismaModule],
@@ -34,7 +34,7 @@ export class AppModule {}
 
 ```ts
 // roadmaps.service.ts
-import { PrismaService } from '@repo/prisma';
+import { PrismaService } from '@repo/database';
 
 @Injectable()
 export class RoadmapsService {
@@ -47,7 +47,7 @@ export class RoadmapsService {
 ```
 
 - Never instantiate PrismaClient directly in app code — always inject PrismaService.
-- Never import from `@prisma/client` directly — always use `@repo/prisma`.
+- Never import from `@prisma/client` directly — always use `@repo/database`.
 - Never write raw SQL unless a Prisma query genuinely cannot express it, and document why with a comment.
 
 ## DTO conventions
@@ -79,5 +79,5 @@ API listens on PORT env var, defaults to 3001.
 ## Do not
 
 - Do not run Prisma migrations from this app — use `packages/prisma`.
-- Do not import `@prisma/client` directly — use `@repo/prisma`.
+- Do not import `@prisma/client` directly — use `@repo/database`.
 - Do not put schema changes in this directory.

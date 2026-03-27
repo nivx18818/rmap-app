@@ -1,23 +1,41 @@
-## What
+## Description
 
-Describe the change.
+What does this PR do?
 
-## Why
+## Related Issue
 
-Explain the reason for the change.
+Closes #
 
-## Testing
+## Type of Change
 
-How reviewers can verify it.
+- [ ] Feature
+- [ ] Bug fix
+- [ ] Tech debt (refactor / chore)
+
+## Changes Made
+
+- Bullet point changes
+- Keep it concise
+
+## How to Test
+
+Steps to verify:
+
+1. ...
+2. ...
+3. ...
+
+## Screenshots (if FE)
+
+(Add UI screenshots if applicable)
 
 ## Checklist
 
-- [] Code follows project conventions
-- [] Lint and format checks pass
-- [] No unnecessary console logs or debug code
-- [] Documentation updated if needed
-- [] Self-reviewed the changes
+- [ ] Code compiles and runs
+- [ ] No console errors
+- [ ] Follows project conventions
+- [ ] Self-reviewed
 
-## Related Issues
+## Notes
 
-Closes #
+Anything reviewers should pay attention to

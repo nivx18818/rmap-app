@@ -22,6 +22,7 @@ export function HeroSection() {
           alt="RMap platform illustration"
           fill
           priority
+          sizes="100vw"
         />
       </div>
 

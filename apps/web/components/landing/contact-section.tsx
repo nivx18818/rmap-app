@@ -27,6 +27,7 @@ export function ContactSection() {
               src="/contact-illustration.png"
               alt="Contact support illustration"
               fill
+              sizes="(max-width: 1200px) 100vw, 435px"
             />
           </div>
 

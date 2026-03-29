@@ -50,6 +50,7 @@ export function RoadmapSection() {
               alt="Globe with hot air balloons"
               fill
               priority
+              sizes="(max-width: 640px) 250px, 384px"
             />
           </div>
         </div>

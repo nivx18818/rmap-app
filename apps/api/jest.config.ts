@@ -1,6 +1,6 @@
 import type { Config } from 'jest';
 
-export const config = {
+export default {
   moduleFileExtensions: ['js', 'ts', 'json'],
   rootDir: '.',
   testMatch: ['<rootDir>/test/unit/**/*.spec.ts'],

@@ -10,7 +10,8 @@ Closes #
 
 - [ ] Feature
 - [ ] Bug fix
-- [ ] Tech debt (refactor / chore)
+- [ ] Improvement (refactor / chore)
+- [ ] Documentation
 
 ## Changes Made
 

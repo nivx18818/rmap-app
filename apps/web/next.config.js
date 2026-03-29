@@ -2,6 +2,7 @@
 const nextConfig = {
   output: 'standalone',
   reactCompiler: true,
+  typedRoutes: true,
   experimental: {
     typedEnv: true,
   },

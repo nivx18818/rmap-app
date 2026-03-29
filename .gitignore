@@ -45,6 +45,7 @@ next-env.d.ts
 # Build Outputs
 .next/
 out/
+generated/
 build
 dist
 

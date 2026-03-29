@@ -3,7 +3,8 @@
     "EditorConfig.EditorConfig",
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
+    "streetsidesoftware.code-spell-checker",
     "bradlc.vscode-tailwindcss",
-    "streetsidesoftware.code-spell-checker"
+    "Prisma.prisma"
   ]
 }

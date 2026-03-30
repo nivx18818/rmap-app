@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { ROLE_BASED_ROADMAPS, SKILL_BASED_ROADMAPS } from '@/lib/data/landing';
 
 import { CategoryLabel } from './ui/category-label';
-import MaskBackground from './ui/mask-background';
+import { MaskBackground } from './ui/mask-background';
 import { RainbowBar } from './ui/rainbow-bar';
 import { RoadmapGrid } from './ui/roadmap-grid';
 
@@ -62,7 +62,7 @@ export function RoadmapSection() {
             <div
               className="group/search border-border relative h-12 w-full max-w-140 shrink-0 rounded-full border p-px shadow-sm transition-all duration-300 focus-within:border-violet-500/50 focus-within:ring-4 focus-within:ring-violet-500/10 hover:border-violet-500/30"
               style={{
-                backgroundImage: `var(--color-gradient-search-bar)`,
+                backgroundImage: 'var(--color-gradient-search-bar)',
               }}
             >
               <div className="bg-background/50 flex size-full items-center overflow-hidden rounded-full pr-5 pl-11.5 backdrop-blur-sm">

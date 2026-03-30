@@ -12,7 +12,7 @@ import { cn } from '@repo/design-system/lib/utils';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import MaskBackground from './ui/mask-background';
+import { MaskBackground } from './ui/mask-background';
 import { RainbowBar } from './ui/rainbow-bar';
 
 const NOTEBOOK_ITEMS = [

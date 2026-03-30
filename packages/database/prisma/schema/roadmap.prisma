@@ -1,0 +1,36 @@
+model Roadmap {
+  id          String   @id @default(dbgenerated("gen_random_uuid()"))
+  title       String
+  description String?
+  isTemplate  Boolean  @default(false) @map("is_template")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  userId            String?            @unique @map("user_id")
+  user              User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId            String?            @map("role_id")
+  role              Role?              @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  roadmapNodes      RoadmapNode[]
+  userSavedRoadmaps UserSavedRoadmap[]
+
+  @@index([roleId])
+  @@index([isTemplate])
+  @@map("roadmaps")
+}
+
+model RoadmapNode {
+  id           String       @id @default(dbgenerated("gen_random_uuid()"))
+  relationType RelationType @default(REQUIRED) @map("relation_type")
+  sortOrder    Int          @default(0) @map("sort_order")
+
+  roadmapId          String             @map("roadmap_id")
+  roadmap            Roadmap            @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  skillId            String             @map("skill_id")
+  skill              Skill              @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  parentNodeId       String?            @map("parent_node_id")
+  parentNode         RoadmapNode?       @relation("RoadmapNodeHierarchy", fields: [parentNodeId], references: [id], onDelete: SetNull)
+  childNodes         RoadmapNode[]      @relation("RoadmapNodeHierarchy")
+  userNodeProgresses UserNodeProgress[]
+
+  @@index([roadmapId])
+  @@map("roadmap_nodes")
+}

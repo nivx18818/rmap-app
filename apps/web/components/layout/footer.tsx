@@ -17,7 +17,7 @@ export function Footer() {
           </span>
         </div>
         <p className="flex items-center justify-center pt-1 text-sm text-slate-400">
-          Copyright © 2026 rmap studio
+          Copyright © 2026 RMap Team
         </p>
       </SectionContainer>
     </footer>

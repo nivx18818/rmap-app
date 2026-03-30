@@ -58,6 +58,7 @@
   --color-btn-white-background-active: var(--btn-white-background-active);
   --color-btn-white-inner-shadow: var(--btn-white-inner-shadow);
   --color-btn-white-inner-shadow-active: var(--btn-white-inner-shadow-active);
+  --color-btn-secondary-background-active: var(--btn-secondary-background-active);
 
   --color-bg-footer: var(--bg-footer);
   --color-bg-contact: var(--bg-contact);
@@ -69,7 +70,7 @@
 :root {
   --radius: 0.625rem;
   --background: hsl(250, 100%, 99.5%);
-  --foreground: hsl(250, 20%, 10%);
+  --foreground: hsla(222, 47%, 11%, 1);
   --card: hsl(0, 0%, 100%);
   --card-foreground: hsl(250, 20%, 10%);
   --popover: hsl(0, 0%, 100%);
@@ -77,8 +78,8 @@
   --primary: hsl(262, 83%, 58%);
   --primary-active: hsl(263, 70%, 50%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsl(250, 40%, 96%);
-  --secondary-foreground: hsl(250, 20%, 25%);
+  --secondary: hsla(210, 40%, 96%, 1);
+  --secondary-foreground: hsla(222, 47%, 11%, 1);
   --muted: hsl(250, 40%, 96%);
   --muted-foreground: hsl(250, 10%, 45%);
   --accent: hsl(256, 100%, 96.5%);
@@ -111,6 +112,7 @@
   --btn-white-border-active: hsla(255, 92%, 76%, 40%);
   --btn-white-background: hsl(0, 0%, 100%);
   --btn-white-background-active: hsla(240, 50%, 98%, 1);
+  --btn-secondary-background-active: hsla(214, 32%, 91%, 1);
 
   --bg-footer:
     linear-gradient(
@@ -241,6 +243,10 @@
     background-color: var(--color-btn-white-background-active);
     border: 1px solid var(--color-btn-white-border-active);
     box-shadow: 0 0 6px 2px var(--color-btn-white-inner-shadow-active) inset;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-btn-secondary-background-active aria-expanded:bg-secondary aria-expanded:text-secondary-foreground transition-colors duration-200;
   }
 
   .nav-menu-effect {

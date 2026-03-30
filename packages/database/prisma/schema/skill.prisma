@@ -1,0 +1,15 @@
+model Skill {
+  id             String  @id @default(dbgenerated("gen_random_uuid()"))
+  name           String
+  slug           String  @unique
+  description    String?
+  category       String?
+  estimatedHours Int?    @map("estimated_hours")
+
+  roleSkills   RoleSkills[]
+  userSkills   UserSkills[]
+  roadmapNodes RoadmapNode[]
+  resources    Resource[]
+
+  @@map("skills")
+}

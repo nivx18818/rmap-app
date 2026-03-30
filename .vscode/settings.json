@@ -28,5 +28,8 @@
   "chat.useNestedAgentsMdFiles": true,
   "[markdown]": {
     "files.trimTrailingWhitespace": false
+  },
+  "[prisma]": {
+    "editor.defaultFormatter": "Prisma.prisma"
   }
 }

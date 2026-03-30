@@ -1,0 +1,34 @@
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum SkillLevel {
+  FRESHER
+  JUNIOR
+  MIDDLE
+}
+
+enum NodeStatus {
+  LOCKED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum ResourcePlatform {
+  UDEMY
+  COURSERA
+  YOUTUBE
+  OTHER
+}
+
+enum SkillProficiency {
+  NONE // hasn't learned it
+  BASIC // knows the fundamentals
+  INTERMEDIATE // can apply it in practice
+}
+
+enum RelationType {
+  REQUIRED // must learn before moving on
+  OPTIONAL // good to have, not blocking
+}

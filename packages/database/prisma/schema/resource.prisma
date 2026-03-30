@@ -1,0 +1,14 @@
+model Resource {
+  id       String            @id @default(dbgenerated("gen_random_uuid()"))
+  title    String
+  url      String
+  platform ResourcePlatform?
+  isFree   Boolean           @default(true) @map("is_free")
+  levelTag SkillLevel?       @map("level_tag")
+
+  skillId String @map("skill_id")
+  skill   Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@index([skillId])
+  @@map("resources")
+}

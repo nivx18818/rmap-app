@@ -1,0 +1,25 @@
+model Role {
+  id          String  @id @default(dbgenerated("gen_random_uuid()"))
+  name        String
+  slug        String  @unique
+  description String?
+
+  roleSkills RoleSkills[]
+  userGoals  UserGoal[]
+  roadmaps   Roadmap[]
+
+  @@map("roles")
+}
+
+model RoleSkills {
+  isCore    Boolean @default(true) @map("is_core")
+  sortOrder Int     @default(0) @map("sort_order")
+
+  roleId  String @map("role_id")
+  role    Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  skillId String @map("skill_id")
+  skill   Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, skillId])
+  @@map("role_skills")
+}

@@ -5,9 +5,9 @@ import {
   Tick01Icon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { AnimatedIconSwap } from '@repo/design-system/components/ui/animated-icon-swap';
+import { AnimatedIconSwap } from '@repo/design-system/components/common/animated-icon-swap';
+import { SectionContainer } from '@repo/design-system/components/common/section-container';
 import { Button } from '@repo/design-system/components/ui/button';
-import { SectionContainer } from '@repo/design-system/components/ui/section-container';
 import { cn } from '@repo/design-system/lib/utils';
 import Image from 'next/image';
 import Link from 'next/link';

@@ -1,5 +1,5 @@
 import { ArrowRight, ArrowRight02FreeIcons } from '@hugeicons/core-free-icons';
-import { AnimatedIconSwap } from '@repo/design-system/components/ui/animated-icon-swap';
+import { AnimatedIconSwap } from '@repo/design-system/components/common/animated-icon-swap';
 import { Button } from '@repo/design-system/components/ui/button';
 import Image from 'next/image';
 import Link from 'next/link';

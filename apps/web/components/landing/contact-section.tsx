@@ -1,7 +1,7 @@
 import { Mail01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
+import { SectionContainer } from '@repo/design-system/components/common/section-container';
 import { Button } from '@repo/design-system/components/ui/button';
-import { SectionContainer } from '@repo/design-system/components/ui/section-container';
 import Image from 'next/image';
 import Link from 'next/link';
 

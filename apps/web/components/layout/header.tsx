@@ -18,7 +18,7 @@ export function Header() {
     <header className="absolute inset-x-0 top-0 z-50 mx-auto flex max-w-300 items-center justify-between px-8 py-6.5">
       <Link className="flex items-center gap-2" href="/">
         <HugeiconsIcon className="size-8" icon={MapsIcon} />
-        <span className="font-heading text-2xl font-bold tracking-[-0.5px]">rmap</span>
+        <span className="font-heading text-2xl font-bold tracking-[-0.5px]">RMap</span>
       </Link>
 
       {/* Navigation */}

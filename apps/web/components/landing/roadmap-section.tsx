@@ -1,6 +1,6 @@
 import { Search01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { SectionContainer } from '@repo/design-system/components/ui/section-container';
+import { SectionContainer } from '@repo/design-system/components/common/section-container';
 import Image from 'next/image';
 
 import { ROLE_BASED_ROADMAPS, SKILL_BASED_ROADMAPS } from '@/lib/data/landing';

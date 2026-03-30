@@ -11,12 +11,11 @@ const buttonVariants = cva(
       variant: {
         default: 'btn-purple',
         outline: 'btn-white',
-        secondary:
-          'border border-transparent bg-slate-100 text-slate-900 hover:bg-slate-200 aria-expanded:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 dark:aria-expanded:bg-slate-700',
+        secondary: 'btn-secondary',
         ghost:
-          'border border-transparent bg-transparent text-slate-900 hover:bg-slate-100 aria-expanded:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800 dark:aria-expanded:bg-slate-800',
+          'hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50 transition-colors duration-200',
         destructive:
-          'border border-transparent bg-red-500 text-white hover:bg-red-600 focus-visible:border-red-600/40 focus-visible:ring-red-500/20 dark:bg-red-600 dark:hover:bg-red-700',
+          'bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40',
         link: 'text-foreground hover:text-primary underline-offset-4 hover:underline border border-transparent',
       },
       size: {

@@ -1,4 +1,4 @@
-export default function MaskBackground() {
+export function MaskBackground() {
   return (
     <div
       className="pointer-events-none absolute inset-0 z-0"

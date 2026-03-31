@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    "./prisma/*": "./generated/prisma/*.ts"
   },
   "scripts": {
     "db:generate": "prisma generate",
@@ -11,10 +11,8 @@
     "db:deploy": "prisma migrate deploy"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
-    "dotenv": "^17.3.1",
-    "pg": "^8.20.0"
+    "dotenv": "^17.3.1"
   },
   "devDependencies": {
     "prisma": "^7.6.0"

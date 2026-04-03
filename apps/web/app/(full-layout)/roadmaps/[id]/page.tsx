@@ -1,11 +1,5 @@
-interface RoadmapDetailPageProps {
-  params: Promise<{
-    id: string;
-  }>;
-}
-
-export default async function RoadmapDetailPage({ params }: RoadmapDetailPageProps) {
-  const { id } = await params;
+export default async function RoadmapDetailPage(props: PageProps<'/roadmaps/[id]'>) {
+  const { id } = await props.params;
 
   return (
     <main className="p-8">

@@ -6,36 +6,39 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 
 import { UserService } from '@/modules/user/user.service';
 
-export interface JwtPayload {
+export interface JwtRefreshPayload {
   sub: string;
   email: string;
 }
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
+export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
   constructor(
     private readonly configService: ConfigService,
     private readonly userService: UserService,
   ) {
-    const secret = configService.get<string>('JWT_SECRET');
+    const secret = configService.get<string>('JWT_REFRESH_SECRET');
     if (!secret) {
-      throw new Error('JWT_SECRET is not defined');
+      throw new Error('JWT_REFRESH_SECRET is not defined');
     }
 
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
-        (req: Request) => req?.cookies?.['access_token'] ?? null,
+        (req: Request) => req?.cookies?.['refresh_token'] ?? null,
       ]),
       ignoreExpiration: false,
       secretOrKey: secret,
+      passReqToCallback: true,
     });
   }
 
-  async validate(payload: JwtPayload) {
+  async validate(req: Request, payload: JwtRefreshPayload) {
+    const refreshToken = req.cookies?.['refresh_token'] as string | undefined;
+    if (!refreshToken) throw new UnauthorizedException('Refresh token not found');
+
     const user = await this.userService.findById(payload.sub);
-    if (!user) {
-      throw new UnauthorizedException();
-    }
+    if (!user) throw new UnauthorizedException('User not found');
+
     return user;
   }
 }

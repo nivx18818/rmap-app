@@ -9,27 +9,15 @@ export class UserService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findByEmail(email: string) {
-    const user = await this.prisma.user.findUnique({
+    return this.prisma.user.findUnique({
       where: { email },
     });
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    return user;
   }
 
   async findById(id: string) {
-    const user = await this.prisma.user.findUnique({
+    return this.prisma.user.findUnique({
       where: { id },
     });
-
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    return user;
   }
 
   async create(createUserDto: CreateUserDto) {

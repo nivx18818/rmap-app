@@ -8,8 +8,7 @@ import { PassportModule } from '@nestjs/passport';
 import { UserModule } from '../user/user.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+import { JwtAuthGuard, JwtRefreshGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 

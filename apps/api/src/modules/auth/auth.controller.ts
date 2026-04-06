@@ -1,6 +1,6 @@
-import type { Response } from 'express';
+import type { Response, Request } from 'express';
 
-import { Body, Controller, Post, HttpCode, HttpStatus, UseGuards, Res } from '@nestjs/common';
+import { Body, Controller, Post, HttpCode, HttpStatus, UseGuards, Res, Req } from '@nestjs/common';
 
 import type { RequestUser } from './decorators/current-user.decorator';
 
@@ -33,13 +33,21 @@ export class AuthController {
   @UseGuards(JwtRefreshGuard)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  refresh(@CurrentUser() user: RequestUser, @Res({ passthrough: true }) res: Response) {
-    return this.authService.refresh(user.id, user.email, res);
+  refresh(
+    @CurrentUser() user: RequestUser,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.authService.refresh(user.id, user.email, req, res);
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  logout(@Res({ passthrough: true }) res: Response) {
-    return this.authService.logout(res);
+  logout(
+    @CurrentUser() user: RequestUser,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.authService.logout(user.id, req, res);
   }
 }

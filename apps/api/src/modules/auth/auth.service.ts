@@ -4,12 +4,13 @@ import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/co
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { Response } from 'express';
+import { Response, Request } from 'express';
 
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
 
 import { UserService } from '../user/user.service';
+import { RefreshTokenService } from './refresh-token.service';
 
 @Injectable()
 export class AuthService {
@@ -17,6 +18,7 @@ export class AuthService {
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly refreshTokenService: RefreshTokenService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -57,13 +59,18 @@ export class AuthService {
     return { message: 'Login successful' };
   }
 
-  async refresh(userId: string, email: string, res: Response) {
+  async refresh(userId: string, email: string, req: Request, res: Response) {
+    const oldToken = req.cookies?.['refresh_token'] as string | undefined;
+    if (oldToken) {
+      await this.refreshTokenService.revokeToken(oldToken);
+    }
     const payload = { sub: userId, email };
     await this.issueTokens(payload, res);
     return { message: 'Token refreshed' };
   }
 
-  logout(res: Response) {
+  async logout(userId: string, req: Request, res: Response) {
+    await this.refreshTokenService.revokeTokensForUser(userId);
     res.clearCookie('access_token');
     res.clearCookie('refresh_token');
     return { message: 'Logged out successfully' };
@@ -82,6 +89,10 @@ export class AuthService {
     ]);
 
     const isProd = this.configService.get('NODE_ENV') === 'production';
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+    await this.refreshTokenService.saveRefreshToken(payload.sub, refreshToken, expiresAt);
 
     res.cookie('access_token', accessToken, {
       httpOnly: true,

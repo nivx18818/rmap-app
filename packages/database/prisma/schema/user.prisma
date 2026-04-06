@@ -12,6 +12,7 @@ model User {
   roadmaps           Roadmap[]
   userSavedRoadmaps  UserSavedRoadmap[]
   userNodeProgresses UserNodeProgress[]
+  refreshTokens      RefreshToken[]
 
   @@index([createdAt])
   @@map("users")

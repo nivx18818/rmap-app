@@ -4,7 +4,13 @@ import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/co
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { Response, Request } from 'express';
+import { Request, Response } from 'express';
+
+import {
+  ACCESS_TOKEN_COOKIE_OPTIONS,
+  CLEAR_COOKIE_OPTIONS,
+  REFRESH_TOKEN_COOKIE_OPTIONS,
+} from '@/common/constants/cookie-config';
 
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
@@ -71,8 +77,8 @@ export class AuthService {
 
   async logout(userId: string, req: Request, res: Response) {
     await this.refreshTokenService.revokeTokensForUser(userId);
-    res.clearCookie('access_token');
-    res.clearCookie('refresh_token');
+    res.clearCookie('access_token', CLEAR_COOKIE_OPTIONS);
+    res.clearCookie('refresh_token', { ...CLEAR_COOKIE_OPTIONS, path: '/api/v1/auth/refresh' });
     return { message: 'Logged out successfully' };
   }
 
@@ -88,25 +94,11 @@ export class AuthService {
       }),
     ]);
 
-    const isProd = this.configService.get('NODE_ENV') === 'production';
-
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
     await this.refreshTokenService.saveRefreshToken(payload.sub, refreshToken, expiresAt);
 
-    res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000,
-    });
-
-    res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: 'strict',
-      path: '/api/v1/auth/refresh',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie('access_token', accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
+    res.cookie('refresh_token', refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
   }
 }

@@ -5,18 +5,19 @@ import { Button } from '@repo/design-system/components/ui/button';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import type { RoadmapRoot } from '@/types/roadmap';
+import type { RoadmapHeroData, RoadmapWithNodes } from '@/types/roadmap';
 
 import { RoadmapGraph } from './roadmap-graph';
 import { RoadmapHero } from './roadmap-hero';
 import { RoadmapIntroCard } from './roadmap-intro-card';
 
 interface FrontendRoadmapPageProps {
-  roadmap: RoadmapRoot;
+  hero: RoadmapHeroData;
+  roadmap: RoadmapWithNodes;
 }
 
-export function FrontendRoadmapPage({ roadmap }: FrontendRoadmapPageProps) {
-  const nodes = roadmap.roadmaps.nodes;
+export function FrontendRoadmapPage({ hero, roadmap }: FrontendRoadmapPageProps) {
+  const nodes = roadmap.nodes;
 
   return (
     <main className="overflow-hidden bg-white pt-28">
@@ -24,7 +25,13 @@ export function FrontendRoadmapPage({ roadmap }: FrontendRoadmapPageProps) {
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(circle_at_45%_0%,rgba(244,208,252,0.24),transparent_34%),radial-gradient(circle_at_100%_0%,rgba(186,230,253,0.18),transparent_24%),radial-gradient(circle_at_0%_0%,rgba(254,240,138,0.08),transparent_18%)]" />
 
         <SectionContainer className="relative flex flex-col gap-4 pt-[34px] pb-16 lg:pb-20">
-          <RoadmapHero title={roadmap.roadmaps.title} />
+          <RoadmapHero
+            title={roadmap.title}
+            backHref={hero.backHref}
+            description={hero.description}
+            progressHint={hero.progressHint}
+            progressLabel={hero.progressLabel}
+          />
           <RoadmapIntroCard />
         </SectionContainer>
       </section>

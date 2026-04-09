@@ -1,4 +1,4 @@
-import type { RelationType, RoadmapNode, RoadmapRoot, SkillNode } from '@/types/roadmap';
+import type { RelationType, RoadmapNode, RoadmapWithNodes, SkillNode } from '@/types/roadmap';
 
 const FRONTEND_ROLE_ID = '9d2ccf7a-4d7d-44ca-8a2c-4fd13e77d001';
 const FRONTEND_ROADMAP_ID = '8d4de6f8-7a12-48fd-b4d7-cd2d5d94a001';
@@ -444,17 +444,15 @@ const FRONTEND_NODE_SEEDS: NodeSeed[] = [
 
 const FRONTEND_NODES: RoadmapNode[] = FRONTEND_NODE_SEEDS.map(createRoadmapNode);
 
-export const FRONTEND_ROADMAP: RoadmapRoot = {
-  roadmaps: {
-    created_at: CREATED_AT,
-    description: 'Step by step guide to becoming a modern frontend developer in 2026.',
-    id: FRONTEND_ROADMAP_ID,
-    is_template: true,
-    nodes: FRONTEND_NODES,
-    role_id: FRONTEND_ROLE_ID,
-    role_name: 'Frontend Developer',
-    title: 'Frontend',
-    type: 'roadmap_based',
-    user_id: null,
-  },
+export const FRONTEND_ROADMAP: RoadmapWithNodes = {
+  created_at: CREATED_AT,
+  description: 'Step by step guide to becoming a modern frontend developer in 2026.',
+  id: FRONTEND_ROADMAP_ID,
+  is_template: true,
+  nodes: FRONTEND_NODES,
+  role_id: FRONTEND_ROLE_ID,
+  role_name: 'Frontend Developer',
+  title: 'Frontend',
+  type: 'roadmap_based',
+  user_id: null,
 };

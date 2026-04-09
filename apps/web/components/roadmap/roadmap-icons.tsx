@@ -84,3 +84,27 @@ export function IntroCheckIcon({ tone }: { tone: 'green' | 'pink' }) {
     </svg>
   );
 }
+
+export function RoadmapLinkIcon({ tone }: { tone: 'green' | 'purple' }) {
+  return (
+    <svg
+      className={cn(
+        'drop-shadow-[0_1px_0_rgba(17,24,39,0.14)]',
+        tone === 'green' ? 'text-[#5f972f]' : 'text-[#7c3aed]',
+      )}
+      style={{ height: '16.765px', width: '16.765px' }}
+      fill="none"
+      aria-hidden="true"
+      viewBox="0 0 16.765 16.765"
+    >
+      <circle fill="currentColor" cx="8.3825" cy="8.3825" r="8.3825" />
+      <path
+        d="m4.92 8.52 2.05 2.05 4.63-5.08"
+        stroke="#ffffff"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.95"
+      />
+    </svg>
+  );
+}

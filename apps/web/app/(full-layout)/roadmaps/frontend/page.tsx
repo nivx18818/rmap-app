@@ -3,10 +3,9 @@ import { notFound } from 'next/navigation';
 import { FrontendRoadmapPage } from '@/components/roadmap/frontend-roadmap-page';
 import { getRoadmapBySlug, getRoadmapProgressBySlug, mapRoadmapToHero } from '@/lib/data/roadmaps';
 
-export default async function RoadmapDetailPage(props: PageProps<'/roadmaps/[id]'>) {
-  const { id } = await props.params;
-  const roadmap = getRoadmapBySlug(id);
-  const progress = getRoadmapProgressBySlug(id);
+export default function FrontendRoadmapRoute() {
+  const roadmap = getRoadmapBySlug('frontend');
+  const progress = getRoadmapProgressBySlug('frontend');
 
   if (!roadmap) {
     notFound();

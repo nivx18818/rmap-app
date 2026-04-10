@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@repo/db/prisma/internal/prismaNamespace';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -29,7 +29,7 @@ export class UserService {
         const field = target?.[0];
 
         if (field === 'email') {
-          throw new Error('Email already exist');
+          throw new ConflictException('Email already exists');
         }
       }
       throw error;

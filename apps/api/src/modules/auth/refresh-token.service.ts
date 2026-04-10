@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { PrismaClientKnownRequestError } from '@repo/db/prisma/internal/prismaNamespace';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -8,56 +9,51 @@ export class RefreshTokenService {
 
   async saveRefreshToken(userId: string, refreshToken: string, expiresAt: Date) {
     try {
-      const result = await this.prisma.refreshToken.create({
+      return await this.prisma.refreshToken.create({
         data: {
           userId,
           token: refreshToken,
           expiresAt,
         },
       });
-      return result;
     } catch (error) {
-      console.error('Error saving refresh token:', error);
-      throw new Error('Cannot save refresh token');
+      if (error instanceof PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          const target = error.meta?.target as string[] | undefined;
+          const field = target?.[0];
+
+          if (field === 'token') {
+            throw new ConflictException('Refresh token already exists');
+          }
+        }
+
+        if (error.code === 'P2003') {
+          throw new BadRequestException('Invalid user for refresh token');
+        }
+      }
+
+      throw error;
     }
   }
 
   async findTokenValid(token: string) {
-    try {
-      const result = this.prisma.refreshToken.findFirst({
-        where: {
-          token,
-          expiresAt: { gt: new Date() },
-        },
-      });
-      return result;
-    } catch (error) {
-      console.error('Error finding refresh token:', error);
-      throw new Error('Cannot find refresh token');
-    }
+    return await this.prisma.refreshToken.findFirst({
+      where: {
+        token,
+        expiresAt: { gt: new Date() },
+      },
+    });
   }
 
   async revokeToken(token: string) {
-    try {
-      const result = this.prisma.refreshToken.deleteMany({
-        where: { token },
-      });
-      return result;
-    } catch (error) {
-      console.error('Error revoking refresh token:', error);
-      throw new Error('Cannot revoke refresh token');
-    }
+    return await this.prisma.refreshToken.deleteMany({
+      where: { token },
+    });
   }
 
   async revokeTokensForUser(userId: string) {
-    try {
-      const result = this.prisma.refreshToken.deleteMany({
-        where: { userId },
-      });
-      return result;
-    } catch (error) {
-      console.error('Error revoking refresh tokens for user:', error);
-      throw new Error('Cannot revoke refresh tokens for user');
-    }
+    return await this.prisma.refreshToken.deleteMany({
+      where: { userId },
+    });
   }
 }

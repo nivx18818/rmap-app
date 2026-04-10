@@ -4,13 +4,6 @@ import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/co
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { Request, Response } from 'express';
-
-import {
-  ACCESS_TOKEN_COOKIE_OPTIONS,
-  CLEAR_COOKIE_OPTIONS,
-  REFRESH_TOKEN_COOKIE_OPTIONS,
-} from '@/common/constants/cookie-config';
 
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
@@ -47,7 +40,7 @@ export class AuthService {
     return result;
   }
 
-  async login(loginDto: LoginDto, res: Response) {
+  async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
 
     const user = await this.userService.findByEmail(email);
@@ -61,28 +54,21 @@ export class AuthService {
     }
 
     const payload = { sub: user.id, email: user.email };
-    await this.issueTokens(payload, res);
-    return { message: 'Login successful' };
+    const tokens = await this.issueTokens(payload);
+    return tokens;
   }
 
-  async refresh(userId: string, email: string, req: Request, res: Response) {
-    const oldToken = req.cookies?.['refresh_token'] as string | undefined;
-    if (oldToken) {
-      await this.refreshTokenService.revokeToken(oldToken);
-    }
+  async refresh(userId: string, email: string) {
     const payload = { sub: userId, email };
-    await this.issueTokens(payload, res);
-    return { message: 'Token refreshed' };
+    const tokens = await this.issueTokens(payload);
+    return tokens;
   }
 
-  async logout(userId: string, req: Request, res: Response) {
+  async logout(userId: string) {
     await this.refreshTokenService.revokeTokensForUser(userId);
-    res.clearCookie('access_token', CLEAR_COOKIE_OPTIONS);
-    res.clearCookie('refresh_token', { ...CLEAR_COOKIE_OPTIONS, path: '/api/v1/auth/refresh' });
-    return { message: 'Logged out successfully' };
   }
 
-  private async issueTokens(payload: { sub: string; email: string }, res: Response) {
+  private async issueTokens(payload: { sub: string; email: string }) {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>('JWT_SECRET'),
@@ -98,7 +84,6 @@ export class AuthService {
     expiresAt.setDate(expiresAt.getDate() + 7);
     await this.refreshTokenService.saveRefreshToken(payload.sub, refreshToken, expiresAt);
 
-    res.cookie('access_token', accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
-    res.cookie('refresh_token', refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
+    return [accessToken, refreshToken];
   }
 }

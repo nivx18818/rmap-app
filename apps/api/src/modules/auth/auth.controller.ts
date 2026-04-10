@@ -19,35 +19,35 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+    return await this.authService.register(registerDto);
   }
 
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
-    return this.authService.login(loginDto, res);
+    return await this.authService.login(loginDto, res);
   }
 
   @Public()
   @UseGuards(JwtRefreshGuard)
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  refresh(
+  async refresh(
     @CurrentUser() user: RequestUser,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    return this.authService.refresh(user.id, user.email, req, res);
+    return await this.authService.refresh(user.id, user.email, req, res);
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  logout(
+  async logout(
     @CurrentUser() user: RequestUser,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    return this.authService.logout(user.id, req, res);
+    return await this.authService.logout(user.id, req, res);
   }
 }

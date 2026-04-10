@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Request } from 'express';
@@ -7,6 +7,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { UserService } from '@/modules/user/user.service';
 
 import { RefreshTokenService } from '../refresh-token.service';
+import { cookieExtractor } from '../utils/cookie-extractor';
 
 export interface JwtRefreshPayload {
   sub: string;
@@ -22,13 +23,11 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
   ) {
     const secret = configService.get<string>('JWT_REFRESH_SECRET');
     if (!secret) {
-      throw new Error('JWT_REFRESH_SECRET is not defined');
+      throw new InternalServerErrorException('JWT_REFRESH_SECRET is not defined');
     }
 
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([
-        (req: Request) => req?.cookies?.['refresh_token'] ?? null,
-      ]),
+      jwtFromRequest: ExtractJwt.fromExtractors([cookieExtractor('REFRESH_TOKEN')]),
       ignoreExpiration: false,
       secretOrKey: secret,
       passReqToCallback: true,

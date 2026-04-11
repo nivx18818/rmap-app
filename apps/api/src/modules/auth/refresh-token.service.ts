@@ -1,18 +1,42 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaClientKnownRequestError } from '@repo/db/prisma/internal/prismaNamespace';
+import { createHmac } from 'node:crypto';
 
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class RefreshTokenService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly refreshTokenHashSecret: string;
 
-  async saveRefreshToken(userId: string, refreshToken: string, expiresAt: Date) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {
+    const secret =
+      configService.get<string>('JWT_REFRESH_TOKEN_HASH_SECRET') ??
+      configService.get<string>('JWT_REFRESH_SECRET');
+
+    if (!secret) {
+      throw new InternalServerErrorException('JWT_REFRESH_TOKEN_HASH_SECRET is not defined');
+    }
+
+    this.refreshTokenHashSecret = secret;
+  }
+
+  async create(userId: string, refreshToken: string, expiresAt: Date) {
+    const tokenHash = this.hashToken(refreshToken);
+
     try {
       return await this.prisma.refreshToken.create({
         data: {
           userId,
-          token: refreshToken,
+          token: tokenHash,
           expiresAt,
         },
       });
@@ -36,24 +60,33 @@ export class RefreshTokenService {
     }
   }
 
-  async findTokenValid(token: string) {
+  async findValid(userId: string, refreshToken: string) {
+    const tokenHash = this.hashToken(refreshToken);
+
     return await this.prisma.refreshToken.findFirst({
       where: {
-        token,
+        userId,
+        token: tokenHash,
         expiresAt: { gt: new Date() },
       },
     });
   }
 
-  async revokeToken(token: string) {
+  async revokeByToken(refreshToken: string) {
+    const tokenHash = this.hashToken(refreshToken);
+
     return await this.prisma.refreshToken.deleteMany({
-      where: { token },
+      where: { token: tokenHash },
     });
   }
 
-  async revokeTokensForUser(userId: string) {
+  async revokeAllByUser(userId: string) {
     return await this.prisma.refreshToken.deleteMany({
       where: { userId },
     });
+  }
+
+  private hashToken(token: string) {
+    return createHmac('sha256', this.refreshTokenHashSecret).update(token).digest('hex');
   }
 }

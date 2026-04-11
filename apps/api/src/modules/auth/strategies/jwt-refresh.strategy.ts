@@ -38,8 +38,8 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     const refreshToken = cookieExtractor('REFRESH_TOKEN')(req);
     if (!refreshToken) throw new UnauthorizedException('Refresh token not found');
 
-    const storedToken = await this.refreshTokenService.findTokenValid(refreshToken);
-    if (!storedToken) throw new UnauthorizedException('Refresh token revoked or expired');
+    const storedRefreshToken = await this.refreshTokenService.findValid(payload.sub, refreshToken);
+    if (!storedRefreshToken) throw new UnauthorizedException('Refresh token revoked or expired');
 
     const user = await this.userService.findById(payload.sub);
     if (!user) throw new UnauthorizedException('User not found');

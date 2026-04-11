@@ -54,7 +54,7 @@ export class AuthController {
   ) {
     const oldToken = cookieExtractor('REFRESH_TOKEN')(req);
     if (oldToken) {
-      await this.refreshTokenService.revokeToken(oldToken);
+      await this.refreshTokenService.revokeByToken(oldToken);
     }
 
     const [accessToken, refreshToken] = await this.authService.refresh(user.id, user.email);

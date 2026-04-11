@@ -1,48 +1,58 @@
-import type { RoadmapHeroData, RoadmapProgress, RoadmapWithNodes } from '@/types/roadmap';
+import type { RoadmapProgress, RoadmapWithNodes, RoadmapWebModel } from '@/types/roadmap';
 
-import { getMockRoadmapBySlug, mockRoadmapProgressResponse } from '@/lib/mocks/roadmaps/backend';
+import { mockRoadmapResponseBySlug, mockRoadmapProgressBySlug } from './roadmap-api-mock-responses';
+import { mapRoadmapResponseToWebModel } from './roadmap-mappers';
+import { mockRoadmapPageContentBySlug } from './roadmap-page-content';
+import { composeRoadmapPageData } from './roadmap-page-data';
+import { mockRoadmapThemeBySlug } from './roadmap-themes';
 
-import { frontendMockData } from './frontend/frontend';
+function resolveMockRoadmapModel(identifier: string): RoadmapWebModel | null {
+  const bySlug = mockRoadmapResponseBySlug[identifier];
 
-// Roadmap implementations
+  if (bySlug && mockRoadmapPageContentBySlug[identifier] && mockRoadmapThemeBySlug[identifier]) {
+    return mapRoadmapResponseToWebModel(
+      bySlug,
+      mockRoadmapProgressBySlug[identifier] ?? null,
+      composeRoadmapPageData(
+        mockRoadmapPageContentBySlug[identifier],
+        mockRoadmapThemeBySlug[identifier],
+      ),
+    );
+  }
 
-export { FRONTEND_ROADMAP } from './frontend';
-export { frontendMockData } from './frontend/frontend';
-export { getMockRoadmapBySlug, mockRoadmapProgressResponse } from '@/lib/mocks/roadmaps/backend';
+  const matchedEntry = Object.entries(mockRoadmapResponseBySlug).find(
+    ([, roadmapResponse]) => roadmapResponse.id === identifier,
+  );
 
-const ROADMAPS_BY_SLUG = {
-  frontend: frontendMockData,
-} as const;
+  if (!matchedEntry) {
+    return null;
+  }
 
-const ROADMAP_PROGRESS_BY_SLUG = {
-  frontend: mockRoadmapProgressResponse,
-} as const;
+  const [slug, roadmapResponse] = matchedEntry;
+  const pageContent = mockRoadmapPageContentBySlug[slug];
+  const theme = mockRoadmapThemeBySlug[slug];
 
-export function getRoadmapBySlug(slug: string) {
-  return (
-    getMockRoadmapBySlug(slug) ?? ROADMAPS_BY_SLUG[slug as keyof typeof ROADMAPS_BY_SLUG] ?? null
+  if (!pageContent || !theme) {
+    return null;
+  }
+
+  return mapRoadmapResponseToWebModel(
+    roadmapResponse,
+    mockRoadmapProgressBySlug[slug] ?? null,
+    composeRoadmapPageData(pageContent, theme),
   );
 }
 
-export function getRoadmapProgressBySlug(slug: string) {
-  return ROADMAP_PROGRESS_BY_SLUG[slug as keyof typeof ROADMAP_PROGRESS_BY_SLUG] ?? null;
+export function getRoadmapWebModelBySlug(slug: string) {
+  return resolveMockRoadmapModel(slug);
 }
 
-function formatProgressLabel(progress: RoadmapProgress | null) {
-  const completionPercentage = progress?.completion_percentage ?? 0;
-
-  return `${Math.round(completionPercentage)}% DONE`;
+export function getRoadmapBySlug(slug: string): RoadmapWithNodes | null {
+  return resolveMockRoadmapModel(slug)?.roadmap ?? null;
 }
 
-export function mapRoadmapToHero(
-  roadmap: RoadmapWithNodes,
-  progress: RoadmapProgress | null,
-): RoadmapHeroData {
-  return {
-    backHref: '/roadmaps',
-    description:
-      roadmap.description ?? `Personalized roadmap for ${roadmap.role_name.toLowerCase()}.`,
-    progressHint: 'Click nodes to track your progress',
-    progressLabel: formatProgressLabel(progress),
-  };
+export function getRoadmapProgressBySlug(slug: string): RoadmapProgress | null {
+  return resolveMockRoadmapModel(slug)?.progress ?? null;
 }
+
+export { mapRoadmapResponseToWebModel, mapRoadmapToHero } from './roadmap-mappers';

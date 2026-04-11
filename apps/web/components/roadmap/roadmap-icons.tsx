@@ -1,4 +1,4 @@
-import { cn } from '@repo/design-system/lib/utils';
+import type { RoadmapTheme } from '@/types/roadmap';
 
 export function SaveIcon() {
   return (
@@ -66,10 +66,11 @@ export function IntroMapIcon() {
   );
 }
 
-export function IntroCheckIcon({ tone }: { tone: 'green' | 'pink' }) {
+export function IntroCheckIcon({ theme, tone }: { theme: RoadmapTheme; tone: 'green' | 'pink' }) {
   return (
     <svg
-      className={cn('size-4', tone === 'green' ? 'text-[#10b981]' : 'text-[#db2777]')}
+      className="size-4"
+      style={{ color: tone === 'green' ? theme.icon.introCheck.green : theme.icon.introCheck.pink }}
       fill="none"
       aria-hidden="true"
       viewBox="0 0 24 24"
@@ -85,14 +86,21 @@ export function IntroCheckIcon({ tone }: { tone: 'green' | 'pink' }) {
   );
 }
 
-export function RoadmapLinkIcon({ tone }: { tone: 'green' | 'purple' }) {
+export function RoadmapLinkIcon({
+  theme,
+  tone,
+}: {
+  theme: RoadmapTheme;
+  tone: 'green' | 'purple';
+}) {
   return (
     <svg
-      className={cn(
-        'drop-shadow-[0_1px_0_rgba(17,24,39,0.14)]',
-        tone === 'green' ? 'text-[#5f972f]' : 'text-[#7c3aed]',
-      )}
-      style={{ height: '16.765px', width: '16.765px' }}
+      style={{
+        color: tone === 'green' ? theme.icon.roadmapLink.green : theme.icon.roadmapLink.purple,
+        filter: `drop-shadow(${theme.icon.roadmapLink.shadow})`,
+        height: theme.icon.roadmapLink.size,
+        width: theme.icon.roadmapLink.size,
+      }}
       fill="none"
       aria-hidden="true"
       viewBox="0 0 16.765 16.765"
@@ -100,7 +108,7 @@ export function RoadmapLinkIcon({ tone }: { tone: 'green' | 'purple' }) {
       <circle fill="currentColor" cx="8.3825" cy="8.3825" r="8.3825" />
       <path
         d="m4.92 8.52 2.05 2.05 4.63-5.08"
-        stroke="#ffffff"
+        stroke={theme.icon.roadmapLink.stroke}
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="1.95"

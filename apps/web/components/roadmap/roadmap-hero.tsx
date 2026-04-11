@@ -1,81 +1,161 @@
 import Link from 'next/link';
 
+import type { RoadmapTheme } from '@/types/roadmap';
+
 import { DownloadIcon, InfoIcon, SaveIcon, ShareIcon } from './roadmap-icons';
 
 interface RoadmapHeroProps {
+  allRoadmapsLabel: string;
   backHref: string;
   description: string;
+  downloadLabel: string;
   progressHint: string;
   progressLabel: string;
+  theme: RoadmapTheme;
+  trackProgressLabel: string;
   title: string;
 }
 
-const ROADMAP_HERO_COPY = {
-  allRoadmapsLabel: '← All Roadmaps',
-  downloadLabel: 'Download',
-  trackProgressLabel: 'Track Progress',
-} as const;
-
-const ROADMAP_HERO_STYLES = {
-  actionButton: 'btn-white flex h-[38px] items-center justify-center rounded-[8px]',
-  actionIconButton: 'btn-white flex h-[38px] w-[38px] items-center justify-center rounded-[8px]',
-  actionTextButton:
-    'btn-white flex h-[38px] items-center gap-2 rounded-[8px] px-4 text-[16px] leading-[1.4] font-medium text-[#0f172a]',
-  backlink: 'inline-flex h-full items-center text-[16px] leading-[1.4] font-medium text-[#7c3aed]',
-  container: 'mx-auto flex w-full max-w-[1200px] flex-col gap-4 px-8 py-16',
-  progressBadge: 'rounded-full bg-[#ede9fe] px-2 py-px text-[16px] leading-[1.4] text-[#7c3aed]',
-  progressMeta:
-    'hidden items-center gap-2 text-[16px] leading-[1.4] font-medium text-[#0f172a] lg:flex',
-  progressRow: 'flex min-h-[20px] items-center justify-between gap-6',
-  subtitle: 'text-[18px] leading-[1.7] text-[rgba(40,25,80,0.75)]',
-  title: 'font-heading text-[48px] leading-none font-semibold text-black',
-  toolbar: 'hidden items-center gap-3 md:flex',
-  toolbarRow: 'flex h-[38px] items-center justify-between',
-} as const;
-
 export function RoadmapHero({
+  allRoadmapsLabel,
   backHref,
   description,
+  downloadLabel,
   progressHint,
   progressLabel,
+  theme,
+  trackProgressLabel,
   title,
 }: RoadmapHeroProps) {
   return (
-    <div className={ROADMAP_HERO_STYLES.container}>
-      <div className={ROADMAP_HERO_STYLES.toolbarRow}>
+    <div
+      className="mx-auto flex w-full flex-col"
+      style={{
+        gap: theme.hero.container.gap,
+        maxWidth: theme.hero.container.maxWidth,
+        paddingBottom: theme.hero.container.paddingY,
+        paddingLeft: theme.hero.container.paddingX,
+        paddingRight: theme.hero.container.paddingX,
+        paddingTop: theme.hero.container.paddingY,
+      }}
+    >
+      <div
+        className="flex items-center justify-between"
+        style={{ height: theme.hero.toolbar.buttonHeight }}
+      >
         <Link
-          className={ROADMAP_HERO_STYLES.backlink}
+          className="inline-flex h-full items-center font-medium"
+          style={{
+            color: theme.hero.typography.backlinkColor,
+            fontSize: theme.hero.typography.progressFontSize,
+            lineHeight: theme.hero.typography.progressLineHeight,
+          }}
           href={backHref as Parameters<typeof Link>[0]['href']}
         >
-          {ROADMAP_HERO_COPY.allRoadmapsLabel}
+          {allRoadmapsLabel}
         </Link>
 
-        <div className={ROADMAP_HERO_STYLES.toolbar}>
-          <button className={ROADMAP_HERO_STYLES.actionIconButton}>
+        <div className="flex items-center" style={{ gap: theme.hero.toolbar.gap }}>
+          <button
+            className="btn-white flex items-center justify-center"
+            style={{
+              borderRadius: theme.hero.toolbar.radius,
+              height: theme.hero.toolbar.buttonHeight,
+              width: theme.hero.toolbar.iconButtonWidth,
+            }}
+          >
             <SaveIcon />
           </button>
-          <button className={ROADMAP_HERO_STYLES.actionTextButton}>
-            <span>{ROADMAP_HERO_COPY.downloadLabel}</span>
+          <button
+            className="btn-white flex items-center font-medium"
+            style={{
+              borderRadius: theme.hero.toolbar.radius,
+              color: theme.hero.typography.uiTextColor,
+              fontSize: theme.hero.typography.progressFontSize,
+              height: theme.hero.toolbar.buttonHeight,
+              lineHeight: theme.hero.typography.progressLineHeight,
+              paddingLeft: theme.hero.toolbar.buttonPaddingX,
+              paddingRight: theme.hero.toolbar.buttonPaddingX,
+            }}
+          >
+            <span>{downloadLabel}</span>
             <DownloadIcon />
           </button>
-          <button className={ROADMAP_HERO_STYLES.actionIconButton}>
+          <button
+            className="btn-white flex items-center justify-center"
+            style={{
+              borderRadius: theme.hero.toolbar.radius,
+              height: theme.hero.toolbar.buttonHeight,
+              width: theme.hero.toolbar.iconButtonWidth,
+            }}
+          >
             <ShareIcon />
           </button>
         </div>
       </div>
 
-      <h1 className={ROADMAP_HERO_STYLES.title}>{title}</h1>
+      <h1
+        className="font-heading leading-none font-semibold"
+        style={{
+          color: theme.hero.typography.titleColor,
+          fontSize: theme.hero.typography.titleSize,
+          lineHeight: theme.hero.typography.titleLineHeight,
+        }}
+      >
+        {title}
+      </h1>
 
-      <p className={ROADMAP_HERO_STYLES.subtitle}>{description}</p>
+      <p
+        style={{
+          color: theme.hero.typography.descriptionColor,
+          fontSize: theme.hero.typography.bodyFontSize,
+          lineHeight: theme.hero.typography.descriptionLineHeight,
+        }}
+      >
+        {description}
+      </p>
 
-      <div className={ROADMAP_HERO_STYLES.progressRow}>
-        <div className="flex min-w-0 items-center gap-3">
-          <span className={ROADMAP_HERO_STYLES.progressBadge}>{progressLabel}</span>
-          <span className="text-[16px] leading-[1.4] text-black">{progressHint}</span>
+      <div
+        className="flex items-center justify-between"
+        style={{ gap: theme.hero.progressRow.gap, minHeight: theme.hero.progressRow.minHeight }}
+      >
+        <div className="flex min-w-0 items-center" style={{ gap: theme.hero.progressRow.hintGap }}>
+          <span
+            style={{
+              background: theme.hero.badge.background,
+              borderRadius: theme.hero.badge.radius,
+              color: theme.hero.badge.color,
+              fontSize: theme.hero.typography.progressFontSize,
+              lineHeight: theme.hero.typography.progressLineHeight,
+              paddingBottom: theme.hero.badge.paddingY,
+              paddingLeft: theme.hero.badge.paddingX,
+              paddingRight: theme.hero.badge.paddingX,
+              paddingTop: theme.hero.badge.paddingY,
+            }}
+          >
+            {progressLabel}
+          </span>
+          <span
+            style={{
+              color: theme.hero.typography.hintColor,
+              fontSize: theme.hero.typography.progressFontSize,
+              lineHeight: theme.hero.typography.progressLineHeight,
+            }}
+          >
+            {progressHint}
+          </span>
         </div>
 
-        <div className={ROADMAP_HERO_STYLES.progressMeta}>
-          <span>{ROADMAP_HERO_COPY.trackProgressLabel}</span>
+        <div
+          className="flex items-center font-medium"
+          style={{
+            color: theme.hero.typography.uiTextColor,
+            fontSize: theme.hero.typography.progressFontSize,
+            gap: theme.hero.progressRow.metaGap,
+            lineHeight: theme.hero.typography.progressLineHeight,
+          }}
+        >
+          <span>{trackProgressLabel}</span>
           <InfoIcon />
         </div>
       </div>

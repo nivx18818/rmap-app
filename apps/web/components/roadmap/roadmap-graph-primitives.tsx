@@ -1,27 +1,38 @@
 import { cn } from '@repo/design-system/lib/utils';
 
-import type { RelationType, RoadmapNode, SkillNode } from '@/types/roadmap';
-
-import type { Side } from './roadmap-graph-layout';
+import type {
+  RelationType,
+  RoadmapGraphNode,
+  RoadmapGraphSkill,
+  RoadmapTheme,
+} from '@/types/roadmap';
 
 import { RoadmapLinkIcon } from './roadmap-icons';
+
+type Side = 'left' | 'right';
 
 export function SkillPill({
   anchorRef,
   className,
+  maxWidth,
   minWidth,
+  onClick,
   relationType = 'required',
   side,
   skill,
   size = 'small',
+  theme,
 }: {
   anchorRef?: React.Ref<HTMLSpanElement>;
   className?: string;
-  minWidth?: number;
+  maxWidth?: string;
+  minWidth?: number | string;
+  onClick?: () => void;
   relationType?: RelationType;
   side: Side;
-  skill: SkillNode;
+  skill: RoadmapGraphSkill;
   size?: 'large' | 'small';
+  theme: RoadmapTheme;
 }) {
   const linkToneByRelationType = {
     optional: 'green',
@@ -30,39 +41,99 @@ export function SkillPill({
   const linkTone = linkToneByRelationType[relationType];
 
   return (
-    <div
+    <button
       className={cn(
-        'relative flex items-center justify-center rounded-[22px] border-[3px] border-[#111827] bg-[#f7b1a8] text-center font-sans font-medium tracking-[-0.02em] text-[#43394e] shadow-[0_5px_0_rgba(17,24,39,0.08)]',
-        size === 'large'
-          ? 'min-h-[72px] px-7 py-4 text-[18px] leading-[1.25]'
-          : 'min-h-[52px] px-4 py-2 text-[12px] leading-[1.2] shadow-none',
+        'relative flex appearance-none items-center justify-center text-center font-sans font-medium outline-none',
+        size === 'large' ? undefined : 'shadow-none',
         className,
       )}
-      style={minWidth ? { minWidth: `${minWidth}px` } : undefined}
+      style={{
+        background: theme.node.skill.background,
+        borderColor: theme.node.skill.borderColor,
+        borderRadius: theme.node.skill.borderRadius,
+        borderStyle: 'solid',
+        borderWidth: theme.node.skill.borderWidth,
+        boxShadow: size === 'large' ? theme.node.skill.shadow : 'none',
+        color: theme.node.skill.textColor,
+        letterSpacing: theme.node.skill.typography.letterSpacing,
+        maxWidth,
+        minWidth: typeof minWidth === 'number' ? `${minWidth}px` : minWidth,
+        ...(size === 'large'
+          ? {
+              fontSize: theme.node.skill.typography.large.fontSize,
+              lineHeight: theme.node.skill.typography.large.lineHeight,
+              minHeight: theme.graph.skill.large.minHeight,
+              paddingBottom: theme.graph.skill.large.paddingY,
+              paddingLeft: theme.graph.skill.large.paddingX,
+              paddingRight: theme.graph.skill.large.paddingX,
+              paddingTop: theme.graph.skill.large.paddingY,
+            }
+          : {
+              fontSize: theme.node.skill.typography.small.fontSize,
+              lineHeight: theme.node.skill.typography.small.lineHeight,
+              minHeight: theme.graph.skill.small.minHeight,
+              paddingBottom: theme.graph.skill.small.paddingY,
+              paddingLeft: theme.graph.skill.small.paddingX,
+              paddingRight: theme.graph.skill.small.paddingX,
+              paddingTop: theme.graph.skill.small.paddingY,
+            }),
+        cursor: onClick ? 'pointer' : undefined,
+      }}
+      type="button"
+      onClick={onClick}
     >
       <span
         ref={anchorRef}
-        className={cn(
-          'absolute top-1/2 z-20 -translate-y-1/2',
-          side === 'left' ? '-left-[8.5px]' : '-right-[8.5px]',
-        )}
+        className="pointer-events-none absolute top-1/2 z-20 -translate-y-1/2"
+        style={{
+          left: side === 'left' ? `-${theme.graph.skill.anchorOffset}` : undefined,
+          right: side === 'right' ? `-${theme.graph.skill.anchorOffset}` : undefined,
+        }}
       >
-        <RoadmapLinkIcon tone={linkTone} />
+        <RoadmapLinkIcon theme={theme} tone={linkTone} />
       </span>
       {skill.label}
-    </div>
+    </button>
   );
 }
 
-export function MainNode({ className, node }: { className?: string; node: RoadmapNode }) {
+export function MainNode({
+  className,
+  node,
+  onClick,
+  theme,
+}: {
+  className?: string;
+  node: RoadmapGraphNode;
+  onClick?: () => void;
+  theme: RoadmapTheme;
+}) {
   return (
-    <div
+    <button
       className={cn(
-        'font-graph-node flex h-[58px] w-[300px] items-center justify-center rounded-[8px] border-[3px] border-[#111827] bg-[#9fd6f4] px-5 text-center text-[15.001px] leading-normal font-normal text-black',
+        'font-graph-node flex appearance-none items-center justify-center text-center font-normal outline-none',
         className,
       )}
+      style={{
+        background: theme.node.main.background,
+        borderColor: theme.node.main.borderColor,
+        borderRadius: theme.node.main.borderRadius,
+        borderStyle: 'solid',
+        borderWidth: theme.node.main.borderWidth,
+        boxShadow: theme.node.main.shadow,
+        color: theme.node.main.textColor,
+        fontSize: theme.node.main.typography.fontSize,
+        height: theme.node.main.height,
+        lineHeight: theme.node.main.typography.lineHeight,
+        paddingLeft: theme.node.main.paddingX,
+        paddingRight: theme.node.main.paddingX,
+        width: theme.node.main.width,
+        cursor: onClick ? 'pointer' : undefined,
+      }}
+      type="button"
+      onClick={onClick}
     >
       {node.label}
-    </div>
+    </button>
   );
 }

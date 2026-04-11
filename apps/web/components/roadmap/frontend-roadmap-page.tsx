@@ -1,79 +1,179 @@
+'use client';
+
 import { ArrowRight, ArrowRight02FreeIcons } from '@hugeicons/core-free-icons';
 import { AnimatedIconSwap } from '@repo/design-system/components/common/animated-icon-swap';
 import { SectionContainer } from '@repo/design-system/components/common/section-container';
 import { Button } from '@repo/design-system/components/ui/button';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useMemo, useState } from 'react';
 
-import type { RoadmapHeroData, RoadmapWithNodes } from '@/types/roadmap';
+import type {
+  RoadmapGraphNode,
+  RoadmapPageData,
+  RoadmapHeroData,
+  RoadmapWithNodes,
+} from '@/types/roadmap';
 
 import { RoadmapGraph } from './roadmap-graph';
 import { RoadmapHero } from './roadmap-hero';
 import { RoadmapIntroCard } from './roadmap-intro-card';
+import { RoadmapNodePanel } from './roadmap-node-panel';
 
 interface FrontendRoadmapPageProps {
+  graphNodes: RoadmapGraphNode[];
   hero: RoadmapHeroData;
   roadmap: RoadmapWithNodes;
+  ui: RoadmapPageData;
 }
 
-export function FrontendRoadmapPage({ hero, roadmap }: FrontendRoadmapPageProps) {
-  const nodes = roadmap.nodes;
+export function FrontendRoadmapPage({ graphNodes, hero, roadmap, ui }: FrontendRoadmapPageProps) {
+  const { theme } = ui;
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const selectedNode = useMemo(
+    () => graphNodes.find((node) => node.id === selectedNodeId) ?? null,
+    [graphNodes, selectedNodeId],
+  );
 
   return (
-    <main className="overflow-hidden bg-white pt-28">
+    <main className="overflow-hidden bg-white" style={{ paddingTop: theme.page.mainPaddingTop }}>
       <section className="relative">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(circle_at_45%_0%,rgba(244,208,252,0.24),transparent_34%),radial-gradient(circle_at_100%_0%,rgba(186,230,253,0.18),transparent_24%),radial-gradient(circle_at_0%_0%,rgba(254,240,138,0.08),transparent_18%)]" />
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0"
+          style={{
+            background: theme.page.heroBackground,
+            height: theme.page.heroBackgroundHeight,
+          }}
+        />
 
-        <SectionContainer className="relative flex flex-col gap-4 pt-[34px] pb-16 lg:pb-20">
-          <RoadmapHero
-            title={roadmap.title}
-            backHref={hero.backHref}
-            description={hero.description}
-            progressHint={hero.progressHint}
-            progressLabel={hero.progressLabel}
+        <SectionContainer className="relative">
+          <div
+            className="flex flex-col"
+            style={{
+              gap: theme.page.sectionGap,
+              paddingBottom: theme.page.sectionPaddingTop,
+              paddingTop: '34px',
+            }}
+          >
+            <RoadmapHero
+              title={roadmap.title}
+              allRoadmapsLabel={hero.allRoadmapsLabel}
+              backHref={hero.backHref}
+              description={hero.description}
+              downloadLabel={hero.downloadLabel}
+              progressHint={hero.progressHint}
+              progressLabel={hero.progressLabel}
+              theme={theme}
+              trackProgressLabel={hero.trackProgressLabel}
+            />
+            <RoadmapIntroCard {...ui.introCard} theme={theme} />
+          </div>
+        </SectionContainer>
+      </section>
+
+      <section className="relative" style={{ paddingBottom: theme.page.sectionPaddingBottom }}>
+        <SectionContainer className="relative">
+          <RoadmapGraph
+            activeNodeId={selectedNodeId}
+            graph={ui.graph}
+            nodes={graphNodes}
+            theme={theme}
+            onNodeSelect={setSelectedNodeId}
           />
-          <RoadmapIntroCard />
         </SectionContainer>
       </section>
 
-      <section className="relative pb-20 lg:pb-28">
-        <SectionContainer className="relative">
-          <RoadmapGraph nodes={nodes} />
-        </SectionContainer>
-      </section>
+      <section
+        className="relative overflow-hidden"
+        style={{
+          background: theme.page.promoBackground,
+          paddingBottom: theme.page.sectionPaddingBottom,
+          paddingTop: theme.page.sectionPaddingBottom,
+        }}
+      >
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 mx-auto"
+          style={{
+            background: theme.page.promoHighlight.background,
+            filter: `blur(${theme.page.promoBlur})`,
+            height: theme.page.promoHighlight.height,
+            maxWidth: theme.page.promoHighlight.maxWidth,
+            transform: `rotate(${theme.page.promoHighlight.rotate})`,
+          }}
+        />
 
-      <section className="relative overflow-hidden bg-[linear-gradient(180deg,rgba(244,232,255,0.35),rgba(255,255,255,0.92))] py-20 lg:py-28">
-        <div className="pointer-events-none absolute inset-x-0 top-0 mx-auto h-20 max-w-[1480px] rotate-[-3deg] bg-[linear-gradient(90deg,rgba(125,211,252,0.35),rgba(165,180,252,0.45),rgba(249,168,212,0.35))] blur-3xl" />
-
         <SectionContainer className="relative">
-          <div className="grid items-center gap-10 rounded-[28px] border border-white/70 bg-white/70 px-6 py-8 shadow-[0_24px_80px_rgba(31,27,62,0.06)] backdrop-blur-sm lg:grid-cols-[0.95fr_0.65fr] lg:px-10 lg:py-10">
+          <div
+            className="grid items-center backdrop-blur-sm"
+            style={{
+              background: theme.promoCard.card.background,
+              border: `${theme.promoCard.card.borderWidth} solid ${theme.promoCard.card.borderColor}`,
+              borderRadius: theme.promoCard.card.borderRadius,
+              boxShadow: theme.promoCard.card.shadow,
+              gap: '40px',
+              gridTemplateColumns: theme.promoCard.card.gridColumns,
+              padding: theme.promoCard.card.padding,
+            }}
+          >
             <div className="space-y-5">
-              <h2 className="font-heading text-[2rem] leading-[1.05] font-medium tracking-[-0.05em] text-[#231535] lg:text-[2.4rem]">
-                Personalized Roadmaps Powered by AI
+              <h2
+                className="font-heading font-medium"
+                style={{
+                  color: theme.promoCard.typography.headingColor,
+                  fontSize: theme.promoCard.typography.headingSize,
+                  letterSpacing: theme.promoCard.typography.headingLetterSpacing,
+                  lineHeight: theme.promoCard.typography.headingLineHeight,
+                }}
+              >
+                {ui.promoCard.title}
               </h2>
-              <p className="max-w-xl text-base leading-7 text-[#6c5a84]">
-                Turn the static roadmap into a guided plan. Use the same frontend graph as your
-                baseline, then personalize it for your current skill level, preferred framework, and
-                target role.
+              <p
+                className="max-w-xl text-base leading-7"
+                style={{ color: theme.promoCard.typography.bodyColor }}
+              >
+                {ui.promoCard.description}
               </p>
-              <Button size="lg" className="group/btn rounded-full" render={<Link href="/" />}>
-                Try now
+              <Button
+                size="lg"
+                className="group/btn rounded-full"
+                render={<Link href={ui.promoCard.ctaHref as Parameters<typeof Link>[0]['href']} />}
+              >
+                {ui.promoCard.ctaLabel}
                 <AnimatedIconSwap icon={ArrowRight} hoverIcon={ArrowRight02FreeIcons} />
               </Button>
             </div>
 
-            <div className="relative mx-auto h-64 w-full max-w-[380px]">
+            <div
+              className="relative mx-auto w-full"
+              style={{
+                height: theme.promoCard.image.height,
+                maxWidth: theme.promoCard.image.maxWidth,
+              }}
+            >
               <Image
-                className="object-contain drop-shadow-[0_20px_30px_rgba(124,58,237,0.18)]"
+                className="object-contain"
+                style={{ filter: `drop-shadow(${theme.promoCard.image.dropShadow})` }}
                 fill
-                src="/ai-bird-laptop.png"
-                alt="AI assistant illustration"
+                src={ui.promoCard.imageSrc}
+                alt={ui.promoCard.imageAlt}
                 sizes="(max-width: 1024px) 320px, 380px"
               />
             </div>
           </div>
         </SectionContainer>
       </section>
+
+      {selectedNode ? (
+        <RoadmapNodePanel
+          key={selectedNode.id}
+          aiTutorTabLabel={ui.nodePanel.aiTutorTabLabel}
+          node={selectedNode}
+          resourcesTabLabel={ui.nodePanel.resourcesTabLabel}
+          statusLabels={ui.nodePanel.statusLabels}
+          theme={theme}
+          onClose={() => setSelectedNodeId(null)}
+        />
+      ) : null}
     </main>
   );
 }

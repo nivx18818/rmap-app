@@ -65,7 +65,7 @@ export class AuthService {
   }
 
   async logout(userId: string) {
-    await this.refreshTokenService.revokeTokensForUser(userId);
+    await this.refreshTokenService.revokeAllByUser(userId);
   }
 
   private async issueTokens(payload: { sub: string; email: string }) {
@@ -82,7 +82,7 @@ export class AuthService {
 
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    await this.refreshTokenService.saveRefreshToken(payload.sub, refreshToken, expiresAt);
+    await this.refreshTokenService.create(payload.sub, refreshToken, expiresAt);
 
     return [accessToken, refreshToken];
   }

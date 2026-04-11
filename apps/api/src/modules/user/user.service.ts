@@ -9,13 +9,13 @@ export class UserService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findByEmail(email: string) {
-    return this.prisma.user.findUnique({
+    return await this.prisma.user.findUnique({
       where: { email },
     });
   }
 
   async findById(id: string) {
-    return this.prisma.user.findUnique({
+    return await this.prisma.user.findUnique({
       where: { id },
     });
   }

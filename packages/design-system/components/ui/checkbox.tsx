@@ -4,13 +4,18 @@ import { Checkbox as CheckboxPrimitive } from '@base-ui/react/checkbox';
 import { Tick02Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { cn } from '@repo/design-system/lib/utils';
+import * as React from 'react';
 
-function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
+const Checkbox = React.forwardRef<
+  React.ElementRef<typeof CheckboxPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
+>(({ className, ...props }, ref) => {
   return (
     <CheckboxPrimitive.Root
+      ref={ref}
       data-slot="checkbox"
       className={cn(
-        'peer border-input focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground dark:data-checked:bg-primary bg-background hover:bg-primary/10 data-checked:hover:bg-primary relative flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-[4px] border transition-colors outline-none group-has-disabled/field:opacity-50 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:ring-3',
+        'peer border-input focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground dark:data-checked:bg-primary bg-background hover:bg-primary/10 data-checked:hover:bg-primary relative flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-xs border transition-colors outline-none group-has-disabled/field:opacity-50 after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:ring-3',
         className,
       )}
       {...props}
@@ -23,6 +28,7 @@ function Checkbox({ className, ...props }: CheckboxPrimitive.Root.Props) {
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   );
-}
+});
+Checkbox.displayName = 'Checkbox';
 
 export { Checkbox };

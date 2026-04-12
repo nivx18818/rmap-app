@@ -1,5 +1,5 @@
-import { Footer } from '@/components/layout/footer';
-import { Header } from '@/components/layout/header';
+import { Footer } from '@/components/layouts/footer';
+import { Header } from '@/components/layouts/header';
 
 export default function Home(props: LayoutProps<'/'>) {
   return (

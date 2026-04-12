@@ -1,17 +1,24 @@
+'use client';
+
+import type { Route } from 'next';
+
 import { ArrowRight, ArrowRight02FreeIcons } from '@hugeicons/core-free-icons';
 import { AnimatedIconSwap } from '@repo/design-system/components/common/animated-icon-swap';
 import { Button } from '@repo/design-system/components/ui/button';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { HeroGradient } from './ui/hero-gradient';
-import { RainbowBar } from './ui/rainbow-bar';
+import { HeroGradient } from '../../../../components/shared/hero-gradient';
+import { RainbowBar } from '../../../../components/shared/rainbow-bar';
 
 export function HeroSection() {
+  function handleScrollDown() {
+    window.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
+  }
+
   return (
     <section className="relative h-screen overflow-hidden">
       <HeroGradient />
-
       <RainbowBar />
 
       {/* Hero illustration (bottom) */}
@@ -69,12 +76,12 @@ export function HeroSection() {
 
         {/* CTA Buttons */}
         <div className="flex items-center justify-center gap-4">
-          <Button size="lg" className="group/btn rounded-full">
-            <Link href="/">Explore available roadmaps</Link>
+          <Button size="lg" className="group/btn rounded-full" onClick={handleScrollDown}>
+            Explore available roadmaps
             <AnimatedIconSwap icon={ArrowRight} hoverIcon={ArrowRight02FreeIcons} />
           </Button>
           <Button variant="outline" size="lg" className="group/btn rounded-full">
-            <Link href="/">Create your roadmap</Link>
+            <Link href={'/ai' as Route<string>}>Create your roadmap</Link>
             <AnimatedIconSwap icon={ArrowRight} hoverIcon={ArrowRight02FreeIcons} />
           </Button>
         </div>

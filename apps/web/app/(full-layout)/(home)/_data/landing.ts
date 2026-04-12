@@ -1,8 +1,12 @@
-import type { NavItem, RoadmapItemData, RoadmapTimelineItem } from '@/types/landing';
+import type {
+  NavItem,
+  RoadmapItemData,
+  RoadmapTimelineItem,
+} from '@/app/(full-layout)/(home)/_types/landing';
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: 'Explore roadmaps', href: '/roadmaps' },
-  { label: 'AI Tutor', href: '/ai-tutor' },
+  { label: 'Explore roadmaps', href: '/' },
+  { label: 'AI Tutor', href: '/ai' },
   { label: 'Categories', href: '/categories' },
   { label: 'Docs', href: '/docs' },
 ];

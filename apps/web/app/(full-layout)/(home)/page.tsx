@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import LandingPage from '@/components/landing';
+import { HeroSection, RoadmapSection, PersonalizedSection, ContactSection } from './_components';
 
 export const metadata: Metadata = {
   title: 'RMap — Learn Effectively. Run any subject fearlessly.',
@@ -9,5 +9,12 @@ export const metadata: Metadata = {
 };
 
 export default function Home() {
-  return <LandingPage />;
+  return (
+    <main>
+      <HeroSection />
+      <RoadmapSection />
+      <PersonalizedSection />
+      <ContactSection />
+    </main>
+  );
 }

@@ -1,4 +1,4 @@
-import type { RoadmapItemData } from '@/types/landing';
+import type { RoadmapItemData } from '@/app/(full-layout)/(home)/_types/landing';
 
 import { RoadmapItem } from './roadmap-item';
 

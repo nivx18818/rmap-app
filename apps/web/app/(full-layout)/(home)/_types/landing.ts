@@ -1,6 +1,8 @@
 export interface NavItem {
   label: string;
   href: string;
+  /** If true, scrolls down by 1 screen height after navigating to the href */
+  scrollAfterNav?: boolean;
 }
 
 export interface RoadmapItemData {

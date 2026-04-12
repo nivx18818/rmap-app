@@ -3,11 +3,14 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { SectionContainer } from '@repo/design-system/components/common/section-container';
 import Image from 'next/image';
 
-import { ROLE_BASED_ROADMAPS, SKILL_BASED_ROADMAPS } from '@/lib/data/landing';
+import {
+  ROLE_BASED_ROADMAPS,
+  SKILL_BASED_ROADMAPS,
+} from '@/app/(full-layout)/(home)/_data/landing';
 
+import { MaskBackground } from '../../../../components/shared/mask-background';
+import { RainbowBar } from '../../../../components/shared/rainbow-bar';
 import { CategoryLabel } from './ui/category-label';
-import { MaskBackground } from './ui/mask-background';
-import { RainbowBar } from './ui/rainbow-bar';
 import { RoadmapGrid } from './ui/roadmap-grid';
 
 export function RoadmapSection() {

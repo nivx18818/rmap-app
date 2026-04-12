@@ -12,8 +12,8 @@ import { cn } from '@repo/design-system/lib/utils';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { MaskBackground } from './ui/mask-background';
-import { RainbowBar } from './ui/rainbow-bar';
+import { MaskBackground } from '../../../../components/shared/mask-background';
+import { RainbowBar } from '../../../../components/shared/rainbow-bar';
 
 const NOTEBOOK_ITEMS = [
   { label: 'Road to DevOps Engineer', icon: Location01Icon, iconClass: 'text-indigo-500' },

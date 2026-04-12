@@ -3,7 +3,7 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { cn } from '@repo/design-system/lib/utils';
 import Link from 'next/link';
 
-import type { RoadmapItemData } from '@/types/landing';
+import type { RoadmapItemData } from '@/app/(full-layout)/(home)/_types/landing';
 
 type RoadmapItemProps = RoadmapItemData;
 

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { Toaster } from '@repo/design-system/components/ui/sonner';
 import { fonts } from '@repo/design-system/lib/fonts';
 import '@repo/design-system/styles/globals.css';
 
@@ -15,7 +16,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={fonts}>{children}</body>
+      <body className={fonts}>
+        {children}
+        <Toaster position="top-right" richColors closeButton />
+      </body>
     </html>
   );
 }

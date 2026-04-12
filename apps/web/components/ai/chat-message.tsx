@@ -17,7 +17,7 @@ export function ChatAvatar({ role, imageUrl, className }: ChatAvatarProps) {
   return (
     <div
       className={cn(
-        'relative size-10 shrink-0 overflow-hidden rounded-full',
+        'relative size-9 shrink-0 overflow-hidden rounded-full sm:size-10',
         isAi
           ? 'bg-background border border-[rgba(91,33,182,0.13)] shadow-[inset_0px_-3px_6px_-2px_#e7e6f4]'
           : 'bg-slate-200',
@@ -53,13 +53,24 @@ export function ChatMessage({ role, content, options, className }: ChatMessagePr
   const isAi = role === 'ai';
 
   return (
-    <div className={cn('flex w-full items-start gap-3', !isAi && 'flex-row-reverse', className)}>
+    <div
+      className={cn(
+        'flex w-full items-start gap-2.5 sm:gap-3',
+        !isAi && 'sm:flex-row-reverse',
+        className,
+      )}
+    >
       <ChatAvatar role={role} />
 
-      <div className={cn('flex max-w-[80%] flex-col gap-3', !isAi && 'items-end')}>
+      <div
+        className={cn(
+          'flex max-w-[86%] flex-col gap-2.5 sm:max-w-[80%] sm:gap-3',
+          !isAi && 'items-end',
+        )}
+      >
         <div
           className={cn(
-            'relative rounded-[8px] p-3 text-base tracking-normal',
+            'relative rounded-[8px] p-2.5 text-sm tracking-normal sm:p-3 sm:text-base',
             isAi ? 'bg-background-secondary' : 'bg-gray-200',
           )}
         >
@@ -68,9 +79,9 @@ export function ChatMessage({ role, content, options, className }: ChatMessagePr
 
         {/* Options Buttons */}
         {isAi && options && options.length > 0 && (
-          <div className="flex flex-wrap gap-2.5">
+          <div className="flex w-full flex-wrap gap-2">
             {options.map((option, idx) => (
-              <Button key={idx} variant="outline" size="sm">
+              <Button key={idx} variant="outline" size="sm" className="w-full">
                 {option}
               </Button>
             ))}
@@ -83,18 +94,18 @@ export function ChatMessage({ role, content, options, className }: ChatMessagePr
 
 export function ChatInput() {
   return (
-    <div className="mt-auto flex w-full items-center pt-3">
+    <div className="mt-auto flex w-full items-center pt-2.5 sm:pt-3">
       <div className="relative flex-1">
         <Input
           id="text"
           name="text"
-          className="pr-10"
+          className="h-10 pr-10 text-sm sm:h-11"
           placeholder="Type your answer..."
           type="text"
           autoComplete="off"
         />
         <button
-          className="text-primary absolute top-1/2 right-3 flex size-6 -translate-y-1/2 items-center justify-center transition-transform hover:scale-110"
+          className="text-primary absolute top-1/2 right-3 flex size-5 -translate-y-1/2 items-center justify-center transition-transform hover:scale-110 sm:size-6"
           type="button"
         >
           <HugeiconsIcon className="size-full" icon={SentIcon} />
@@ -106,12 +117,12 @@ export function ChatInput() {
 
 export function ChatLoading() {
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-2 flex w-full items-start gap-3 duration-300">
+    <div className="animate-in fade-in slide-in-from-bottom-2 flex w-full items-start gap-2.5 duration-300 sm:gap-3">
       <ChatAvatar className="opacity-50" role="ai" />
-      <div className="bg-background-secondary flex items-center gap-1.5 rounded-[8px] px-4 py-3">
-        <span className="bg-muted-foreground/30 size-1.5 animate-bounce rounded-full" />
-        <span className="bg-muted-foreground/30 size-1.5 animate-bounce rounded-full [animation-delay:0.2s]" />
-        <span className="bg-muted-foreground/30 size-1.5 animate-bounce rounded-full [animation-delay:0.4s]" />
+      <div className="bg-background-secondary flex items-center gap-1.5 rounded-[8px] px-3 py-2.5 sm:px-4 sm:py-3">
+        <span className="bg-muted-foreground/30 size-1.25 animate-bounce rounded-full sm:size-1.5" />
+        <span className="bg-muted-foreground/30 size-1.25 animate-bounce rounded-full [animation-delay:0.2s] sm:size-1.5" />
+        <span className="bg-muted-foreground/30 size-1.25 animate-bounce rounded-full [animation-delay:0.4s] sm:size-1.5" />
       </div>
     </div>
   );

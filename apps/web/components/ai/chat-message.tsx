@@ -1,9 +1,13 @@
+'use client';
+
 import { ArtificialIntelligence01Icon, SentIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Button } from '@repo/design-system/components/ui/button';
 import { Input } from '@repo/design-system/components/ui/input';
 import { cn } from '@repo/design-system/lib/utils';
 import Image from 'next/image';
+
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ChatAvatarProps {
   role: 'user' | 'ai';
@@ -51,6 +55,7 @@ interface ChatMessageProps {
 
 export function ChatMessage({ role, content, options, className }: ChatMessageProps) {
   const isAi = role === 'ai';
+  const isMobile = useIsMobile();
 
   return (
     <div
@@ -81,7 +86,12 @@ export function ChatMessage({ role, content, options, className }: ChatMessagePr
         {isAi && options && options.length > 0 && (
           <div className="flex w-full flex-wrap gap-2">
             {options.map((option, idx) => (
-              <Button key={idx} variant="outline" size="sm" className="w-full">
+              <Button
+                key={idx}
+                variant="outline"
+                size={isMobile ? 'sm' : 'default'}
+                className="w-full md:w-fit"
+              >
                 {option}
               </Button>
             ))}

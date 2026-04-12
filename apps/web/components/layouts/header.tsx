@@ -57,11 +57,11 @@ export function Header() {
             </Link>
           }
         />
-        <Button variant="outline" size="sm" render={<Link href="/sign-in">Login</Link>} />
+        <Button variant="outline" size="sm" render={<Link href="/">Login</Link>} />
         <Button
           size="sm"
           className="rounded-l-md rounded-r-full"
-          render={<Link href={'/sign-up' as Route<string>}>Get Started</Link>}
+          render={<Link href={'/' as Route<string>}>Get Started</Link>}
         />
       </div>
     </header>

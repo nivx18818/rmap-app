@@ -81,7 +81,7 @@
   --primary: hsl(262, 83%, 58%);
   --primary-active: hsl(263, 70%, 50%);
   --primary-foreground: hsl(0, 0%, 100%);
-  --secondary: hsla(210, 40%, 96%, 1);
+  --secondary: hsla(210, 40%, 94%, 1);
   --secondary-foreground: hsla(222, 47%, 11%, 1);
   --muted: hsl(250, 40%, 96%);
   --muted-foreground: hsl(250, 10%, 45%);
@@ -116,7 +116,7 @@
   --btn-white-border-active: hsla(255, 92%, 76%, 40%);
   --btn-white-background: hsl(0, 0%, 100%);
   --btn-white-background-active: hsla(240, 50%, 98%, 1);
-  --btn-secondary-background-active: hsla(214, 32%, 91%, 1);
+  --btn-secondary-background-active: hsla(214, 32%, 87%, 1);
 
   --bg-footer:
     linear-gradient(

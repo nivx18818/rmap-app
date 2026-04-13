@@ -22,42 +22,53 @@ async function mockGenerateRoadmap(values: AiRoadmapValues) {
   };
 }
 
+async function mockSavePersonalizationInput() {
+  await new Promise((resolve) => {
+    setTimeout(resolve, 3000);
+  });
+}
+
 export function useAiRoadmapForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isQuizStarted, setIsQuizStarted] = useState(false);
+  const [isQuestionsCompleted, setIsQuestionsCompleted] = useState(false);
 
   const form = useForm<AiRoadmapValues>({
     resolver: zodResolver(aiRoadmapSchema),
     defaultValues: {
       topic: '',
-      hours: 0,
-      duration: 0,
-      isPersonalized: false,
+      hours: undefined,
+      duration: undefined,
     },
     mode: 'onChange',
   });
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { isValid },
-  } = form;
+  const { register, handleSubmit, watch } = form;
 
-  const isPersonalized = watch('isPersonalized');
+  const [topic, hours, duration] = watch(['topic', 'hours', 'duration']);
 
-  const handleCheckedChange = (checked: boolean) => {
-    setValue('isPersonalized', checked);
+  const isValid = aiRoadmapSchema.safeParse({
+    topic,
+    hours,
+    duration,
+    isPersonalized: true,
+  }).success;
 
-    if (!checked) {
-      return;
-    }
-
+  const onStartPersonalizedQuestions: SubmitHandler<AiRoadmapValues> = async () => {
     setIsLoading(true);
-    setTimeout(() => {
+    setIsQuestionsCompleted(false);
+
+    try {
+      await mockSavePersonalizationInput();
+      setIsQuizStarted(true);
+    } catch {
+      toast.error('Failed to save your study preferences', {
+        description: 'Please try again.',
+      });
+    } finally {
       setIsLoading(false);
-    }, 3000);
+    }
   };
 
   const onSubmit: SubmitHandler<AiRoadmapValues> = async (values) => {
@@ -78,14 +89,24 @@ export function useAiRoadmapForm() {
     }
   };
 
+  const goBackToFormStep = () => {
+    setIsQuizStarted(false);
+    setIsQuestionsCompleted(false);
+    setIsLoading(false);
+    setIsSubmitting(false);
+  };
+
   return {
-    handleCheckedChange,
     handleSubmit,
     isLoading,
-    isPersonalized,
+    isQuestionsCompleted,
+    isQuizStarted,
     isSubmitting,
     isValid,
+    onStartPersonalizedQuestions,
     onSubmit,
     register,
+    goBackToFormStep,
+    setIsQuestionsCompleted,
   };
 }

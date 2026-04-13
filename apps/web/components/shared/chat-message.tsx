@@ -50,10 +50,19 @@ interface ChatMessageProps {
   role: 'user' | 'ai';
   content: string;
   options?: string[];
+  onOptionSelect?: (option: string) => void;
+  isOptionDisabled?: boolean;
   className?: string;
 }
 
-export function ChatMessage({ role, content, options, className }: ChatMessageProps) {
+export function ChatMessage({
+  role,
+  content,
+  options,
+  onOptionSelect,
+  isOptionDisabled,
+  className,
+}: ChatMessageProps) {
   const isAi = role === 'ai';
   const isMobile = useIsMobile();
 
@@ -91,6 +100,11 @@ export function ChatMessage({ role, content, options, className }: ChatMessagePr
                 variant="outline"
                 size={isMobile ? 'sm' : 'default'}
                 className="w-full md:w-fit"
+                type="button"
+                disabled={isOptionDisabled}
+                onClick={() => {
+                  onOptionSelect?.(option);
+                }}
               >
                 {option}
               </Button>
@@ -102,7 +116,21 @@ export function ChatMessage({ role, content, options, className }: ChatMessagePr
   );
 }
 
-export function ChatInput() {
+interface ChatInputProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  onSubmit: () => void;
+  disabled?: boolean;
+  placeholder?: string;
+}
+
+export function ChatInput({
+  value,
+  onValueChange,
+  onSubmit,
+  disabled,
+  placeholder = 'Type your answer...',
+}: ChatInputProps) {
   return (
     <div className="mt-auto flex w-full items-center pt-2.5 sm:pt-3">
       <div className="relative flex-1">
@@ -110,13 +138,28 @@ export function ChatInput() {
           id="text"
           name="text"
           className="h-10 pr-10 text-sm sm:h-11"
-          placeholder="Type your answer..."
+          placeholder={placeholder}
           type="text"
           autoComplete="off"
+          disabled={disabled}
+          onKeyDown={(event) => {
+            if (event.key !== 'Enter') {
+              return;
+            }
+
+            event.preventDefault();
+            onSubmit();
+          }}
+          value={value}
+          onChange={(event) => {
+            onValueChange(event.target.value);
+          }}
         />
         <button
           className="text-primary absolute top-1/2 right-3 flex size-5 -translate-y-1/2 items-center justify-center transition-transform hover:scale-110 sm:size-6"
           type="button"
+          disabled={disabled}
+          onClick={onSubmit}
         >
           <HugeiconsIcon className="size-full" icon={SentIcon} />
         </button>

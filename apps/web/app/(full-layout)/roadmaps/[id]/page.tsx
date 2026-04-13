@@ -14,19 +14,35 @@ interface MockRoadmapRouteData {
   theme: RoadmapTheme;
 }
 
+const mockRoadmapModuleLoaders: Record<
+  string,
+  {
+    layout: () => Promise<{ default: MockRoadmapLayout }>;
+    logic: () => Promise<{ default: MockRoadmapLogic }>;
+  }
+> = {
+  backend: {
+    layout: () => import('@/lib/data/roadmaps/backend/backend-roadmap.layout'),
+    logic: () => import('@/lib/data/roadmaps/backend/backend-roadmap.logic'),
+  },
+  frontend: {
+    layout: () => import('@/lib/data/roadmaps/frontend-roadmap.layout'),
+    logic: () => import('@/lib/data/roadmaps/frontend-roadmap.logic'),
+  },
+};
+
 async function loadMockRoadmapRouteData(id: string): Promise<MockRoadmapRouteData | null> {
   const theme = mockRoadmapThemeBySlug[id];
+  const moduleLoaders = mockRoadmapModuleLoaders[id];
 
-  if (!theme) {
+  if (!theme || !moduleLoaders) {
     return null;
   }
 
   try {
     const [layoutModule, logicModule] = await Promise.all([
-      import(`@/lib/data/roadmaps/${id}-roadmap.layout`) as Promise<{
-        default: MockRoadmapLayout;
-      }>,
-      import(`@/lib/data/roadmaps/${id}-roadmap.logic`) as Promise<{ default: MockRoadmapLogic }>,
+      moduleLoaders.layout(),
+      moduleLoaders.logic(),
     ]);
 
     const layout = layoutModule.default;
@@ -51,7 +67,7 @@ async function loadMockRoadmapRouteData(id: string): Promise<MockRoadmapRouteDat
 }
 
 export async function generateStaticParams() {
-  return Object.keys(mockRoadmapThemeBySlug).map((id) => ({ id }));
+  return Object.keys(mockRoadmapModuleLoaders).map((id) => ({ id }));
 }
 
 export default async function RoadmapDetailPage(props: PageProps<'/roadmaps/[id]'>) {

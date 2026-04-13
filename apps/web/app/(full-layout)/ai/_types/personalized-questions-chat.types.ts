@@ -3,10 +3,12 @@ export interface QuestionItem {
   options: string[];
 }
 
-export enum ConversationRole {
-  USER,
-  AI,
-}
+export const ConversationRole = {
+  AI: 'ai',
+  USER: 'user',
+} as const;
+
+export type ConversationRole = (typeof ConversationRole)[keyof typeof ConversationRole];
 
 export interface ChatConversationItem {
   id: string;

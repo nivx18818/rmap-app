@@ -5,6 +5,7 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { useEffect, useRef } from 'react';
 
 import { usePersonalizedQuestionsChat } from '@/app/(full-layout)/ai/_hooks/use-personalized-questions-chat';
+import { ConversationRole } from '@/app/(full-layout)/ai/_types/personalized-questions-chat.types';
 import { ChatInput, ChatLoading, ChatMessage } from '@/components/shared/chat-message';
 import { LoadingState } from '@/components/shared/loading-state';
 

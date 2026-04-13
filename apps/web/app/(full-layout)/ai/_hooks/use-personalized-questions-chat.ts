@@ -37,6 +37,13 @@ export function usePersonalizedQuestionsChat({
     nextQuestionTimerRef.current = setTimeout(() => {
       const nextQuestion = PERSONALIZED_QUESTIONS[nextIndex];
 
+      if (!nextQuestion) {
+        setIsThinking(false);
+        setIsAwaitingAnswer(false);
+        setIsCompleted(true);
+        return;
+      }
+
       setMessages((prev) => [
         ...prev,
         {
@@ -105,12 +112,22 @@ export function usePersonalizedQuestionsChat({
     setIsAwaitingAnswer(true);
     setIsThinking(false);
     setIsCompleted(false);
+
+    const firstQuestion = PERSONALIZED_QUESTIONS[0];
+
+    if (!firstQuestion) {
+      setMessages([]);
+      setIsAwaitingAnswer(false);
+      setIsCompleted(true);
+      return;
+    }
+
     setMessages([
       {
         id: 'ai-0',
         role: ConversationRole.AI,
-        content: PERSONALIZED_QUESTIONS[0].content,
-        options: PERSONALIZED_QUESTIONS[0].options,
+        content: firstQuestion.content,
+        options: firstQuestion.options,
       },
     ]);
   }, [clearNextQuestionTimer, hasInitializedConversation, isLoading]);

@@ -1,6 +1,6 @@
 'use client';
 
-import { cn } from '@repo/design-system/lib/utils';
+import { Button } from '@repo/design-system/components/ui/button';
 import { useMemo, useState } from 'react';
 
 import type { RoadmapGraphNode, RoadmapTheme } from '@/types/roadmap';
@@ -103,8 +103,9 @@ export function RoadmapNodePanel({
               ))}
             </select>
 
-            <button
-              className="inline-flex items-center justify-center"
+            <Button
+              variant="ghost"
+              size="icon-sm"
               style={{
                 background: theme.panel.closeButton.background,
                 border: `1px solid ${theme.panel.closeButton.borderColor}`,
@@ -113,11 +114,11 @@ export function RoadmapNodePanel({
                 height: theme.panel.closeButton.size,
                 width: theme.panel.closeButton.size,
               }}
-              type="button"
+              aria-label="Close roadmap node panel"
               onClick={onClose}
             >
               ×
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -243,8 +244,10 @@ function PanelTabButton({
   theme: RoadmapTheme;
 }) {
   return (
-    <button
-      className={cn('inline-flex items-center justify-center text-sm font-medium')}
+    <Button
+      variant="ghost"
+      size="xs"
+      className="font-medium"
       style={{
         background: active ? theme.panel.tab.activeBackground : theme.panel.tab.inactiveBackground,
         border: `${theme.panel.tab.borderWidth} solid ${
@@ -256,10 +259,10 @@ function PanelTabButton({
         paddingLeft: theme.panel.tab.paddingX,
         paddingRight: theme.panel.tab.paddingX,
       }}
-      type="button"
+      aria-pressed={active}
       onClick={onClick}
     >
       {label}
-    </button>
+    </Button>
   );
 }

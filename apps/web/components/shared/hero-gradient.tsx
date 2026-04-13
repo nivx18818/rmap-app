@@ -50,8 +50,8 @@ export function HeroGradient({ className }: HeroGradientProps) {
           y2="64.6468"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#001AFF" />
-          <stop offset="1" stopColor="#6EE5C2" />
+          <stop stopColor="var(--color-landing-hero-gradient-blue-start)" />
+          <stop offset="1" stopColor="var(--color-landing-hero-gradient-blue-end)" />
         </linearGradient>
         <linearGradient
           id="hero-paint1_linear"
@@ -61,9 +61,9 @@ export function HeroGradient({ className }: HeroGradientProps) {
           y2="-162.127"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#FFC83A" />
-          <stop offset="0.504191" stopColor="#FF008A" />
-          <stop offset="1" stopColor="#6100FF" />
+          <stop stopColor="var(--color-landing-hero-gradient-warm-start)" />
+          <stop offset="0.504191" stopColor="var(--color-landing-hero-gradient-warm-mid)" />
+          <stop offset="1" stopColor="var(--color-landing-hero-gradient-warm-end)" />
         </linearGradient>
       </defs>
     </svg>

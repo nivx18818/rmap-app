@@ -8,7 +8,6 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { AnimatedIconSwap } from '@repo/design-system/components/common/animated-icon-swap';
 import { SectionContainer } from '@repo/design-system/components/common/section-container';
 import { Button } from '@repo/design-system/components/ui/button';
-import { cn } from '@repo/design-system/lib/utils';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -16,12 +15,18 @@ import { MaskBackground } from '@/components/shared/mask-background';
 import { RainbowBar } from '@/components/shared/rainbow-bar';
 
 const NOTEBOOK_ITEMS = [
-  { label: 'Road to DevOps Engineer', icon: Location01Icon, iconClass: 'text-indigo-500' },
-  { label: 'Learn a Programming Language', icon: Tick01Icon, iconClass: 'text-emerald-500' },
-  { label: 'Operating System', icon: Tick01Icon, iconClass: 'text-emerald-500' },
-  { label: 'Terminal Knowledge', icon: Tick01Icon, iconClass: 'text-rose-500' },
-  { label: 'Version Control Systems', icon: Tick01Icon, iconClass: 'text-rose-500' },
-];
+  { label: 'Road to DevOps Engineer', icon: Location01Icon, tone: 'start' },
+  { label: 'Learn a Programming Language', icon: Tick01Icon, tone: 'complete' },
+  { label: 'Operating System', icon: Tick01Icon, tone: 'complete' },
+  { label: 'Terminal Knowledge', icon: Tick01Icon, tone: 'locked' },
+  { label: 'Version Control Systems', icon: Tick01Icon, tone: 'locked' },
+] as const;
+
+const NOTEBOOK_ICON_COLOR_BY_TONE = {
+  complete: 'var(--color-landing-personalized-icon-complete)',
+  locked: 'var(--color-landing-personalized-icon-locked)',
+  start: 'var(--color-landing-personalized-icon-start)',
+} as const;
 
 /**
  * A section demonstrating RMap's personalized roadmap generation capabilities
@@ -35,23 +40,16 @@ export function PersonalizedSection() {
 
       <SectionContainer className="relative z-10 flex flex-col items-center justify-center gap-16 lg:gap-32">
         {/* Top Banner Box */}
-        <div
-          className="relative flex w-full max-w-300 flex-col-reverse items-center justify-between gap-8 overflow-hidden rounded-[24px] px-6 py-8 shadow-xs sm:px-12 md:py-16 lg:flex-row lg:p-12"
-          style={{
-            backgroundImage:
-              'linear-gradient(161.932deg, rgb(255, 251, 235) 0%, rgb(255, 247, 237) 50%, rgb(251, 207, 232) 100%), linear-gradient(90deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.75) 100%)',
-          }}
-        >
-          {/* Inner borders via inset shadow */}
+        <div className="landing-personalized-card relative flex w-full max-w-300 flex-col-reverse items-center justify-between gap-8 overflow-hidden rounded-[24px] px-6 py-8 shadow-xs sm:px-12 md:py-16 lg:flex-row lg:p-12">
           <div
-            className="pointer-events-none absolute inset-0 rounded-[24px] shadow-[inset_0px_0px_0px_1px_rgba(76,29,149,0.1),inset_0px_0px_0px_0px_white]"
+            className="landing-personalized-card-inset pointer-events-none absolute inset-0 rounded-[24px]"
             aria-hidden="true"
           />
 
           {/* Banner Text Left */}
           <div className="relative z-10 flex w-full max-w-136 shrink-0 flex-col items-center gap-8 text-center lg:items-start lg:text-left">
             <div className="flex flex-col gap-6">
-              <h2 className="text-title text-3xl!">Personalized Roadmaps Powered by AI</h2>
+              <h2 className="text-title">Personalized Roadmaps Powered by AI</h2>
               <p className="text-subtitle">
                 Share your current level and career target, then let RMap generate a personalized
                 roadmap with the right topics, learning order, and milestones for your journey.
@@ -85,7 +83,7 @@ export function PersonalizedSection() {
           <div className="relative flex w-full max-w-132 shrink-0 flex-col justify-center">
             {/* The vertical pink styling line */}
             <div
-              className="pointer-events-none absolute top-0 left-14 h-[115%] w-0.5 bg-pink-300/20"
+              className="landing-personalized-line pointer-events-none absolute top-0 left-14 h-[115%] w-0.5"
               aria-hidden="true"
             />
 
@@ -93,14 +91,18 @@ export function PersonalizedSection() {
               {NOTEBOOK_ITEMS.map((item, i) => (
                 <li
                   key={i}
-                  className="relative flex h-14.5 items-center border-b border-indigo-200/60 transition-colors hover:bg-slate-50/50"
+                  className="landing-personalized-row relative flex h-14.5 items-center transition-colors"
                 >
                   {/* Icon Area placed to intersect the pink line */}
                   <div
                     className="bg-background absolute left-11.75 flex size-5 items-center justify-center rounded-full"
                     aria-hidden="true"
                   >
-                    <HugeiconsIcon className={cn('size-4', item.iconClass)} icon={item.icon} />
+                    <HugeiconsIcon
+                      className="size-4"
+                      style={{ color: NOTEBOOK_ICON_COLOR_BY_TONE[item.tone] }}
+                      icon={item.icon}
+                    />
                   </div>
                   {/* Text Container */}
                   <span className="text-foreground ml-24 text-lg font-medium">{item.label}</span>

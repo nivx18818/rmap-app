@@ -69,6 +69,100 @@
   --color-gradient-cta-pill: var(--gradient-cta-pill);
   --color-gradient-search-bar: var(--gradient-search-bar);
   --color-gradient-category-pill: var(--gradient-category-pill);
+  --color-gradient-rainbow-bar: var(--gradient-rainbow-bar);
+  --color-gradient-landing-mask: var(--gradient-landing-mask);
+  --color-gradient-btn-primary: var(--gradient-btn-primary);
+  --color-gradient-roadmap-divider: var(--gradient-roadmap-divider);
+  --color-gradient-nav-menu-underline: var(--gradient-nav-menu-underline);
+  --color-gradient-nav-menu-glow: var(--gradient-nav-menu-glow);
+  --gradient-roadmap-intro-card: var(--roadmap-intro-card);
+  --gradient-roadmap-intro-branch: var(--roadmap-intro-branch);
+  --gradient-roadmap-page-hero: var(--roadmap-page-hero);
+  --gradient-roadmap-page-promo: var(--roadmap-page-promo);
+  --gradient-roadmap-page-promo-highlight: var(--roadmap-page-promo-highlight);
+  --color-roadmap-intro-item-foreground: var(--roadmap-intro-item-foreground);
+  --color-roadmap-connector-header: var(--roadmap-connector-header);
+  --color-roadmap-connector-main: var(--roadmap-connector-main);
+  --color-roadmap-connector-optional: var(--roadmap-connector-optional);
+  --color-roadmap-connector-required: var(--roadmap-connector-required);
+  --color-roadmap-title-surface: var(--roadmap-title-surface);
+  --color-roadmap-title-foreground: var(--roadmap-title-foreground);
+  --color-roadmap-hero-badge-surface: var(--roadmap-hero-badge-surface);
+  --color-roadmap-hero-badge-foreground: var(--roadmap-hero-badge-foreground);
+  --color-roadmap-copy-subtle: var(--roadmap-copy-subtle);
+  --color-roadmap-ui-foreground: var(--roadmap-ui-foreground);
+  --color-roadmap-intro-accent: var(--roadmap-intro-accent);
+  --color-roadmap-intro-row: var(--roadmap-intro-row);
+  --color-roadmap-intro-heading: var(--roadmap-intro-heading);
+  --color-roadmap-intro-check-green: var(--roadmap-intro-check-green);
+  --color-roadmap-intro-check-pink: var(--roadmap-intro-check-pink);
+  --color-roadmap-link-green: var(--roadmap-link-green);
+  --color-roadmap-link-purple: var(--roadmap-link-purple);
+  --color-roadmap-link-badge-green-surface: var(--roadmap-link-badge-green-surface);
+  --color-roadmap-link-badge-green-border: var(--roadmap-link-badge-green-border);
+  --color-roadmap-link-badge-purple-surface: var(--roadmap-link-badge-purple-surface);
+  --color-roadmap-link-badge-purple-border: var(--roadmap-link-badge-purple-border);
+  --color-roadmap-link-stroke: var(--roadmap-link-stroke);
+  --color-roadmap-node-main: var(--roadmap-node-main);
+  --color-roadmap-node-skill: var(--roadmap-node-skill);
+  --color-roadmap-node-skill-foreground: var(--roadmap-node-skill-foreground);
+  --color-roadmap-panel-surface: var(--roadmap-panel-surface);
+  --color-roadmap-panel-border: var(--roadmap-panel-border);
+  --color-roadmap-panel-overlay: var(--roadmap-panel-overlay);
+  --color-roadmap-panel-highlight: var(--roadmap-panel-highlight);
+  --color-roadmap-panel-highlight-foreground: var(--roadmap-panel-highlight-foreground);
+  --color-roadmap-panel-info-surface: var(--roadmap-panel-info-surface);
+  --color-roadmap-panel-info-border: var(--roadmap-panel-info-border);
+  --color-roadmap-panel-info-foreground: var(--roadmap-panel-info-foreground);
+  --color-roadmap-panel-success-surface: var(--roadmap-panel-success-surface);
+  --color-roadmap-panel-success-border: var(--roadmap-panel-success-border);
+  --color-roadmap-panel-success-foreground: var(--roadmap-panel-success-foreground);
+  --color-roadmap-panel-muted: var(--roadmap-panel-muted);
+  --color-roadmap-promo-copy: var(--roadmap-promo-copy);
+  --color-roadmap-promo-heading: var(--roadmap-promo-heading);
+  --color-roadmap-selection-ring: var(--roadmap-selection-ring);
+  --color-roadmap-logic-grid-dot: var(--roadmap-logic-grid-dot);
+  --color-roadmap-logic-surface: var(--roadmap-logic-surface);
+  --shadow-roadmap-logic-title: var(--roadmap-logic-title-shadow);
+  --shadow-roadmap-link: var(--roadmap-link-shadow);
+  --shadow-roadmap-intro-inset: var(--roadmap-intro-inset);
+  --shadow-roadmap-node-skill: var(--roadmap-node-skill-shadow);
+  --shadow-roadmap-panel: var(--roadmap-panel-shadow);
+  --shadow-roadmap-promo-image: var(--roadmap-promo-image-shadow);
+  --shadow-roadmap-promo-card: var(--roadmap-promo-card-shadow);
+  --color-roadmap-promo-card-surface: var(--roadmap-promo-card-surface);
+  --color-contact-body: var(--contact-body);
+  --color-category-pill-border: var(--category-pill-border);
+  --color-header-cta-border: var(--header-cta-border);
+  --color-footer-copy: var(--footer-copy);
+  --color-landing-roadmap-divider-fill: var(--landing-roadmap-divider-fill);
+  --color-landing-hero-underline-start: var(--landing-hero-underline-start);
+  --color-landing-hero-underline-end: var(--landing-hero-underline-end);
+  --color-landing-hero-gradient-blue-start: var(--landing-hero-gradient-blue-start);
+  --color-landing-hero-gradient-blue-end: var(--landing-hero-gradient-blue-end);
+  --color-landing-hero-gradient-warm-start: var(--landing-hero-gradient-warm-start);
+  --color-landing-hero-gradient-warm-mid: var(--landing-hero-gradient-warm-mid);
+  --color-landing-hero-gradient-warm-end: var(--landing-hero-gradient-warm-end);
+  --color-nav-menu-trigger-hover: var(--nav-menu-trigger-hover);
+  --color-nav-menu-trigger-focus: var(--nav-menu-trigger-focus);
+  --color-nav-menu-border: var(--nav-menu-border);
+  --color-landing-search-hover-border: var(--landing-search-hover-border);
+  --color-landing-search-focus-border: var(--landing-search-focus-border);
+  --color-landing-search-focus-ring: var(--landing-search-focus-ring);
+  --color-landing-personalized-line: var(--landing-personalized-line);
+  --color-landing-personalized-divider: var(--landing-personalized-divider);
+  --color-landing-personalized-row-hover: var(--landing-personalized-row-hover);
+  --color-landing-personalized-icon-start: var(--landing-personalized-icon-start);
+  --color-landing-personalized-icon-complete: var(--landing-personalized-icon-complete);
+  --color-landing-personalized-icon-locked: var(--landing-personalized-icon-locked);
+  --color-roadmap-item-create-border: var(--roadmap-item-create-border);
+  --color-roadmap-item-create-background: var(--roadmap-item-create-background);
+  --color-roadmap-item-create-hover-border: var(--roadmap-item-create-hover-border);
+  --color-roadmap-item-create-hover-background: var(--roadmap-item-create-hover-background);
+  --color-roadmap-item-border: var(--roadmap-item-border);
+  --color-roadmap-item-hover-border: var(--roadmap-item-hover-border);
+  --color-roadmap-item-hover-background: var(--roadmap-item-hover-background);
+  --shadow-personalized-card-inset: var(--personalized-card-inset);
 }
 
 :root {
@@ -159,6 +253,150 @@
       hsla(228, 96%, 89%, 0.3) 100%
     ),
     linear-gradient(90deg, hsla(0, 0%, 100%, 0.75) 0%, hsla(0, 0%, 100%, 0.75) 100%);
+  --gradient-rainbow-bar: linear-gradient(
+    90deg,
+    hsl(198, 92%, 73%) 0%,
+    hsl(230, 77%, 82%) 50%,
+    hsl(330, 79%, 80%) 100%
+  );
+  --gradient-landing-mask: linear-gradient(
+    100deg,
+    hsla(198, 92%, 73%, 0.1) 0%,
+    hsla(230, 77%, 82%, 0.1) 50%,
+    hsla(330, 79%, 80%, 0.1) 100%
+  );
+  --gradient-btn-primary: linear-gradient(
+    to bottom right,
+    hsl(278, 77%, 53%),
+    transparent,
+    hsl(243, 75%, 59%)
+  );
+  --gradient-roadmap-divider: linear-gradient(
+    90deg,
+    hsl(258, 19%, 69%) 0%,
+    hsla(258, 19%, 69%, 0.35) 10%,
+    transparent 100%
+  );
+  --gradient-nav-menu-underline: linear-gradient(
+    90deg,
+    hsla(262, 83%, 58%, 0) 10%,
+    hsla(260, 84%, 66%, 1) 50%,
+    hsla(262, 83%, 58%, 0) 90%
+  );
+  --gradient-nav-menu-glow: linear-gradient(0deg, hsla(262, 83%, 58%, 0.2) 0%, transparent 100%);
+  --roadmap-intro-card:
+    linear-gradient(
+      160.31deg,
+      rgb(255, 251, 235) 0%,
+      rgb(255, 247, 237) 50%,
+      rgb(251, 207, 232) 100%
+    ),
+    linear-gradient(90deg, hsla(0, 0%, 100%, 0.75) 0%, hsla(0, 0%, 100%, 0.75) 100%);
+  --roadmap-intro-branch: linear-gradient(
+    180deg,
+    hsla(351, 95%, 71%, 0.12),
+    hsla(351, 95%, 71%, 0.48),
+    hsla(351, 95%, 71%, 0.08)
+  );
+  --roadmap-page-hero:
+    radial-gradient(circle at 45% 0%, hsla(293, 80%, 90%, 0.24), transparent 34%),
+    radial-gradient(circle at 100% 0%, hsla(199, 89%, 85%, 0.18), transparent 24%),
+    radial-gradient(circle at 0% 0%, hsla(54, 93%, 73%, 0.08), transparent 18%);
+  --roadmap-page-promo: linear-gradient(
+    180deg,
+    hsla(276, 100%, 95%, 0.35),
+    hsla(0, 0%, 100%, 0.92)
+  );
+  --roadmap-page-promo-highlight: linear-gradient(
+    90deg,
+    hsla(198, 92%, 73%, 0.35),
+    hsla(230, 77%, 82%, 0.45),
+    hsla(330, 79%, 80%, 0.35)
+  );
+  --roadmap-intro-item-foreground: hsl(0, 0%, 0%);
+  --roadmap-connector-header: hsl(245, 79%, 59%);
+  --roadmap-connector-main: hsl(220, 39%, 11%);
+  --roadmap-connector-optional: hsl(142, 71%, 45%);
+  --roadmap-connector-required: hsl(262, 83%, 58%);
+  --roadmap-title-surface: hsl(0, 0%, 100%);
+  --roadmap-title-foreground: hsl(0, 0%, 0%);
+  --roadmap-hero-badge-surface: hsl(254, 91%, 97%);
+  --roadmap-hero-badge-foreground: hsl(262, 83%, 58%);
+  --roadmap-copy-subtle: hsla(263, 52%, 21%, 0.75);
+  --roadmap-ui-foreground: hsl(215, 28%, 17%);
+  --roadmap-intro-accent: hsl(330, 79%, 80%);
+  --roadmap-intro-row: hsl(199, 89%, 85%);
+  --roadmap-intro-heading: hsl(262, 52%, 21%);
+  --roadmap-intro-check-green: hsl(160, 84%, 39%);
+  --roadmap-intro-check-pink: hsl(331, 76%, 51%);
+  --roadmap-link-green: hsl(87, 53%, 39%);
+  --roadmap-link-purple: hsl(262, 83%, 58%);
+  --roadmap-link-badge-green-surface: hsl(87, 53%, 96%);
+  --roadmap-link-badge-green-border: hsla(87, 53%, 39%, 0.55);
+  --roadmap-link-badge-purple-surface: hsl(262, 100%, 97%);
+  --roadmap-link-badge-purple-border: hsla(262, 83%, 58%, 0.55);
+  --roadmap-link-stroke: hsl(0, 0%, 100%);
+  --roadmap-node-main: hsl(201, 79%, 79%);
+  --roadmap-node-skill: hsl(6, 79%, 82%);
+  --roadmap-node-skill-foreground: hsl(272, 15%, 27%);
+  --roadmap-panel-surface: hsl(0, 0%, 100%);
+  --roadmap-panel-border: hsl(240, 6%, 87%);
+  --roadmap-panel-overlay: hsla(215, 28%, 17%, 0.36);
+  --roadmap-panel-highlight: hsl(54, 93%, 60%);
+  --roadmap-panel-highlight-foreground: hsl(0, 0%, 7%);
+  --roadmap-panel-info-surface: hsl(214, 100%, 97%);
+  --roadmap-panel-info-border: hsl(217, 91%, 60%);
+  --roadmap-panel-info-foreground: hsl(217, 91%, 60%);
+  --roadmap-panel-success-surface: hsl(138, 76%, 97%);
+  --roadmap-panel-success-border: hsl(142, 71%, 45%);
+  --roadmap-panel-success-foreground: hsl(142, 76%, 36%);
+  --roadmap-panel-muted: hsl(220, 9%, 46%);
+  --roadmap-promo-copy: hsl(268, 18%, 44%);
+  --roadmap-promo-heading: hsl(273, 44%, 15%);
+  --roadmap-selection-ring: hsla(262, 83%, 58%, 0.5);
+  --roadmap-logic-grid-dot: hsla(215, 16%, 47%, 0.14);
+  --roadmap-logic-surface: hsl(220, 33%, 98%);
+  --roadmap-logic-title-shadow: 0 1px 2px 0 hsla(222, 47%, 11%, 0.05);
+  --roadmap-link-shadow: 0 0 0 3px hsl(0, 0%, 100%), 0 8px 18px hsla(220, 39%, 11%, 0.18);
+  --roadmap-intro-inset: inset 0 0 0 1px hsla(267, 67%, 35%, 0.1);
+  --roadmap-node-skill-shadow: 0 5px 0 hsla(220, 39%, 11%, 0.08);
+  --roadmap-panel-shadow: -24px 0 64px hsla(215, 28%, 17%, 0.08);
+  --roadmap-promo-image-shadow: 0 20px 30px hsla(262, 83%, 58%, 0.18);
+  --roadmap-promo-card-shadow: 0 24px 80px hsla(245, 20%, 17%, 0.06);
+  --roadmap-promo-card-surface: hsla(0, 0%, 100%, 0.7);
+  --contact-body: hsla(0, 0%, 100%, 0.72);
+  --category-pill-border: hsla(262, 83%, 58%, 0.15);
+  --header-cta-border: hsla(0, 0%, 100%, 0.5);
+  --footer-copy: hsl(220, 9%, 67%);
+  --landing-roadmap-divider-fill: hsl(258, 19%, 69%);
+  --landing-hero-underline-start: hsl(270, 89%, 76%);
+  --landing-hero-underline-end: hsl(255, 77%, 64%);
+  --landing-hero-gradient-blue-start: hsl(234, 100%, 50%);
+  --landing-hero-gradient-blue-end: hsl(162, 70%, 67%);
+  --landing-hero-gradient-warm-start: hsl(45, 100%, 62%);
+  --landing-hero-gradient-warm-mid: hsl(328, 100%, 50%);
+  --landing-hero-gradient-warm-end: hsl(263, 100%, 50%);
+  --nav-menu-trigger-hover: hsl(263, 70%, 50%);
+  --nav-menu-trigger-focus: hsl(260, 84%, 66%);
+  --nav-menu-border: hsla(0, 0%, 100%, 0.5);
+  --landing-search-hover-border: hsla(262, 83%, 58%, 0.3);
+  --landing-search-focus-border: hsla(262, 83%, 58%, 0.5);
+  --landing-search-focus-ring: hsla(262, 83%, 58%, 0.1);
+  --landing-personalized-line: hsla(330, 79%, 80%, 0.2);
+  --landing-personalized-divider: hsla(230, 77%, 82%, 0.6);
+  --landing-personalized-row-hover: hsla(220, 33%, 98%, 0.5);
+  --landing-personalized-icon-start: hsl(230, 76%, 60%);
+  --landing-personalized-icon-complete: hsl(160, 84%, 39%);
+  --landing-personalized-icon-locked: hsl(347, 77%, 62%);
+  --roadmap-item-create-border: hsla(262, 83%, 58%, 0.2);
+  --roadmap-item-create-background: hsla(262, 83%, 58%, 0.05);
+  --roadmap-item-create-hover-border: hsla(262, 83%, 58%, 0.4);
+  --roadmap-item-create-hover-background: hsla(262, 83%, 58%, 0.1);
+  --roadmap-item-border: hsla(261, 69%, 42%, 0.08);
+  --roadmap-item-hover-border: hsla(261, 69%, 42%, 0.2);
+  --roadmap-item-hover-background: hsl(220, 33%, 98%);
+  --personalized-card-inset:
+    inset 0 0 0 1px hsla(267, 67%, 35%, 0.1), inset 0 0 0 0 hsl(0, 0%, 100%);
 }
 
 .dark {
@@ -226,12 +464,7 @@
     box-shadow: 0 0 0 1px var(--color-btn-purple-inner-shadow) inset;
     text-shadow: 0px 1px 3px var(--tw-text-shadow-color);
     background-color: var(--color-primary);
-    background-image: linear-gradient(
-      to bottom right,
-      hsl(278, 77%, 53%),
-      transparent,
-      hsl(243, 75%, 59%)
-    );
+    background-image: var(--color-gradient-btn-primary);
   }
 
   .btn-purple:hover {
@@ -256,8 +489,26 @@
   }
 
   .nav-menu-effect {
-    @apply rounded-full border border-white/50 px-6 shadow-sm;
+    @apply rounded-full px-6 shadow-sm;
+    border: 1px solid var(--color-nav-menu-border);
     background-image: var(--color-gradient-cta-pill);
+  }
+
+  .nav-menu-item-underline {
+    background-image: var(--color-gradient-nav-menu-underline);
+  }
+
+  .nav-menu-item-glow {
+    background-image: var(--color-gradient-nav-menu-glow);
+  }
+
+  .nav-menu-trigger-accent {
+    transition: color 200ms ease;
+  }
+
+  .group:hover .nav-menu-trigger-accent,
+  .group:focus-within .nav-menu-trigger-accent {
+    color: var(--color-nav-menu-trigger-hover);
   }
 
   .text-hero {
@@ -310,5 +561,111 @@
     &::-webkit-scrollbar-thumb {
       background-color: var(--color-border);
     }
+  }
+
+  .text-contact-title {
+    font-family: var(--font-heading);
+    font-weight: 500;
+    color: var(--color-primary-foreground);
+    font-size: 3rem;
+    line-height: 1.2;
+    letter-spacing: -1.2px;
+  }
+
+  .text-contact-body {
+    color: var(--color-contact-body);
+  }
+
+  .category-pill-shell {
+    border: 1px solid var(--color-category-pill-border);
+    background-image: var(--color-gradient-category-pill);
+  }
+
+  .landing-rainbow-bar {
+    background-image: var(--color-gradient-rainbow-bar);
+    filter: blur(32px);
+  }
+
+  .landing-mask-surface {
+    background-image: var(--color-gradient-landing-mask);
+    -webkit-mask-image: linear-gradient(to bottom, black 75%, transparent);
+    mask-image: linear-gradient(to bottom, black 75%, transparent);
+  }
+
+  .landing-personalized-card {
+    background-image: var(--color-gradient-cta-pill);
+  }
+
+  .landing-personalized-card-inset {
+    box-shadow: var(--shadow-personalized-card-inset);
+  }
+
+  .landing-personalized-line {
+    background: var(--color-landing-personalized-line);
+  }
+
+  .landing-personalized-row {
+    border-bottom: 1px solid var(--color-landing-personalized-divider);
+  }
+
+  .landing-personalized-row:hover {
+    background: var(--color-landing-personalized-row-hover);
+  }
+
+  .landing-roadmap-divider {
+    background-image: var(--color-gradient-roadmap-divider);
+  }
+
+  .landing-search-shell {
+    background-image: var(--color-gradient-search-bar);
+  }
+
+  .landing-search-shell:hover {
+    border-color: var(--color-landing-search-hover-border);
+  }
+
+  .landing-search-shell:focus-within {
+    border-color: var(--color-landing-search-focus-border);
+    box-shadow: 0 0 0 4px var(--color-landing-search-focus-ring);
+  }
+
+  .landing-roadmap-item-create {
+    border-color: var(--color-roadmap-item-create-border);
+    background: var(--color-roadmap-item-create-background);
+  }
+
+  .landing-roadmap-item-create:hover {
+    border-color: var(--color-roadmap-item-create-hover-border);
+    background: var(--color-roadmap-item-create-hover-background);
+  }
+
+  .landing-roadmap-item-default {
+    border-color: var(--color-roadmap-item-border);
+  }
+
+  .landing-roadmap-item-default:hover {
+    border-color: var(--color-roadmap-item-hover-border);
+    background: var(--color-roadmap-item-hover-background);
+  }
+
+  .surface-frosted {
+    background: color-mix(in srgb, var(--color-background) 50%, transparent);
+  }
+
+  .surface-roadmap-grid {
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      var(--color-roadmap-logic-grid-dot) 1px,
+      transparent 0
+    );
+    background-size: 24px 24px;
+  }
+
+  .text-roadmap-page-title {
+    color: var(--color-foreground);
+  }
+
+  .text-roadmap-page-subtitle {
+    color: var(--color-muted-foreground);
   }
 }

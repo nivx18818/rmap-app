@@ -51,9 +51,9 @@ function NavigationMenuItem({
       className={cn('group relative', className)}
       {...props}
     >
-      <span className="absolute inset-x-1 -bottom-0.5 h-px scale-x-0 bg-linear-to-r from-violet-500/0 from-10% via-violet-400 to-violet-500/0 to-90% opacity-0 transition duration-300 group-hover:scale-x-100 group-hover:opacity-100"></span>
+      <span className="nav-menu-item-underline absolute inset-x-1 -bottom-0.5 h-px scale-x-0 opacity-0 transition duration-300 group-hover:scale-x-100 group-hover:opacity-100"></span>
       <span className="absolute inset-0 origin-bottom scale-0 overflow-hidden opacity-0 transition duration-300 group-hover:scale-100 group-hover:opacity-100">
-        <span className="absolute inset-x-4 -bottom-2 h-full rounded-t-full bg-linear-to-t from-violet-500/20 to-transparent blur"></span>
+        <span className="nav-menu-item-glow absolute inset-x-4 -bottom-2 h-full rounded-t-full blur"></span>
       </span>
       {props.children}
     </NavigationMenuPrimitive.Item>
@@ -61,7 +61,7 @@ function NavigationMenuItem({
 }
 
 const navigationMenuTriggerStyle = cva(
-  'group/navigation-menu-trigger inline-flex h-fit w-max items-center justify-center rounded-full px-4 py-2 text-base font-medium transition-all outline-none hover:bg-transparent focus-visible:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 data-popup-open:bg-transparent data-popup-open:hover:bg-transparent data-open:bg-transparent data-open:hover:bg-transparent data-open:focus:bg-transparent relative flex items-center justify-items-center whitespace-nowrap transition-colors group-hover:text-violet-600 group-focus-within-text-violet-400',
+  'nav-menu-trigger-accent group/navigation-menu-trigger inline-flex h-fit w-max items-center justify-center rounded-full px-4 py-2 text-base font-medium transition-all outline-none hover:bg-transparent focus-visible:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 data-popup-open:bg-transparent data-popup-open:hover:bg-transparent data-open:bg-transparent data-open:hover:bg-transparent data-open:focus:bg-transparent relative flex items-center justify-items-center whitespace-nowrap transition-colors',
 );
 
 function NavigationMenuTrigger({
@@ -133,7 +133,7 @@ function NavigationMenuLink({ className, ...props }: NavigationMenuPrimitive.Lin
     <NavigationMenuPrimitive.Link
       data-slot="navigation-menu-link"
       className={cn(
-        'group/navigation-menu-trigger focus-visible:bg-muted focus-visible:ring-ring/50 group-focus-within-text-violet-400 relative inline-flex h-fit w-max items-center justify-center justify-items-center rounded-full px-4 py-2 text-base font-medium whitespace-nowrap transition-all outline-none group-hover:text-violet-600 hover:bg-transparent focus-visible:ring-3 focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 data-open:bg-transparent data-open:hover:bg-transparent data-open:focus:bg-transparent data-popup-open:bg-transparent data-popup-open:hover:bg-transparent',
+        'nav-menu-trigger-accent group/navigation-menu-trigger focus-visible:bg-muted focus-visible:ring-ring/50 relative inline-flex h-fit w-max items-center justify-center justify-items-center rounded-full px-4 py-2 text-base font-medium whitespace-nowrap transition-all outline-none hover:bg-transparent focus-visible:ring-3 focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 data-open:bg-transparent data-open:hover:bg-transparent data-open:focus:bg-transparent data-popup-open:bg-transparent data-popup-open:hover:bg-transparent',
         className,
       )}
       {...props}

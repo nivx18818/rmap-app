@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from 'react';
 
-import type { RoadmapLayout } from '@/lib/data/roadmaps/frontend-roadmap.layout';
-import type { RoadmapLogic } from '@/lib/data/roadmaps/frontend-roadmap.logic';
+import type { MockRoadmapLayout, MockRoadmapLogic } from '@/lib/data/roadmaps/roadmap-mock.types';
 import type {
   NodeStatus,
   RoadmapGraphNode,
@@ -14,11 +13,11 @@ import type {
 
 import { RoadmapNodePanel } from '@/components/roadmap/roadmap-node-panel';
 
-import { RoadmapLogicLayoutGraph } from './roadmap-logic-layout-graph';
+import { RoadmapGraphCanvas } from './roadmap-graph-canvas';
 
-interface InteractiveRoadmapGraphProps {
-  layout: RoadmapLayout;
-  logic: RoadmapLogic;
+interface RoadmapGraphContainerProps {
+  layout: MockRoadmapLayout;
+  logic: MockRoadmapLogic;
   nodePanel: RoadmapNodePanelData;
   theme: RoadmapTheme;
 }
@@ -44,12 +43,12 @@ function buildFallbackPanelDetail(
   };
 }
 
-export function InteractiveRoadmapGraph({
+export function RoadmapGraphContainer({
   layout,
   logic,
   nodePanel,
   theme,
-}: InteractiveRoadmapGraphProps) {
+}: RoadmapGraphContainerProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   const graphNodeById = useMemo(() => {
@@ -85,13 +84,14 @@ export function InteractiveRoadmapGraph({
 
   return (
     <>
-      <RoadmapLogicLayoutGraph
+      <RoadmapGraphCanvas
         layout={layout}
         activeNodeId={selectedNodeId}
         logic={logic}
         onNodeSelect={(nodeId) => {
           setSelectedNodeId((currentNodeId) => (currentNodeId === nodeId ? null : nodeId));
         }}
+        theme={theme}
       />
 
       {selectedNode ? (

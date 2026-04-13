@@ -74,8 +74,9 @@ export function RoadmapIntroCard({
                   }}
                 />
                 <div
-                  className="absolute text-black"
+                  className="absolute"
                   style={{
+                    color: theme.introCard.typography.itemColor,
                     left: theme.introCard.illustration.trackLeft,
                     top: theme.introCard.illustration.iconTop,
                   }}
@@ -88,10 +89,11 @@ export function RoadmapIntroCard({
                 </div>
                 <div
                   className={cn(
-                    'absolute top-1/2 -translate-y-1/2 text-black',
+                    'absolute top-1/2 -translate-y-1/2',
                     item.variant === 'map' ? 'font-semibold' : 'font-medium',
                   )}
                   style={{
+                    color: theme.introCard.typography.itemColor,
                     fontSize: theme.introCard.typography.itemFontSize,
                     left: theme.introCard.illustration.textLeft,
                     lineHeight: theme.introCard.typography.itemLineHeight,

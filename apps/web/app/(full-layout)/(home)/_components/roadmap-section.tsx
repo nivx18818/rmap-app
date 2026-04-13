@@ -51,10 +51,15 @@ export function RoadmapSection() {
               personalized path.
             </p>
 
-            {/* Slash line (Decoration) */}
             <div className="flex h-1 w-full flex-col justify-end pt-4">
-              <div className="block h-1 w-full bg-linear-to-r from-[#a39ac1] via-[#a39ac1]/35 via-10% to-transparent">
-                <svg className="-mt-px fill-[#a39ac1]" width="6" height="3" viewBox="0 0 6 3">
+              <div className="landing-roadmap-divider block h-1 w-full">
+                <svg
+                  className="-mt-px"
+                  style={{ fill: 'var(--color-landing-roadmap-divider-fill)' }}
+                  width="6"
+                  height="3"
+                  viewBox="0 0 6 3"
+                >
                   <path d="M2.594 2.525A1.501 1.501 0 112.635.519c.274.295.665.479 1.098.479H6v1.004H3.733a1.5 1.5 0 00-1.108.489l-.017.02-.013.015-.001-.001z" />
                 </svg>
               </div>
@@ -78,13 +83,8 @@ export function RoadmapSection() {
         <div className="flex w-full flex-col items-center gap-12">
           {/* Search Bar Container */}
           <div className="flex w-full items-center justify-center px-4 sm:px-25 md:px-50 lg:px-72">
-            <div
-              className="group/search border-border relative h-12 w-full max-w-140 shrink-0 rounded-full border p-px shadow-sm transition-all duration-300 focus-within:border-violet-500/50 focus-within:ring-4 focus-within:ring-violet-500/10 hover:border-violet-500/30"
-              style={{
-                backgroundImage: 'var(--color-gradient-search-bar)',
-              }}
-            >
-              <div className="bg-background/50 flex size-full items-center overflow-hidden rounded-full pr-5 pl-11.5 backdrop-blur-sm">
+            <div className="landing-search-shell group/search border-border relative h-12 w-full max-w-140 shrink-0 rounded-full border p-px shadow-sm transition-all duration-300">
+              <div className="surface-frosted flex size-full items-center overflow-hidden rounded-full pr-5 pl-11.5 backdrop-blur-sm">
                 <input
                   className="peer text-muted-foreground placeholder:text-muted-foreground focus:text-foreground size-full bg-transparent text-base font-light outline-hidden"
                   placeholder="Search roadmap titles..."

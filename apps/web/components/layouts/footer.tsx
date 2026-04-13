@@ -16,7 +16,10 @@ export function Footer() {
             RMap
           </span>
         </div>
-        <p className="flex items-center justify-center pt-1 text-sm text-slate-400">
+        <p
+          className="flex items-center justify-center pt-1 text-sm"
+          style={{ color: 'var(--color-footer-copy)' }}
+        >
           Copyright © 2026 RMap Team
         </p>
       </SectionContainer>

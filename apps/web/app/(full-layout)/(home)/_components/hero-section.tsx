@@ -44,7 +44,7 @@ export function HeroSection() {
               <span className="text-hero">fearlessly</span>
               {/* Wavy underline */}
               <svg
-                className="absolute inset-x-0 -bottom-1 -z-10 h-3 w-full text-purple-400 sm:-bottom-0.5 lg:bottom-0"
+                className="absolute inset-x-0 -bottom-1 -z-10 h-3 w-full sm:-bottom-0.5 lg:bottom-0"
                 aria-hidden="true"
                 height="12"
                 preserveAspectRatio="none"
@@ -58,8 +58,8 @@ export function HeroSection() {
                 </g>
                 <defs>
                   <linearGradient id="underline-gradient" x1="50%" x2="50%" y1="0%" y2="100%">
-                    <stop offset="0%" stopColor="#C084FC" />
-                    <stop offset="95%" stopColor="#795BE9" />
+                    <stop offset="0%" stopColor="var(--color-landing-hero-underline-start)" />
+                    <stop offset="95%" stopColor="var(--color-landing-hero-underline-end)" />
                   </linearGradient>
                 </defs>
               </svg>

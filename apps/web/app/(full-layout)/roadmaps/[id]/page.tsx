@@ -1,42 +1,89 @@
 import { notFound } from 'next/navigation';
 
+import type { MockRoadmapLayout, MockRoadmapLogic } from '@/lib/data/roadmaps/roadmap-mock.types';
+import type { RoadmapTheme } from '@/types/roadmap';
+
 import { RoadmapIntroCard } from '@/components/roadmap/roadmap-intro-card';
-import { frontendRoadmapLayout } from '@/lib/data/roadmaps/frontend-roadmap.layout';
-import { frontendRoadmapLogic } from '@/lib/data/roadmaps/frontend-roadmap.logic';
-import { mockRoadmapPageContentBySlug } from '@/lib/data/roadmaps/roadmap-page-content';
 import { mockRoadmapThemeBySlug } from '@/lib/data/roadmaps/roadmap-themes';
 
-import { InteractiveRoadmapGraph } from '../_components/interactive-roadmap-graph';
+import { RoadmapGraphContainer } from '../_components/roadmap-graph-container';
+
+interface MockRoadmapRouteData {
+  layout: MockRoadmapLayout;
+  logic: MockRoadmapLogic;
+  theme: RoadmapTheme;
+}
+
+async function loadMockRoadmapRouteData(id: string): Promise<MockRoadmapRouteData | null> {
+  const theme = mockRoadmapThemeBySlug[id];
+
+  if (!theme) {
+    return null;
+  }
+
+  try {
+    const [layoutModule, logicModule] = await Promise.all([
+      import(`@/lib/data/roadmaps/${id}-roadmap.layout`) as Promise<{
+        default: MockRoadmapLayout;
+      }>,
+      import(`@/lib/data/roadmaps/${id}-roadmap.logic`) as Promise<{ default: MockRoadmapLogic }>,
+    ]);
+
+    const layout = layoutModule.default;
+    const logic = logicModule.default;
+
+    if (!layout || !logic) {
+      return null;
+    }
+
+    if (layout.roadmapId !== id || logic.roadmapId !== id) {
+      return null;
+    }
+
+    return {
+      layout,
+      logic,
+      theme,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function generateStaticParams() {
+  return Object.keys(mockRoadmapThemeBySlug).map((id) => ({ id }));
+}
 
 export default async function RoadmapDetailPage(props: PageProps<'/roadmaps/[id]'>) {
   const { id } = await props.params;
-  const frontendPageContent = mockRoadmapPageContentBySlug.frontend;
-  const frontendTheme = mockRoadmapThemeBySlug.frontend;
+  const routeData = await loadMockRoadmapRouteData(id);
 
-  if (id !== frontendRoadmapLogic.roadmapId || !frontendPageContent || !frontendTheme) {
+  if (!routeData) {
     notFound();
   }
+
+  const { layout, logic, theme } = routeData;
 
   return (
     <main className="mx-auto max-w-400 px-4 py-6 sm:px-6 lg:px-8">
       <section className="mb-5">
-        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-          {frontendRoadmapLogic.title}
+        <h1 className="text-roadmap-page-title text-3xl font-extrabold tracking-tight sm:text-4xl">
+          {logic.title}
         </h1>
-        <p className="mt-2 max-w-4xl text-xs text-slate-600 sm:text-sm">
-          {frontendRoadmapLogic.description}
+        <p className="text-roadmap-page-subtitle mt-2 max-w-4xl text-xs sm:text-sm">
+          {logic.description}
         </p>
       </section>
 
       <section className="mb-6">
-        <RoadmapIntroCard {...frontendPageContent.introCard} theme={frontendTheme} />
+        <RoadmapIntroCard {...logic.introCard} theme={theme} />
       </section>
 
-      <InteractiveRoadmapGraph
-        layout={frontendRoadmapLayout}
-        logic={frontendRoadmapLogic}
-        nodePanel={frontendPageContent.nodePanel}
-        theme={frontendTheme}
+      <RoadmapGraphContainer
+        layout={layout}
+        logic={logic}
+        nodePanel={logic.nodePanel}
+        theme={theme}
       />
     </main>
   );

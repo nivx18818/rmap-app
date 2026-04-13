@@ -93,24 +93,6 @@ export interface ApiRoadmapResponse {
   user_id: UUID | null;
 }
 
-export interface RoadmapHeroData {
-  allRoadmapsLabel: string;
-  backHref: string;
-  description: string;
-  downloadLabel: string;
-  progressHint: string;
-  progressLabel: string;
-  trackProgressLabel: string;
-}
-
-export interface RoadmapHeroCopy {
-  allRoadmapsLabel: string;
-  backHref: string;
-  downloadLabel: string;
-  progressHint: string;
-  trackProgressLabel: string;
-}
-
 export interface RoadmapIntroCardItem {
   id: string;
   label: string;
@@ -123,21 +105,6 @@ export interface RoadmapIntroCardData {
   ctaLabel: string;
   description: string;
   items: RoadmapIntroCardItem[];
-  title: string;
-}
-
-export interface RoadmapPromoCardData {
-  ctaHref: string;
-  ctaLabel: string;
-  description: string;
-  imageAlt: string;
-  imageSrc: string;
-  title: string;
-}
-
-export interface RoadmapGraphData {
-  illustrationAlt: string;
-  illustrationSrc: string;
   title: string;
 }
 
@@ -193,6 +160,7 @@ export interface RoadmapTheme {
   };
   graph: {
     card: {
+      background: string;
       borderRadius: string;
       maxWidth: string;
       paddingBottom: string;
@@ -223,6 +191,7 @@ export interface RoadmapTheme {
       marginBottom: string;
       maxWidth: string;
       stemHeight: string;
+      stemMarginBottom: string;
       stemWidth: string;
       typography: {
         color: string;
@@ -232,37 +201,7 @@ export interface RoadmapTheme {
         paddingX: string;
       };
     };
-  };
-  hero: {
-    badge: {
-      background: string;
-      color: string;
-      paddingX: string;
-      paddingY: string;
-      radius: string;
-    };
-    container: { gap: string; maxWidth: string; paddingX: string; paddingY: string };
-    progressRow: { gap: string; hintGap: string; minHeight: string; metaGap: string };
-    toolbar: {
-      buttonHeight: string;
-      buttonPaddingX: string;
-      gap: string;
-      iconButtonWidth: string;
-      radius: string;
-    };
-    typography: {
-      backlinkColor: string;
-      bodyFontSize: string;
-      descriptionColor: string;
-      descriptionLineHeight: string;
-      hintColor: string;
-      progressFontSize: string;
-      progressLineHeight: string;
-      titleColor: string;
-      titleLineHeight: string;
-      titleSize: string;
-      uiTextColor: string;
-    };
+    selectionRingColor: string;
   };
   introCard: {
     card: {
@@ -298,13 +237,25 @@ export interface RoadmapTheme {
       headingLetterSpacing: string;
       headingLineHeight: string;
       headingSize: string;
+      itemColor: string;
       itemFontSize: string;
       itemLineHeight: string;
     };
   };
   icon: {
     introCheck: { green: string; pink: string };
-    roadmapLink: { green: string; purple: string; shadow: string; size: string; stroke: string };
+    roadmapLink: {
+      badgeGreenBorder: string;
+      badgeGreenSurface: string;
+      badgePurpleBorder: string;
+      badgePurpleSurface: string;
+      badgeSize: string;
+      green: string;
+      purple: string;
+      shadow: string;
+      size: string;
+      stroke: string;
+    };
   };
   node: {
     main: {
@@ -396,53 +347,6 @@ export interface RoadmapTheme {
       titleSize: string;
     };
   };
-  page: {
-    heroBackground: string;
-    heroBackgroundHeight: string;
-    mainPaddingTop: string;
-    promoBackground: string;
-    promoBlur: string;
-    promoHighlight: { background: string; height: string; maxWidth: string; rotate: string };
-    sectionGap: string;
-    sectionPaddingBottom: string;
-    sectionPaddingTop: string;
-  };
-  promoCard: {
-    card: {
-      background: string;
-      borderColor: string;
-      borderRadius: string;
-      borderWidth: string;
-      gridColumns: string;
-      padding: string;
-      shadow: string;
-    };
-    image: { dropShadow: string; height: string; maxWidth: string };
-    typography: {
-      bodyColor: string;
-      headingColor: string;
-      headingLetterSpacing: string;
-      headingLineHeight: string;
-      headingSize: string;
-    };
-  };
-}
-
-export interface RoadmapPageData {
-  graph: RoadmapGraphData;
-  hero: RoadmapHeroCopy;
-  introCard: RoadmapIntroCardData;
-  nodePanel: RoadmapNodePanelData;
-  promoCard: RoadmapPromoCardData;
-  theme: RoadmapTheme;
-}
-
-export interface RoadmapPageContentData {
-  graph: RoadmapGraphData;
-  hero: RoadmapHeroCopy;
-  introCard: RoadmapIntroCardData;
-  nodePanel: RoadmapNodePanelData;
-  promoCard: RoadmapPromoCardData;
 }
 
 export interface NodeProgress {
@@ -461,14 +365,6 @@ export interface RoadmapProgress {
   nodes: NodeProgress[];
   roadmap_id: UUID;
   total_nodes: number;
-}
-
-export interface RoadmapWebModel {
-  graphNodes: RoadmapGraphNode[];
-  hero: RoadmapHeroData;
-  progress: RoadmapProgress | null;
-  roadmap: RoadmapWithNodes;
-  ui: RoadmapPageData;
 }
 
 export interface Resource {

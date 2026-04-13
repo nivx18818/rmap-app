@@ -14,8 +14,8 @@ export function RainbowBar({ className, rotate = 3 }: RainbowBarProps) {
       )}
       aria-hidden="true"
     >
-      <div className={`rotate-${rotate} h-full w-full`}>
-        <div className="h-full w-full bg-linear-to-r from-[#7dd3fc] via-[#a5b4fc] to-[#f9a8d4] blur-[32px]" />
+      <div className="h-full w-full" style={{ transform: `rotate(${rotate}deg)` }}>
+        <div className="landing-rainbow-bar h-full w-full" />
       </div>
     </div>
   );

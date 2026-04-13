@@ -7,7 +7,6 @@ import { mockRoadmapPageContentBySlug } from '@/lib/data/roadmaps/roadmap-page-c
 import { mockRoadmapThemeBySlug } from '@/lib/data/roadmaps/roadmap-themes';
 
 import { InteractiveRoadmapGraph } from '../_components/interactive-roadmap-graph';
-import { RoadmapLogicLayoutGraph } from '../_components/roadmap-logic-layout-graph';
 
 export default function FrontendRoadmapRoute() {
   const frontendPageContent = mockRoadmapPageContentBySlug.frontend;

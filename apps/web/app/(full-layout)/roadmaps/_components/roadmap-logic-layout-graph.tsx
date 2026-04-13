@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import type { RoadmapLayout } from '@/lib/data/roadmaps/frontend-roadmap.layout';
@@ -52,32 +53,6 @@ function getAnchorPoint(box: NodeBox, anchor: Anchor) {
   }
 
   return { x: box.x + box.width / 2, y: box.y + box.height };
-}
-
-function buildOrthogonalPath(
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-  from: Anchor,
-  to: Anchor,
-) {
-  const sameX = Math.abs(start.x - end.x) < 1;
-  const sameY = Math.abs(start.y - end.y) < 1;
-
-  if (sameX || sameY) {
-    return `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
-  }
-
-  if ((from === 'left' || from === 'right') && (to === 'left' || to === 'right')) {
-    const midX = (start.x + end.x) / 2;
-    return `M ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${end.y} L ${end.x} ${end.y}`;
-  }
-
-  if ((from === 'top' || from === 'bottom') && (to === 'top' || to === 'bottom')) {
-    const midY = (start.y + end.y) / 2;
-    return `M ${start.x} ${start.y} L ${start.x} ${midY} L ${end.x} ${midY} L ${end.x} ${end.y}`;
-  }
-
-  return `M ${start.x} ${start.y} L ${start.x} ${end.y} L ${end.x} ${end.y}`;
 }
 
 function buildSmoothSkillPath(from: { x: number; y: number }, to: { x: number; y: number }) {
@@ -267,10 +242,13 @@ export function RoadmapLogicLayoutGraph({
             className="absolute top-0 left-0 origin-top-left"
             style={{ height, transform: `scale(${scale})`, width }}
           >
-            <img
+            <Image
               className="pointer-events-none absolute top-10 left-9 h-80.5 w-86 opacity-80"
-              src={GRAPH_ILLUSTRATION.src}
               alt={GRAPH_ILLUSTRATION.alt}
+              src={GRAPH_ILLUSTRATION.src}
+              height={322}
+              width={344}
+              unoptimized
             />
             <svg
               className="pointer-events-none absolute inset-0"

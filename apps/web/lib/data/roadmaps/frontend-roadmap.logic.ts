@@ -7,7 +7,6 @@ export type RoadmapLogicNode = {
   parentId: string | null;
   sortOrder: number;
   relationType?: RelationType;
-  groupKey?: string;
 };
 export type RoadmapLogic = {
   description: string;
@@ -27,7 +26,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'title',
       parentId: null,
       sortOrder: 0,
-      groupKey: 'root',
     },
     // Fundamentals: Internet
     {
@@ -36,7 +34,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'frontend-title',
       sortOrder: 1,
-      groupKey: 'internet',
     },
     {
       id: 'yCnn-NfSxIybUQ2iTuUGq',
@@ -45,7 +42,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'VlNNwIEDWqQXtqkHWJYzC',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'internet',
     },
     {
       id: 'R12sArWVpbIs_PHxBqVaR',
@@ -54,7 +50,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'VlNNwIEDWqQXtqkHWJYzC',
       sortOrder: 2,
       relationType: 'required',
-      groupKey: 'internet',
     },
     {
       id: 'ZhSuu2VArnzPDp6dPQQSC',
@@ -63,7 +58,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'VlNNwIEDWqQXtqkHWJYzC',
       sortOrder: 3,
       relationType: 'required',
-      groupKey: 'internet',
     },
     {
       id: 'aqMaEY8gkKMikiqleV5EP',
@@ -72,7 +66,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'VlNNwIEDWqQXtqkHWJYzC',
       sortOrder: 4,
       relationType: 'required',
-      groupKey: 'internet',
     },
     {
       id: 'yWG2VUkaF5IJVVut6AiSy',
@@ -80,7 +73,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'VlNNwIEDWqQXtqkHWJYzC',
       sortOrder: 2,
-      groupKey: 'html',
     },
     {
       id: 'PCirR2QiFYO89Fm-Ev3o1',
@@ -89,7 +81,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'yWG2VUkaF5IJVVut6AiSy',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'html',
     },
     {
       id: 'z8-556o-PaHXjlytrawaF',
@@ -98,7 +89,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'yWG2VUkaF5IJVVut6AiSy',
       sortOrder: 2,
       relationType: 'required',
-      groupKey: 'html',
     },
     {
       id: 'V5zucKEHnIPPjwHqsMPHF',
@@ -107,7 +97,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'yWG2VUkaF5IJVVut6AiSy',
       sortOrder: 3,
       relationType: 'required',
-      groupKey: 'html',
     },
     {
       id: 'iJIqi7ngpGHWAqtgdjgxB',
@@ -116,7 +105,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'yWG2VUkaF5IJVVut6AiSy',
       sortOrder: 4,
       relationType: 'required',
-      groupKey: 'html',
     },
     {
       id: 'mH_qff8R7R6eLQ1tPHLgG',
@@ -125,7 +113,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'yWG2VUkaF5IJVVut6AiSy',
       sortOrder: 5,
       relationType: 'optional',
-      groupKey: 'html',
     },
     {
       id: 'ZhJhf1M2OphYbEmduFq-9',
@@ -133,7 +120,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'yWG2VUkaF5IJVVut6AiSy',
       sortOrder: 3,
-      groupKey: 'css',
     },
     {
       id: 'YFjzPKWDwzrgk2HUX952L',
@@ -142,7 +128,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'ZhJhf1M2OphYbEmduFq-9',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'css',
     },
     {
       id: 'dXeYVMXv-3MRQ1ovOUuJW',
@@ -151,7 +136,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'ZhJhf1M2OphYbEmduFq-9',
       sortOrder: 2,
       relationType: 'required',
-      groupKey: 'css',
     },
     {
       id: 'TKtWmArHn7elXRJdG6lDQ',
@@ -160,7 +144,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'ZhJhf1M2OphYbEmduFq-9',
       sortOrder: 3,
       relationType: 'required',
-      groupKey: 'css',
     },
     {
       id: 'ODcfFEorkfJNupoQygM53',
@@ -168,7 +151,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'ZhJhf1M2OphYbEmduFq-9',
       sortOrder: 4,
-      groupKey: 'javascript',
     },
     {
       id: 'wQSjQqwKHfn5RGPk34BWI',
@@ -177,7 +159,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'ODcfFEorkfJNupoQygM53',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'javascript',
     },
     {
       id: '0MAogsAID9R04R5TTO2Qa',
@@ -186,7 +167,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'ODcfFEorkfJNupoQygM53',
       sortOrder: 2,
       relationType: 'required',
-      groupKey: 'javascript',
     },
     {
       id: 'A4brX0efjZ0FFPTB4r6U0',
@@ -195,7 +175,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'ODcfFEorkfJNupoQygM53',
       sortOrder: 3,
       relationType: 'required',
-      groupKey: 'javascript',
     },
     {
       id: 'NIY7c4TQEEHx0hATu-k5C',
@@ -203,7 +182,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'ODcfFEorkfJNupoQygM53',
       sortOrder: 5,
-      groupKey: 'version-control',
     },
     {
       id: 'R_I4SGYqLk5zze5I1zS_E',
@@ -212,7 +190,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'NIY7c4TQEEHx0hATu-k5C',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'version-control',
     },
     {
       id: 'MXnFhZlNB1zTsBFDyni9H',
@@ -220,7 +197,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'NIY7c4TQEEHx0hATu-k5C',
       sortOrder: 6,
-      groupKey: 'repo-hosting',
     },
     {
       id: 'qmTVMJDsEhNIkiwE_UTYu',
@@ -229,7 +205,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'MXnFhZlNB1zTsBFDyni9H',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'repo-hosting',
     },
     {
       id: 'zIoSJMX3cuzCgDYHjgbEh',
@@ -238,7 +213,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'MXnFhZlNB1zTsBFDyni9H',
       sortOrder: 2,
       relationType: 'optional',
-      groupKey: 'repo-hosting',
     },
     {
       id: 'IqvS1V-98cxko3e9sBQgP',
@@ -246,7 +220,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'MXnFhZlNB1zTsBFDyni9H',
       sortOrder: 7,
-      groupKey: 'package-managers',
     },
     {
       id: 'ib_FHinhrw8VuSet-xMF7',
@@ -255,7 +228,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'IqvS1V-98cxko3e9sBQgP',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'package-managers',
     },
     {
       id: 'SLxA5qJFp_28TRzr1BjxZ',
@@ -264,7 +236,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'IqvS1V-98cxko3e9sBQgP',
       sortOrder: 2,
       relationType: 'optional',
-      groupKey: 'package-managers',
     },
     {
       id: 'yrq3nOwFREzl-9EKnpU-e',
@@ -273,7 +244,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'IqvS1V-98cxko3e9sBQgP',
       sortOrder: 3,
       relationType: 'optional',
-      groupKey: 'package-managers',
     },
     {
       id: 'eXezX7CVNyC1RuyU_I4yP',
@@ -281,7 +251,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'IqvS1V-98cxko3e9sBQgP',
       sortOrder: 8,
-      groupKey: 'framework',
     },
     {
       id: 'tG5v3O4lNIFc2uCnacPak',
@@ -290,7 +259,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'eXezX7CVNyC1RuyU_I4yP',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'framework',
     },
     {
       id: 'ERAdwL1G9M1bnx-fOm5ZA',
@@ -299,7 +267,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'eXezX7CVNyC1RuyU_I4yP',
       sortOrder: 2,
       relationType: 'optional',
-      groupKey: 'framework',
     },
     {
       id: '-bHFIiXnoUQSov64WI9yo',
@@ -308,7 +275,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'eXezX7CVNyC1RuyU_I4yP',
       sortOrder: 3,
       relationType: 'optional',
-      groupKey: 'framework',
     },
     {
       id: 'ZR-qZ2Lcbu3FtqaMd3wM4',
@@ -317,7 +283,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'eXezX7CVNyC1RuyU_I4yP',
       sortOrder: 4,
       relationType: 'optional',
-      groupKey: 'framework',
     },
     {
       id: 'DxOSKnqAjZOPP-dq_U7oP',
@@ -326,7 +291,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'eXezX7CVNyC1RuyU_I4yP',
       sortOrder: 5,
       relationType: 'optional',
-      groupKey: 'framework',
     },
     {
       id: 'N5DCb6bDfgUnSdHPLYY4g',
@@ -335,7 +299,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'eXezX7CVNyC1RuyU_I4yP',
       sortOrder: 6,
       relationType: 'optional',
-      groupKey: 'framework',
     },
     {
       id: 'XDTD8el6OwuQ55wC-X4iV',
@@ -343,7 +306,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'eXezX7CVNyC1RuyU_I4yP',
       sortOrder: 9,
-      groupKey: 'writing-css',
     },
     {
       id: 'eghnfG4p7i-EDWfp3CQXC',
@@ -352,7 +314,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'XDTD8el6OwuQ55wC-X4iV',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'writing-css',
     },
     {
       id: 'nPg_YWpMJtlhU2t2UD_6B',
@@ -360,7 +321,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'XDTD8el6OwuQ55wC-X4iV',
       sortOrder: 10,
-      groupKey: 'css-architecture',
     },
     {
       id: 'dRDmS072xeNLX7p_X565w',
@@ -369,7 +329,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'nPg_YWpMJtlhU2t2UD_6B',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'css-architecture',
     },
     {
       id: 'UTW1pP59dUehuf0zeHXqL',
@@ -377,7 +336,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'nPg_YWpMJtlhU2t2UD_6B',
       sortOrder: 11,
-      groupKey: 'css-preprocessors',
     },
     {
       id: 'kukEE5rMSPa4NeNjx21kt',
@@ -386,7 +344,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'UTW1pP59dUehuf0zeHXqL',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'css-preprocessors',
     },
     {
       id: '9WlPENh9g1xOv-zA64Tfg',
@@ -395,7 +352,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'UTW1pP59dUehuf0zeHXqL',
       sortOrder: 2,
       relationType: 'optional',
-      groupKey: 'css-preprocessors',
     },
     {
       id: 'i9z0stM4uKu27Cz6NIgNX',
@@ -403,7 +359,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'UTW1pP59dUehuf0zeHXqL',
       sortOrder: 12,
-      groupKey: 'build-tools',
     },
     {
       id: 'hkSc_1x09m7-7BO7WzlDT',
@@ -412,7 +367,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'i9z0stM4uKu27Cz6NIgNX',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'build-tools',
     },
     {
       id: '9VcGfDBBD8YcKatj4VcH1',
@@ -421,7 +375,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'i9z0stM4uKu27Cz6NIgNX',
       sortOrder: 2,
       relationType: 'required',
-      groupKey: 'build-tools',
     },
     {
       id: '0Awx3zEI5_gYEIrD7IVX6',
@@ -430,7 +383,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'i9z0stM4uKu27Cz6NIgNX',
       sortOrder: 3,
       relationType: 'required',
-      groupKey: 'build-tools',
     },
     {
       id: '4W7UXfdKIUsm1bUrjdTVT',
@@ -439,7 +391,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'i9z0stM4uKu27Cz6NIgNX',
       sortOrder: 4,
       relationType: 'optional',
-      groupKey: 'build-tools',
     },
     {
       id: 'twufEtHgxcRUWAUQ9bXus',
@@ -448,7 +399,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'i9z0stM4uKu27Cz6NIgNX',
       sortOrder: 5,
       relationType: 'optional',
-      groupKey: 'build-tools',
     },
     {
       id: 'sCjErk7rfWAUvhl8Kfm3n',
@@ -457,7 +407,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'i9z0stM4uKu27Cz6NIgNX',
       sortOrder: 6,
       relationType: 'optional',
-      groupKey: 'build-tools',
     },
     {
       id: 'NS-hwaWa5ebSmNNRoxFDp',
@@ -466,7 +415,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'i9z0stM4uKu27Cz6NIgNX',
       sortOrder: 7,
       relationType: 'optional',
-      groupKey: 'build-tools',
     },
     {
       id: 'zbkpu_gvQ4mgCiZKzS1xv',
@@ -475,7 +423,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'i9z0stM4uKu27Cz6NIgNX',
       sortOrder: 8,
       relationType: 'required',
-      groupKey: 'build-tools',
     },
     {
       id: 'NFjsI712_qP0IOmjuqXar',
@@ -484,7 +431,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'i9z0stM4uKu27Cz6NIgNX',
       sortOrder: 9,
       relationType: 'required',
-      groupKey: 'build-tools',
     },
     {
       id: 'igg4_hb3XE3vuvY8ufV-4',
@@ -492,7 +438,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'i9z0stM4uKu27Cz6NIgNX',
       sortOrder: 13,
-      groupKey: 'testing',
     },
     {
       id: 'hVQ89f6G0LXEgHIOKHDYq',
@@ -501,7 +446,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'igg4_hb3XE3vuvY8ufV-4',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'testing',
     },
     {
       id: 'g5itUjgRXd9vs9ujHezFl',
@@ -510,7 +454,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'igg4_hb3XE3vuvY8ufV-4',
       sortOrder: 2,
       relationType: 'optional',
-      groupKey: 'testing',
     },
     {
       id: 'jramLk8FGuaEH4YpHIyZT',
@@ -519,7 +462,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'igg4_hb3XE3vuvY8ufV-4',
       sortOrder: 3,
       relationType: 'required',
-      groupKey: 'testing',
     },
     {
       id: 'DaynCz5RR26gjT6N6gTDL',
@@ -528,7 +470,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'igg4_hb3XE3vuvY8ufV-4',
       sortOrder: 4,
       relationType: 'optional',
-      groupKey: 'testing',
     },
     {
       id: 'U5mD5FmVx7VWeKxDpQxB5',
@@ -536,7 +477,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'igg4_hb3XE3vuvY8ufV-4',
       sortOrder: 14,
-      groupKey: 'auth',
     },
     {
       id: 'RDWbG3Iui6IPgp0shvXtg',
@@ -544,7 +484,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'U5mD5FmVx7VWeKxDpQxB5',
       sortOrder: 15,
-      groupKey: 'web-security',
     },
     {
       id: 'AfH2zCbqzw0Nisg1yyISS',
@@ -553,7 +492,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'RDWbG3Iui6IPgp0shvXtg',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'web-security',
     },
     {
       id: 'uum7vOhOUR38vLuGZy8Oa',
@@ -562,7 +500,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'RDWbG3Iui6IPgp0shvXtg',
       sortOrder: 2,
       relationType: 'required',
-      groupKey: 'web-security',
     },
     {
       id: 'rmcm0CZbtNVC9LZ14-H6h',
@@ -571,7 +508,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'RDWbG3Iui6IPgp0shvXtg',
       sortOrder: 3,
       relationType: 'required',
-      groupKey: 'web-security',
     },
     {
       id: 'JanR7I_lNnUCXhCMGLdn-',
@@ -580,7 +516,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'RDWbG3Iui6IPgp0shvXtg',
       sortOrder: 4,
       relationType: 'required',
-      groupKey: 'web-security',
     },
     {
       id: 'ruoFa3M4bUE3Dg6GXSiUI',
@@ -588,7 +523,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'RDWbG3Iui6IPgp0shvXtg',
       sortOrder: 16,
-      groupKey: 'web-components',
     },
     {
       id: 'Hk8AVonOd693_y1sykPqd',
@@ -597,7 +531,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'ruoFa3M4bUE3Dg6GXSiUI',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'web-components',
     },
     {
       id: 'VxiQPgcYDFAT6WgSRWpIA',
@@ -606,7 +539,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'ruoFa3M4bUE3Dg6GXSiUI',
       sortOrder: 2,
       relationType: 'required',
-      groupKey: 'web-components',
     },
     {
       id: '-SpsNeOZBkQfDA-rwzgPg',
@@ -615,7 +547,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'ruoFa3M4bUE3Dg6GXSiUI',
       sortOrder: 3,
       relationType: 'required',
-      groupKey: 'web-components',
     },
     {
       id: 'hwPOGT0-duy3KfI8QaEwF',
@@ -623,7 +554,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'ruoFa3M4bUE3Dg6GXSiUI',
       sortOrder: 17,
-      groupKey: 'type-checkers',
     },
     {
       id: '0asdhvwBH3gn-ercktV7A',
@@ -632,7 +562,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'hwPOGT0-duy3KfI8QaEwF',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'type-checkers',
     },
     {
       id: 'Cxspmb14_0i1tfw-ZLxEu',
@@ -640,7 +569,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'hwPOGT0-duy3KfI8QaEwF',
       sortOrder: 18,
-      groupKey: 'ssr',
     },
     {
       id: 'SGDf_rbfmFSHlxI-Czzlz',
@@ -649,7 +577,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'Cxspmb14_0i1tfw-ZLxEu',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'ssr',
     },
     {
       id: 'k6rp6Ua9qUEW_DA_fOg5u',
@@ -658,7 +585,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'Cxspmb14_0i1tfw-ZLxEu',
       sortOrder: 2,
       relationType: 'optional',
-      groupKey: 'ssr',
     },
     {
       id: '3TE_iYvbklXK0be-5f2M7',
@@ -667,7 +593,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'Cxspmb14_0i1tfw-ZLxEu',
       sortOrder: 3,
       relationType: 'optional',
-      groupKey: 'ssr',
     },
     {
       id: 'OL8I6nOZ8hGGWmtxg_Mv8',
@@ -676,7 +601,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'Cxspmb14_0i1tfw-ZLxEu',
       sortOrder: 4,
       relationType: 'optional',
-      groupKey: 'ssr',
     },
     {
       id: 'zNFYAJaSq0YZXL5Rpx1NX',
@@ -685,7 +609,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'Cxspmb14_0i1tfw-ZLxEu',
       sortOrder: 5,
       relationType: 'required',
-      groupKey: 'ssr',
     },
     {
       id: 'KJRkrFZIihCUBrOf579EU',
@@ -694,7 +617,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'Cxspmb14_0i1tfw-ZLxEu',
       sortOrder: 6,
       relationType: 'optional',
-      groupKey: 'ssr',
     },
     {
       id: 'BBsXxkbbEG-gnbM1xXKrj',
@@ -703,7 +625,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'Cxspmb14_0i1tfw-ZLxEu',
       sortOrder: 7,
       relationType: 'optional',
-      groupKey: 'ssr',
     },
     {
       id: 'P4st_telfCwKLSAU2WsQP',
@@ -712,7 +633,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'Cxspmb14_0i1tfw-ZLxEu',
       sortOrder: 8,
       relationType: 'optional',
-      groupKey: 'ssr',
     },
     {
       id: 'L7AllJfKvClaam3y-u6DP',
@@ -720,7 +640,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'Cxspmb14_0i1tfw-ZLxEu',
       sortOrder: 19,
-      groupKey: 'graphql',
     },
     {
       id: '5eUbDdOTOfaOhUlZAmmXW',
@@ -729,7 +648,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'L7AllJfKvClaam3y-u6DP',
       sortOrder: 1,
       relationType: 'required',
-      groupKey: 'graphql',
     },
     {
       id: '0moPO23ol33WsjVXSpTGf',
@@ -738,7 +656,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'L7AllJfKvClaam3y-u6DP',
       sortOrder: 2,
       relationType: 'optional',
-      groupKey: 'graphql',
     },
     {
       id: 'n0q32YhWEIAUwbGXexoqV',
@@ -746,7 +663,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'L7AllJfKvClaam3y-u6DP',
       sortOrder: 20,
-      groupKey: 'ssg',
     },
     {
       id: 'CMrss8E2W0eA6DVEqtPjT',
@@ -755,7 +671,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'n0q32YhWEIAUwbGXexoqV',
       sortOrder: 1,
       relationType: 'optional',
-      groupKey: 'ssg',
     },
     {
       id: 'iUxXq7beg55y76dkwhM13',
@@ -764,7 +679,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'n0q32YhWEIAUwbGXexoqV',
       sortOrder: 2,
       relationType: 'required',
-      groupKey: 'ssg',
     },
     {
       id: 'V70884VcuXkfrfHyLGtUg',
@@ -773,7 +687,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'n0q32YhWEIAUwbGXexoqV',
       sortOrder: 3,
       relationType: 'required',
-      groupKey: 'ssg',
     },
     {
       id: 'io0RHJWIcVxDhcYkV9d38',
@@ -782,7 +695,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'n0q32YhWEIAUwbGXexoqV',
       sortOrder: 4,
       relationType: 'optional',
-      groupKey: 'ssg',
     },
     {
       id: 'XWJxV42Dpu2D3xDK10Pn3',
@@ -791,7 +703,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'n0q32YhWEIAUwbGXexoqV',
       sortOrder: 5,
       relationType: 'optional',
-      groupKey: 'ssg',
     },
     {
       id: 'PoM77O2OtxPELxfrW1wtl',
@@ -799,7 +710,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       kind: 'main',
       parentId: 'n0q32YhWEIAUwbGXexoqV',
       sortOrder: 21,
-      groupKey: 'pwa',
     },
     {
       id: '-DsETM9xLgHyGZthptj1Y',
@@ -808,7 +718,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'PoM77O2OtxPELxfrW1wtl',
       sortOrder: 1,
       relationType: 'optional',
-      groupKey: 'pwa',
     },
     {
       id: 'xD5WfEP7Ez0oi3890UgmH',
@@ -817,7 +726,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'PoM77O2OtxPELxfrW1wtl',
       sortOrder: 2,
       relationType: 'optional',
-      groupKey: 'pwa',
     },
     {
       id: 'X0Y3-IpPiFUCsNDK4RFxw',
@@ -826,7 +734,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'PoM77O2OtxPELxfrW1wtl',
       sortOrder: 3,
       relationType: 'required',
-      groupKey: 'pwa',
     },
     {
       id: 'RIhHMHLsLLPhNl05Q9aBf',
@@ -835,7 +742,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'PoM77O2OtxPELxfrW1wtl',
       sortOrder: 4,
       relationType: 'required',
-      groupKey: 'pwa',
     },
     {
       id: '3_sJHKTogkDoCjR518-OL',
@@ -844,7 +750,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'PoM77O2OtxPELxfrW1wtl',
       sortOrder: 5,
       relationType: 'required',
-      groupKey: 'pwa',
     },
     {
       id: 'raoa-75p_DyBAycvy3yVv',
@@ -853,7 +758,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'PoM77O2OtxPELxfrW1wtl',
       sortOrder: 6,
       relationType: 'required',
-      groupKey: 'pwa',
     },
     {
       id: 'NDJR8UCoa31v45TBFP7we',
@@ -862,7 +766,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'PoM77O2OtxPELxfrW1wtl',
       sortOrder: 7,
       relationType: 'optional',
-      groupKey: 'pwa',
     },
     {
       id: 'doPe92aUpo-8KWhi45lWK',
@@ -871,7 +774,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'PoM77O2OtxPELxfrW1wtl',
       sortOrder: 8,
       relationType: 'optional',
-      groupKey: 'pwa',
     },
     {
       id: 'TldWoXiqKxM4X3JONKAR7',
@@ -880,7 +782,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'PoM77O2OtxPELxfrW1wtl',
       sortOrder: 9,
       relationType: 'required',
-      groupKey: 'pwa',
     },
     {
       id: 'YbGGYoKJEx29PlvopUBiM',
@@ -889,7 +790,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'PoM77O2OtxPELxfrW1wtl',
       sortOrder: 10,
       relationType: 'optional',
-      groupKey: 'pwa',
     },
     {
       id: '6AlcArOiJMhHXguAosDzn',
@@ -898,7 +798,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'PoM77O2OtxPELxfrW1wtl',
       sortOrder: 11,
       relationType: 'optional',
-      groupKey: 'pwa',
     },
     {
       id: 'Fd0hQh1DleM0gMzCpGou4',
@@ -907,7 +806,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'PoM77O2OtxPELxfrW1wtl',
       sortOrder: 12,
       relationType: 'optional',
-      groupKey: 'pwa',
     },
     {
       id: 'MAM1nuVk-h4AvTUk4nvmj',
@@ -916,7 +814,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'PoM77O2OtxPELxfrW1wtl',
       sortOrder: 13,
       relationType: 'optional',
-      groupKey: 'pwa',
     },
     {
       id: 'opu2bAsmdWHqWqtsCscLC',
@@ -925,7 +822,6 @@ export const frontendRoadmapLogic: RoadmapLogic = {
       parentId: 'PoM77O2OtxPELxfrW1wtl',
       sortOrder: 14,
       relationType: 'optional',
-      groupKey: 'pwa',
     },
   ],
 };

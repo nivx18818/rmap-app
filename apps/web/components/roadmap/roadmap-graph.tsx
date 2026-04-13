@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from 'react';
 
 import type {
@@ -420,11 +421,12 @@ export function RoadmapGraph({
             width: theme.graph.illustration.width,
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            className="block h-full w-full object-contain"
+          <Image
+            className="object-contain"
             alt={graph.illustrationAlt}
+            fill
             src={graph.illustrationSrc}
+            unoptimized
           />
         </div>
 

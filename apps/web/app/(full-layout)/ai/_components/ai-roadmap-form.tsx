@@ -1,13 +1,18 @@
 'use client';
 
-import { ArrowRight, FlaskConical, Loading03Icon } from '@hugeicons/core-free-icons';
+import {
+  ArrowLeft02FreeIcons,
+  ArrowRight,
+  ArrowRight02FreeIcons,
+  FlaskConical,
+  Loading03Icon,
+} from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { AnimatedIconSwap } from '@repo/design-system/components/common/animated-icon-swap';
 import { Button } from '@repo/design-system/components/ui/button';
-import { Checkbox } from '@repo/design-system/components/ui/checkbox';
 import { Field, FieldGroup, FieldLabel } from '@repo/design-system/components/ui/field';
 import { Input } from '@repo/design-system/components/ui/input';
-import { Label } from '@repo/design-system/components/ui/label';
+import { cn } from '@repo/design-system/lib/utils';
 
 import { useAiRoadmapForm } from '@/app/(full-layout)/ai/_hooks/use-ai-roadmap-form';
 
@@ -18,15 +23,18 @@ export function AiRoadmapForm() {
     register,
     handleSubmit,
     onSubmit,
+    onStartPersonalizedQuestions,
     isValid,
     isSubmitting,
-    isPersonalized,
     isLoading,
-    handleCheckedChange,
+    isQuestionsCompleted,
+    isQuizStarted,
+    goBackToFormStep,
+    setIsQuestionsCompleted,
   } = useAiRoadmapForm();
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form onSubmit={handleSubmit(isQuizStarted ? onSubmit : onStartPersonalizedQuestions)}>
       <FieldGroup className="flex flex-col gap-5 sm:gap-6">
         <Field>
           <FieldLabel className="text-base font-normal" htmlFor="topic">
@@ -34,9 +42,11 @@ export function AiRoadmapForm() {
           </FieldLabel>
           <Input
             id="topic"
+            className={cn(isQuizStarted && 'pointer-events-none cursor-not-allowed')}
             placeholder="Enter any topic that you want to learn"
             type="text"
             autoComplete="topic"
+            disabled={isLoading}
             {...register('topic')}
           />
         </Field>
@@ -44,60 +54,91 @@ export function AiRoadmapForm() {
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6">
           <Field>
             <FieldLabel className="text-base font-normal" htmlFor="hours">
-              Hours per day
+              Daily study hours?
             </FieldLabel>
             <Input
               id="hours"
-              placeholder="e.g. 2"
+              className={cn(isQuizStarted && 'pointer-events-none cursor-not-allowed')}
+              placeholder="e.g. 2 hours/day"
               type="number"
               min={1}
               max={24}
+              disabled={isLoading}
               {...register('hours', { valueAsNumber: true })}
             />
           </Field>
           <Field>
             <FieldLabel className="text-base font-normal" htmlFor="duration">
-              Duration (months)
+              Roadmap duration (months)?
             </FieldLabel>
             <Input
               id="duration"
-              placeholder="e.g. 3"
+              className={cn(isQuizStarted && 'pointer-events-none cursor-not-allowed')}
+              placeholder="e.g. 3 months"
               type="number"
               min={1}
+              disabled={isLoading}
               {...register('duration', { valueAsNumber: true })}
             />
           </Field>
         </div>
 
-        <Field orientation="horizontal">
-          <Checkbox
-            id="questions-checkbox"
-            checked={isPersonalized}
-            onCheckedChange={handleCheckedChange}
+        {(isLoading || isQuizStarted) && (
+          <PersonalizedQuestionsPanel
+            isLoading={isLoading}
+            onCompletedChange={setIsQuestionsCompleted}
           />
-          <Label className="text-sm font-normal sm:text-base" htmlFor="questions-checkbox">
-            Answer the following questions for a better roadmap
-          </Label>
-        </Field>
+        )}
 
-        {isPersonalized && <PersonalizedQuestionsPanel isLoading={isLoading} />}
+        {isQuizStarted ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Button
+              size="lg"
+              variant="secondary"
+              className="w-full"
+              type="button"
+              disabled={isLoading || isSubmitting}
+              onClick={goBackToFormStep}
+            >
+              <HugeiconsIcon icon={ArrowLeft02FreeIcons} />
+              Go back
+            </Button>
 
-        <Button
-          size="lg"
-          className="group/btn w-full"
-          type="submit"
-          disabled={!isValid || isSubmitting}
-        >
-          {isSubmitting ? 'Generating...' : 'Generate Roadmap'}
-          {isSubmitting ? (
-            <HugeiconsIcon
-              className="text-primary-foreground size-4 animate-spin"
-              icon={Loading03Icon}
-            />
-          ) : (
-            <AnimatedIconSwap icon={ArrowRight} hoverIcon={FlaskConical} />
-          )}
-        </Button>
+            <Button
+              size="lg"
+              className="group/btn w-full"
+              type="submit"
+              disabled={!isValid || !isQuestionsCompleted || isLoading || isSubmitting}
+            >
+              {isSubmitting ? 'Generating...' : 'Generate roadmap'}
+              {isSubmitting ? (
+                <HugeiconsIcon
+                  className="text-primary-foreground size-4 animate-spin"
+                  icon={Loading03Icon}
+                />
+              ) : (
+                <AnimatedIconSwap icon={ArrowRight} hoverIcon={FlaskConical} />
+              )}
+            </Button>
+          </div>
+        ) : (
+          <Button
+            size="lg"
+            className="group/btn w-full"
+            type="submit"
+            disabled={!isValid || isLoading || isSubmitting}
+          >
+            {isLoading ? 'Saving your answers...' : 'Answer the personalized questions'}
+            {isLoading ? (
+              <HugeiconsIcon
+                className="text-primary-foreground size-4 animate-spin"
+                icon={Loading03Icon}
+              />
+            ) : (
+              <AnimatedIconSwap icon={ArrowRight} hoverIcon={ArrowRight02FreeIcons} />
+            )}
+          </Button>
+        )}
       </FieldGroup>
     </form>
   );

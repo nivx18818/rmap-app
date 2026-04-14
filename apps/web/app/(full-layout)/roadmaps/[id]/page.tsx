@@ -1,3 +1,7 @@
+import { ArrowLeft01Icon, InformationCircleIcon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Button } from '@repo/design-system/components/ui/button';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import type { MockRoadmapLayout, MockRoadmapLogic } from '@/lib/data/roadmaps/roadmap-mock.types';
@@ -81,26 +85,62 @@ export default async function RoadmapDetailPage(props: PageProps<'/roadmaps/[id]
   const { layout, logic, theme } = routeData;
 
   return (
-    <main className="mx-auto max-w-400 px-4 py-6 sm:px-6 lg:px-8">
-      <section className="mb-5">
+    <main className="pt-full-layout-header-offset">
+      <section className="roadmap-page-hero-content">
+        <Link
+          className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium"
+          style={{ color: 'var(--color-roadmap-connector-required)' }}
+          href={logic.hero.backHref as '/'}
+        >
+          <HugeiconsIcon className="size-4" icon={ArrowLeft01Icon} />
+          {logic.hero.backLabel}
+        </Link>
+
         <h1 className="text-roadmap-page-title text-3xl font-extrabold tracking-tight sm:text-4xl">
           {logic.title}
         </h1>
         <p className="text-roadmap-page-subtitle mt-2 max-w-4xl text-xs sm:text-sm">
           {logic.description}
         </p>
+
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-4">
+            <span
+              className="inline-flex items-center rounded-full px-2.5 py-1 text-sm font-semibold"
+              style={{
+                background: 'var(--color-roadmap-panel-info-surface)',
+                color: 'var(--color-roadmap-connector-required)',
+              }}
+            >
+              {logic.hero.progressBadgeLabel}
+            </span>
+            <p className="text-roadmap-page-subtitle text-sm">{logic.hero.progressHint}</p>
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2 px-0!"
+            style={{ color: 'var(--color-roadmap-title-foreground)' }}
+          >
+            <span>{logic.hero.progressActionLabel}</span>
+            <HugeiconsIcon className="size-4" icon={InformationCircleIcon} />
+          </Button>
+        </div>
       </section>
 
-      <section className="mb-6">
-        <RoadmapIntroCard {...logic.introCard} theme={theme} />
-      </section>
+      <div className="mx-auto max-w-400 px-4 pt-2 pb-6 sm:px-6 lg:px-8">
+        <section className="mb-6">
+          <RoadmapIntroCard {...logic.introCard} theme={theme} />
+        </section>
 
-      <RoadmapGraphContainer
-        layout={layout}
-        logic={logic}
-        nodePanel={logic.nodePanel}
-        theme={theme}
-      />
+        <RoadmapGraphContainer
+          layout={layout}
+          logic={logic}
+          nodePanel={logic.nodePanel}
+          theme={theme}
+        />
+      </div>
     </main>
   );
 }

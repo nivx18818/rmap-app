@@ -77,10 +77,10 @@ const frontendTheme: RoadmapTheme = {
       background: 'var(--gradient-roadmap-intro-card)',
       borderRadius: '24px',
       insetBorder: 'var(--shadow-roadmap-intro-inset)',
-      maxWidth: '1200px',
-      padding: '32px',
-      paddingX: '32px',
-      paddingY: '64px',
+      maxWidth: '1080px',
+      padding: '24px',
+      paddingX: '24px',
+      paddingY: '40px',
     },
     illustration: {
       accentLineColor: 'var(--color-roadmap-intro-accent)',
@@ -96,7 +96,7 @@ const frontendTheme: RoadmapTheme = {
       trackBottom: '40px',
       trackLeft: '80px',
     },
-    layout: { columnGap: '24px', gridColumns: '528px 512px' },
+    layout: { columnGap: '20px', gridColumns: '468px 452px' },
     spacing: { contentGap: '24px', ctaPaddingX: '20px' },
     typography: {
       bodyColor: 'var(--color-roadmap-copy-subtle)',

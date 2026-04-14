@@ -4,6 +4,13 @@ export const backendRoadmapLogic: MockRoadmapLogic = {
   roadmapId: 'backend',
   title: 'Backend',
   description: 'Step by step guide to becoming a modern backend developer in 2026',
+  hero: {
+    backHref: '/',
+    backLabel: 'All Roadmaps',
+    progressActionLabel: 'Track Progress',
+    progressBadgeLabel: '0% DONE',
+    progressHint: 'Click nodes to track your progress',
+  },
   introCard: {
     ctaHref: '/roadmaps/backend',
     ctaLabel: 'Explore now',

@@ -2,6 +2,13 @@ import type { MockRoadmapLogic } from './roadmap-mock.types';
 
 export const frontendRoadmapLogic: MockRoadmapLogic = {
   description: 'Step by step guide to becoming a modern frontend developer in 2026',
+  hero: {
+    backHref: '/',
+    backLabel: 'All Roadmaps',
+    progressActionLabel: 'Track Progress',
+    progressBadgeLabel: '0% DONE',
+    progressHint: 'Click nodes to track your progress',
+  },
   introCard: {
     ctaHref: '/roadmaps/frontend',
     ctaLabel: 'Explore now',

@@ -12,10 +12,19 @@ export interface MockRoadmapLogicNode {
   sortOrder: number;
 }
 
+export interface MockRoadmapHero {
+  backHref: string;
+  backLabel: string;
+  progressActionLabel: string;
+  progressBadgeLabel: string;
+  progressHint: string;
+}
+
 export interface MockRoadmapLogic {
   introCard: RoadmapIntroCardData;
   nodePanel: RoadmapNodePanelData;
   description: string;
+  hero: MockRoadmapHero;
   nodes: MockRoadmapLogicNode[];
   roadmapId: string;
   title: string;

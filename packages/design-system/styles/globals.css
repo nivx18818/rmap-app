@@ -53,6 +53,7 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-disabled: var(--disabled);
+  --spacing-full-layout-header-offset: var(--full-layout-header-offset);
 
   --color-btn-purple-border: var(--btn-purple-border);
   --color-btn-purple-inner-shadow: var(--btn-purple-inner-shadow);
@@ -367,6 +368,7 @@
   --contact-body: hsla(0, 0%, 100%, 0.72);
   --category-pill-border: hsla(262, 83%, 58%, 0.15);
   --header-cta-border: hsla(0, 0%, 100%, 0.5);
+  --full-layout-header-offset: 90px;
   --footer-copy: hsl(220, 9%, 67%);
   --landing-roadmap-divider-fill: hsl(258, 19%, 69%);
   --landing-hero-underline-start: hsl(270, 89%, 76%);
@@ -667,5 +669,16 @@
 
   .text-roadmap-page-subtitle {
     color: var(--color-muted-foreground);
+  }
+
+  .pt-full-layout-header-offset {
+    padding-top: var(--spacing-full-layout-header-offset);
+  }
+
+  .roadmap-page-hero-content {
+    margin-inline: auto;
+    max-width: 1200px;
+    padding: 40px 32px 0;
+    width: 100%;
   }
 }

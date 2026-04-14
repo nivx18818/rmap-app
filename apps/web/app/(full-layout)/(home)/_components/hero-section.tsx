@@ -8,8 +8,8 @@ import { Button } from '@repo/design-system/components/ui/button';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { HeroGradient } from '../../../../components/shared/hero-gradient';
-import { RainbowBar } from '../../../../components/shared/rainbow-bar';
+import { HeroGradient } from '@/components/shared/hero-gradient';
+import { RainbowBar } from '@/components/shared/rainbow-bar';
 
 export function HeroSection() {
   function handleScrollDown() {

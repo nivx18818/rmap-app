@@ -1,7 +1,7 @@
 'use client';
 import type { Route } from 'next';
 
-import { GithubIcon, MapsIcon } from '@hugeicons/core-free-icons';
+import { GithubIcon, Logout02Icon, MapsIcon, UserCircleIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Button } from '@repo/design-system/components/ui/button';
 import {
@@ -10,11 +10,33 @@ import {
   NavigationMenuLink,
   NavigationMenuList,
 } from '@repo/design-system/components/ui/navigation-menu';
+import { toast } from '@repo/design-system/lib/toast';
+import Image from 'next/image';
 import Link from 'next/link';
+import { useState } from 'react';
 
 import { NAV_ITEMS } from '@/app/(full-layout)/(home)/_data/landing';
+import { useAuth } from '@/hooks/use-auth';
 
 export function Header() {
+  const { isAuthenticated, isLoading, signOut, user } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setIsLoggingOut(true);
+
+    try {
+      await signOut();
+      toast.success('Logout successfully');
+    } catch {
+      toast.error('Sign out failed', {
+        description: 'Please try again.',
+      });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   return (
     <header className="absolute inset-x-0 top-0 z-50 mx-auto flex max-w-300 items-center justify-between px-8 py-6.5">
       <Link className="flex items-center gap-2" href="/">
@@ -57,12 +79,56 @@ export function Header() {
             </Link>
           }
         />
-        <Button variant="outline" size="sm" render={<Link href="/">Login</Link>} />
-        <Button
-          size="sm"
-          className="rounded-l-md rounded-r-full"
-          render={<Link href={'/' as Route<string>}>Get Started</Link>}
-        />
+
+        {!isLoading && !isAuthenticated && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              render={<Link href={'/sign-in' as Route<string>}>Login</Link>}
+            />
+            <Button
+              size="sm"
+              className="rounded-full rounded-l-md"
+              render={<Link href={'/sign-up' as Route<string>}>Get started</Link>}
+            />
+          </>
+        )}
+
+        {!isLoading && isAuthenticated && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              render={
+                <Link className="flex items-center gap-2" href={'/ai' as Route<string>}>
+                  {user?.avatarUrl ? (
+                    <Image
+                      className="size-5 rounded-full object-cover"
+                      src={user.avatarUrl}
+                      alt={user.fullName}
+                      width={20}
+                      height={20}
+                    />
+                  ) : (
+                    <HugeiconsIcon className="size-4" icon={UserCircleIcon} />
+                  )}
+                  {user?.fullName?.split(' ')[0] ?? 'My Account'}
+                </Link>
+              }
+            />
+
+            <Button
+              size="sm"
+              className="rounded-l-md rounded-r-full"
+              disabled={isLoggingOut}
+              onClick={handleSignOut}
+            >
+              {isLoggingOut ? 'Signing out...' : 'Sign out'}
+              {!isLoggingOut && <HugeiconsIcon className="size-4" icon={Logout02Icon} />}
+            </Button>
+          </>
+        )}
       </div>
     </header>
   );

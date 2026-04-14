@@ -12,8 +12,8 @@ import { cn } from '@repo/design-system/lib/utils';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { MaskBackground } from '../../../../components/shared/mask-background';
-import { RainbowBar } from '../../../../components/shared/rainbow-bar';
+import { MaskBackground } from '@/components/shared/mask-background';
+import { RainbowBar } from '@/components/shared/rainbow-bar';
 
 const NOTEBOOK_ITEMS = [
   { label: 'Road to DevOps Engineer', icon: Location01Icon, iconClass: 'text-indigo-500' },
@@ -53,9 +53,8 @@ export function PersonalizedSection() {
             <div className="flex flex-col gap-6">
               <h2 className="text-title text-3xl!">Personalized Roadmaps Powered by AI</h2>
               <p className="text-subtitle">
-                Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
-                Ipsum has been the industry&apos;s standard dummy text ever since the 1500s, when an
-                unknown printer took a galley of type and scrambled it to make a type specimen book.
+                Share your current level and career target, then let RMap generate a personalized
+                roadmap with the right topics, learning order, and milestones for your journey.
               </p>
             </div>
             <Button
@@ -118,9 +117,8 @@ export function PersonalizedSection() {
                 <br className="hidden lg:block" /> Need to Learn
               </h2>
               <p className="text-subtitle">
-                Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
-                Ipsum has been the industry&apos;s standard dummy text ever since the 1500s, when an
-                unknown printer took a galley of type and scrambled it to make a type specimen book.
+                Stop guessing what to study next. Identify your skill gaps, follow clear learning
+                priorities, and make steady progress toward your developer goals.
               </p>
             </div>
             <Button

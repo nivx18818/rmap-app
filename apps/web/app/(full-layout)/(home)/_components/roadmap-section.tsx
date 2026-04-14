@@ -7,9 +7,9 @@ import {
   ROLE_BASED_ROADMAPS,
   SKILL_BASED_ROADMAPS,
 } from '@/app/(full-layout)/(home)/_data/landing';
+import { MaskBackground } from '@/components/shared/mask-background';
+import { RainbowBar } from '@/components/shared/rainbow-bar';
 
-import { MaskBackground } from '../../../../components/shared/mask-background';
-import { RainbowBar } from '../../../../components/shared/rainbow-bar';
 import { CategoryLabel } from './ui/category-label';
 import { RoadmapGrid } from './ui/roadmap-grid';
 
@@ -30,9 +30,9 @@ export function RoadmapSection() {
               <br /> Master Any Technology.
             </h2>
             <p className="text-subtitle">
-              Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum
-              has been the industry&apos;s standard dummy text ever since the 1500s, when an unknown
-              printer took a galley of type and scrambled it to make a type specimen book.
+              RMap helps you turn career goals into clear learning steps. Explore role-based and
+              skill-based roadmaps, discover what to learn next, and build momentum with a
+              personalized path.
             </p>
 
             {/* Slash line (Decoration) */}

@@ -6,9 +6,7 @@ import type {
 
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Explore roadmaps', href: '/' },
-  { label: 'AI Tutor', href: '/ai' },
-  { label: 'Categories', href: '/categories' },
-  { label: 'Docs', href: '/docs' },
+  { label: 'Generate personalized roadmap', href: '/ai' },
 ];
 
 export const ROLE_BASED_ROADMAPS: RoadmapItemData[] = [

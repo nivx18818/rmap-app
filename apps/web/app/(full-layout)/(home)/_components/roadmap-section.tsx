@@ -1,3 +1,5 @@
+'use client';
+
 import { Search01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { SectionContainer } from '@repo/design-system/components/common/section-container';
@@ -9,11 +11,25 @@ import {
 } from '@/app/(full-layout)/(home)/_data/landing';
 import { MaskBackground } from '@/components/shared/mask-background';
 import { RainbowBar } from '@/components/shared/rainbow-bar';
+import { useRoadmapSearch } from '@/hooks/use-roadmap-search';
 
 import { CategoryLabel } from './ui/category-label';
 import { RoadmapGrid } from './ui/roadmap-grid';
 
 export function RoadmapSection() {
+  const {
+    searchTerm,
+    setSearchTerm,
+    debouncedSearchTerm,
+    filteredRoleBasedRoadmaps,
+    filteredSkillBasedRoadmaps,
+    hasActiveSearch,
+    hasSearchResults,
+  } = useRoadmapSearch({
+    roleBasedRoadmaps: ROLE_BASED_ROADMAPS,
+    skillBasedRoadmaps: SKILL_BASED_ROADMAPS,
+  });
+
   return (
     <section className="bg-background relative flex flex-col items-center overflow-hidden pt-24 pb-32 lg:pt-32">
       <RainbowBar />
@@ -71,9 +87,11 @@ export function RoadmapSection() {
               <div className="bg-background/50 flex size-full items-center overflow-hidden rounded-full pr-5 pl-11.5 backdrop-blur-sm">
                 <input
                   className="peer text-muted-foreground placeholder:text-muted-foreground focus:text-foreground size-full bg-transparent text-base font-light outline-hidden"
-                  placeholder="Search roadmaps..."
+                  placeholder="Search roadmap titles..."
                   type="text"
                   aria-label="Search roadmaps"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
                 />
               </div>
               <HugeiconsIcon
@@ -86,20 +104,30 @@ export function RoadmapSection() {
           {/* Lists Container */}
           <div className="flex w-full flex-col gap-12">
             {/* Role-based Roadmaps */}
-            <div className="flex flex-col items-center gap-6">
-              <CategoryLabel label="Role-based Roadmaps" />
-              <div className="w-full">
-                <RoadmapGrid items={ROLE_BASED_ROADMAPS} />
+            {(!hasActiveSearch || filteredRoleBasedRoadmaps.length > 0) && (
+              <div className="flex flex-col items-center gap-6">
+                <CategoryLabel label="Role-based Roadmaps" />
+                <div className="w-full">
+                  <RoadmapGrid items={filteredRoleBasedRoadmaps} />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Skill-based Roadmaps */}
-            <div className="flex flex-col items-center gap-6">
-              <CategoryLabel label="Skill-based Roadmaps" />
-              <div className="w-full">
-                <RoadmapGrid items={SKILL_BASED_ROADMAPS} />
+            {(!hasActiveSearch || filteredSkillBasedRoadmaps.length > 0) && (
+              <div className="flex flex-col items-center gap-6">
+                <CategoryLabel label="Skill-based Roadmaps" />
+                <div className="w-full">
+                  <RoadmapGrid items={filteredSkillBasedRoadmaps} />
+                </div>
               </div>
-            </div>
+            )}
+
+            {hasActiveSearch && !hasSearchResults && (
+              <p className="text-muted-foreground px-4 text-center text-sm">
+                No roadmap titles matched &quot;{debouncedSearchTerm}&quot;. Try another keyword.
+              </p>
+            )}
           </div>
         </div>
       </SectionContainer>

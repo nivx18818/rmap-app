@@ -142,6 +142,16 @@ function buildSmoothVerticalPath(from: Point, to: Point) {
   return `M ${from.x} ${from.y} C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y}`;
 }
 
+function buildOrthogonalMainPath(from: Point, to: Point) {
+  if (from.x === to.x) {
+    return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
+  }
+
+  const midY = (from.y + to.y) / 2;
+
+  return `M ${from.x} ${from.y} L ${from.x} ${midY} L ${to.x} ${midY} L ${to.x} ${to.y}`;
+}
+
 function edgeVariantForNode(parentKind: Kind, childKind: Kind, relationType?: RelationType) {
   if (parentKind === 'main' && childKind === 'main') {
     return 'main' satisfies EdgeVariant;
@@ -227,6 +237,7 @@ export function RoadmapGraphCanvas({ layout, logic }: RoadmapGraphCanvasProps) {
         y: node.renderY - node.height / 2,
       };
 
+      const isMainToMain = parent.kind === 'main' && node.kind === 'main';
       const isMainToSub = parent.kind === 'main' && node.kind === 'sub';
       const edgeVariant = edgeVariantForNode(parent.kind, node.kind, node.relationType);
       const connectorStyle = CONNECTOR_STYLE_BY_VARIANT[edgeVariant];
@@ -249,9 +260,11 @@ export function RoadmapGraphCanvas({ layout, logic }: RoadmapGraphCanvasProps) {
               }
             : null,
           id: `${parent.nodeId}->${node.nodeId}`,
-          path: isMainToSub
-            ? buildSmoothSkillPath(start, end)
-            : buildSmoothVerticalPath(start, end),
+          path: isMainToMain
+            ? buildOrthogonalMainPath(start, end)
+            : isMainToSub
+              ? buildSmoothSkillPath(start, end)
+              : buildSmoothVerticalPath(start, end),
           stroke: connectorStyle.stroke,
           strokeWidth: connectorStyle.strokeWidth,
         } satisfies EdgeItem,
@@ -333,7 +346,7 @@ export function RoadmapGraphCanvas({ layout, logic }: RoadmapGraphCanvasProps) {
               return (
                 <div
                   key={`${edge.id}-icon`}
-                  className="pointer-events-none absolute z-[15]"
+                  className="pointer-events-none absolute z-15"
                   style={{ left, top }}
                 >
                   <RoadmapLinkIcon tone={edge.icon.tone} />

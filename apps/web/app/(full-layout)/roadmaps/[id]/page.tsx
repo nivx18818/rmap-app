@@ -21,9 +21,45 @@ const mockRoadmapModuleLoaders: Record<
     layout: () => import('@/lib/data/roadmaps/backend/backend-roadmap.layout'),
     logic: () => import('@/lib/data/roadmaps/backend/backend-roadmap.logic'),
   },
+  'computer-science': {
+    layout: () => import('@/lib/data/roadmaps/computer-science/computer-science-roadmaps.layout'),
+    logic: () => import('@/lib/data/roadmaps/computer-science/computer-science-roadmaps.logic'),
+  },
+  'data-analyst': {
+    layout: () => import('@/lib/data/roadmaps/data-analyst/data-analyst-roadmaps.layout'),
+    logic: () => import('@/lib/data/roadmaps/data-analyst/data-analyst-roadmaps.logic'),
+  },
+  devops: {
+    layout: () => import('@/lib/data/roadmaps/devops/devops-roadmaps.layout'),
+    logic: () => import('@/lib/data/roadmaps/devops/devops-roadmaps.logic'),
+  },
   frontend: {
     layout: () => import('@/lib/data/roadmaps/frontend-roadmap.layout'),
     logic: () => import('@/lib/data/roadmaps/frontend-roadmap.logic'),
+  },
+  'full-stack': {
+    layout: () => import('@/lib/data/roadmaps/fullstack/fullstack-roadmap-layout'),
+    logic: () => import('@/lib/data/roadmaps/fullstack/fullstack-roadmap.logic'),
+  },
+  angular: {
+    layout: () => import('@/lib/data/roadmaps/angular/angular-roadmaps.layout'),
+    logic: () => import('@/lib/data/roadmaps/angular/angular-roadmaps.logic'),
+  },
+  javascript: {
+    layout: () => import('@/lib/data/roadmaps/javascript/javascript-roadmaps.layout'),
+    logic: () => import('@/lib/data/roadmaps/javascript/javascript-roadmaps.logic'),
+  },
+  react: {
+    layout: () => import('@/lib/data/roadmaps/react/react-roadmaps-layout'),
+    logic: () => import('@/lib/data/roadmaps/react/react-roadmaps-logic'),
+  },
+  sql: {
+    layout: () => import('@/lib/data/roadmaps/sql/sql-roadmaps.layout'),
+    logic: () => import('@/lib/data/roadmaps/sql/sql-roadmaps.logic'),
+  },
+  vue: {
+    layout: () => import('@/lib/data/roadmaps/vue/vue-roadmaps-layout'),
+    logic: () => import('@/lib/data/roadmaps/vue/vue-roadmaps-logics'),
   },
 };
 

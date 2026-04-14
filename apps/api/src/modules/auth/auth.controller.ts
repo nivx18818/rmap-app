@@ -7,12 +7,12 @@ import {
   CLEAR_COOKIE_OPTIONS,
   REFRESH_TOKEN_COOKIE_OPTIONS,
 } from '@/common/constants/cookie-config';
+import { Public } from '@/common/decorators/public.decorator';
 
 import type { RequestUser } from './decorators/current-user.decorator';
 
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { Public } from './decorators/public.decorator';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';

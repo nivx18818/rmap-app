@@ -7,7 +7,6 @@ import { notFound } from 'next/navigation';
 import type { MockRoadmapLayout, MockRoadmapLogic } from '@/lib/data/roadmaps/roadmap-mock.types';
 import type { RoadmapTheme } from '@/types/roadmap';
 
-import { RoadmapIntroCard } from '@/components/roadmap/roadmap-intro-card';
 import { mockRoadmapThemeBySlug } from '@/lib/data/roadmaps/roadmap-themes';
 
 import { RoadmapGraphContainer } from '../_components/roadmap-graph-container';
@@ -130,10 +129,6 @@ export default async function RoadmapDetailPage(props: PageProps<'/roadmaps/[id]
       </section>
 
       <div className="mx-auto max-w-400 px-4 pt-2 pb-6 sm:px-6 lg:px-8">
-        <section className="mb-6">
-          <RoadmapIntroCard {...logic.introCard} theme={theme} />
-        </section>
-
         <RoadmapGraphContainer
           layout={layout}
           logic={logic}

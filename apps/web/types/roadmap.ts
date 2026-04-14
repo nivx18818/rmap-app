@@ -93,21 +93,6 @@ export interface ApiRoadmapResponse {
   user_id: UUID | null;
 }
 
-export interface RoadmapIntroCardItem {
-  id: string;
-  label: string;
-  tone: 'green' | 'neutral' | 'pink';
-  variant: 'check' | 'map';
-}
-
-export interface RoadmapIntroCardData {
-  ctaHref: string;
-  ctaLabel: string;
-  description: string;
-  items: RoadmapIntroCardItem[];
-  title: string;
-}
-
 export interface RoadmapNodePanelLink {
   id: string;
   label: string;
@@ -202,45 +187,6 @@ export interface RoadmapTheme {
       };
     };
     selectionRingColor: string;
-  };
-  introCard: {
-    card: {
-      background: string;
-      borderRadius: string;
-      insetBorder: string;
-      maxWidth: string;
-      padding: string;
-      paddingX: string;
-      paddingY: string;
-    };
-    illustration: {
-      accentLineColor: string;
-      branchLineColor: string;
-      height: string;
-      iconTop: string;
-      itemHeight: number;
-      itemOffsetTop: number;
-      lineLeft: string;
-      lineWidth: string;
-      rowLineColor: string;
-      textLeft: string;
-      trackBottom: string;
-      trackLeft: string;
-    };
-    layout: { columnGap: string; gridColumns: string };
-    spacing: { contentGap: string; ctaPaddingX: string };
-    typography: {
-      bodyColor: string;
-      bodyFontSize: string;
-      bodyLineHeight: string;
-      headingColor: string;
-      headingLetterSpacing: string;
-      headingLineHeight: string;
-      headingSize: string;
-      itemColor: string;
-      itemFontSize: string;
-      itemLineHeight: string;
-    };
   };
   icon: {
     introCheck: { green: string; pink: string };

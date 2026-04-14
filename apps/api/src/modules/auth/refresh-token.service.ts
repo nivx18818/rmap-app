@@ -1,12 +1,13 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaClientKnownRequestError } from '@repo/db/prisma/internal/prismaNamespace';
 import { createHmac } from 'node:crypto';
+
+import {
+  InternalServerErrorException,
+  RefreshTokenAlreadyExistsException,
+  UserNotFoundException,
+} from '@/common/exceptions/app.exceptions';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -47,12 +48,12 @@ export class RefreshTokenService {
           const field = target?.[0];
 
           if (field === 'token') {
-            throw new ConflictException('Refresh token already exists');
+            throw new RefreshTokenAlreadyExistsException();
           }
         }
 
         if (error.code === 'P2003') {
-          throw new BadRequestException('Invalid user for refresh token');
+          throw new UserNotFoundException(userId);
         }
       }
 

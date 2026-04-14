@@ -1,5 +1,5 @@
 model Roadmap {
-  id          String   @id @default(dbgenerated("gen_random_uuid()"))
+  id          String   @id @default(uuid())
   title       String
   description String?
   isTemplate  Boolean  @default(false) @map("is_template")

@@ -1,15 +1,26 @@
 model Skill {
-  id             String  @id @default(dbgenerated("gen_random_uuid()"))
+  id             String  @id @default(uuid())
   name           String
   slug           String  @unique
-  description    String?
-  category       String?
   estimatedHours Int?    @map("estimated_hours")
 
-  roleSkills   RoleSkills[]
-  userSkills   UserSkills[]
-  roadmapNodes RoadmapNode[]
-  resources    Resource[]
+  roleSkills    RoleSkills[]
+  userSkills    UserSkills[]
+  roadmapNodes  RoadmapNode[]
+  resources     Resource[]
+  prerequisites SkillPrerequisite[] @relation("SkillToPrerequisite")
+  requiredFor   SkillPrerequisite[] @relation("PrerequisiteToSkill")
 
   @@map("skills")
+}
+
+model SkillPrerequisite {
+  skill          Skill  @relation("SkillToPrerequisite", fields: [skillId], references: [id], onDelete: Cascade)
+  skillId        String @map("skill_id")
+  prerequisite   Skill  @relation("PrerequisiteToSkill", fields: [prerequisiteId], references: [id], onDelete: Cascade)
+  prerequisiteId String @map("prerequisite_id")
+
+  @@id([skillId, prerequisiteId])
+  @@index([prerequisiteId])
+  @@map("skill_prerequisites")
 }

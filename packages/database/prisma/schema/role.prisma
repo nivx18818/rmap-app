@@ -1,5 +1,5 @@
 model Role {
-  id          String  @id @default(dbgenerated("gen_random_uuid()"))
+  id          String  @id @default(uuid())
   name        String
   slug        String  @unique
   description String?

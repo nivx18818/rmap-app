@@ -1,9 +1,15 @@
-import { Injectable, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
+import {
+  AppUnauthorizedException,
+  InternalServerErrorException,
+  MissingAuthenticationException,
+  RefreshTokenInvalidException,
+} from '@/common/exceptions/app.exceptions';
 import { UserService } from '@/modules/user/user.service';
 
 import { RefreshTokenService } from '../refresh-token.service';
@@ -36,13 +42,13 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
 
   async validate(req: Request, payload: JwtRefreshPayload) {
     const refreshToken = cookieExtractor('REFRESH_TOKEN')(req);
-    if (!refreshToken) throw new UnauthorizedException('Refresh token not found');
+    if (!refreshToken) throw new MissingAuthenticationException();
 
     const storedRefreshToken = await this.refreshTokenService.findValid(payload.sub, refreshToken);
-    if (!storedRefreshToken) throw new UnauthorizedException('Refresh token revoked or expired');
+    if (!storedRefreshToken) throw new RefreshTokenInvalidException();
 
     const user = await this.userService.findById(payload.sub);
-    if (!user) throw new UnauthorizedException('User not found');
+    if (!user) throw new AppUnauthorizedException('User not found');
 
     return user;
   }

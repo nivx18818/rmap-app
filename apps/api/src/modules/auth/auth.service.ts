@@ -1,9 +1,14 @@
 import type { StringValue } from 'ms';
 
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+
+import {
+  EmailAlreadyExistsException,
+  InvalidCredentialsException,
+} from '@/common/exceptions/app.exceptions';
 
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
@@ -25,7 +30,7 @@ export class AuthService {
 
     const existingUser = await this.userService.findByEmail(email);
     if (existingUser) {
-      throw new ConflictException('Email already exists');
+      throw new EmailAlreadyExistsException(email);
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -45,12 +50,12 @@ export class AuthService {
 
     const user = await this.userService.findByEmail(email);
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new InvalidCredentialsException();
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new InvalidCredentialsException();
     }
 
     const payload = { sub: user.id, email: user.email };

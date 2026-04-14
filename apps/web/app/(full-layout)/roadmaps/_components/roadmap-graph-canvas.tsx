@@ -1,26 +1,98 @@
 'use client';
 
-import Image from 'next/image';
+import { cn } from '@repo/design-system/lib/utils';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import type { MockRoadmapLayout, MockRoadmapLogic } from '@/lib/data/roadmaps/roadmap-mock.types';
-import type { RoadmapTheme } from '@/types/roadmap';
+import type { RelationType } from '@/types/roadmap';
 
 import { RoadmapLinkIcon } from '@/components/roadmap/roadmap-icons';
 
 type Anchor = 'top' | 'right' | 'bottom' | 'left';
-
-const GRAPH_ILLUSTRATION = {
-  alt: 'Frontend roadmap visual accent',
-  src: 'https://www.figma.com/api/mcp/asset/321a7f38-8b35-4b87-b70d-37a26045c973',
+type Kind = 'title' | 'main' | 'sub';
+type EdgeVariant = 'main' | 'optional' | 'required';
+type IconTone = 'green' | 'purple';
+type BranchDirection = 'left' | 'right';
+type Point = { x: number; y: number };
+type ConnectorStyle = {
+  dashArray: string;
+  stroke: string;
+  strokeWidth: number;
+};
+type NodePresentation = {
+  containerClassName: string;
+  dimensions: {
+    height: number;
+    width: number;
+  };
+  labelClassName: string;
 };
 
+const ROADMAP_LINK_ICON_BADGE_SIZE = 17;
+const GRAPH_PADDING = 180;
+const DEFAULT_ANCHORS = { source: 'bottom', target: 'top' } as const satisfies {
+  source: Anchor;
+  target: Anchor;
+};
+const NODE_CONFIG_BY_KIND = {
+  main: {
+    containerClassName:
+      'z-20 border-[3px] border-roadmap-connector-main bg-roadmap-node-main text-roadmap-title-foreground shadow-none',
+    dimensions: { height: 60, width: 220 },
+    labelClassName: 'font-semibold',
+  },
+  sub: {
+    containerClassName:
+      'z-10 border-[3px] border-roadmap-connector-main bg-roadmap-node-skill text-roadmap-node-skill-foreground shadow-roadmap-node-skill',
+    dimensions: { height: 52, width: 300 },
+    labelClassName: 'font-semibold',
+  },
+  title: {
+    containerClassName:
+      'z-30 border border-border bg-card text-foreground shadow-roadmap-logic-title',
+    dimensions: { height: 74, width: 260 },
+    labelClassName: 'text-lg font-extrabold',
+  },
+} as const satisfies Record<Kind, NodePresentation>;
+
+const ANCHOR_POINT_BY_ANCHOR = {
+  bottom: (box: NodeBox) => ({ x: box.x + box.width / 2, y: box.y + box.height }),
+  left: (box: NodeBox) => ({ x: box.x, y: box.y + box.height / 2 }),
+  right: (box: NodeBox) => ({ x: box.x + box.width, y: box.y + box.height / 2 }),
+  top: (box: NodeBox) => ({ x: box.x + box.width / 2, y: box.y }),
+} satisfies Record<Anchor, (box: NodeBox) => Point>;
+
+const MAIN_TO_SUB_ANCHORS = {
+  left: { source: 'left', target: 'right' },
+  right: { source: 'right', target: 'left' },
+} satisfies Record<BranchDirection, { source: Anchor; target: Anchor }>;
+
+const RELATION_TYPE_TO_ICON_TONE = {
+  optional: 'green',
+  required: 'purple',
+} satisfies Record<RelationType, IconTone>;
+
+const CONNECTOR_STYLE_BY_VARIANT = {
+  main: {
+    dashArray: '10 10',
+    stroke: 'var(--color-roadmap-connector-main)',
+    strokeWidth: 4,
+  },
+  optional: {
+    dashArray: '8 10',
+    stroke: 'var(--color-roadmap-connector-optional)',
+    strokeWidth: 3.5,
+  },
+  required: {
+    dashArray: '8 10',
+    stroke: 'var(--color-roadmap-connector-required)',
+    strokeWidth: 3.5,
+  },
+} as const satisfies Record<EdgeVariant, ConnectorStyle>;
+
 interface RoadmapGraphCanvasProps {
-  activeNodeId?: string | null;
   layout: MockRoadmapLayout;
   logic: MockRoadmapLogic;
-  onNodeSelect?: (nodeId: string) => void;
-  theme: RoadmapTheme;
 }
 
 interface NodeBox {
@@ -30,35 +102,30 @@ interface NodeBox {
   y: number;
 }
 
-function getNodeDimensions(kind: 'title' | 'main' | 'sub') {
-  if (kind === 'title') {
-    return { height: 74, width: 260 };
-  }
+interface EdgeIcon {
+  tone: IconTone;
+  x: number;
+  y: number;
+}
 
-  if (kind === 'main') {
-    return { height: 60, width: 220 };
-  }
+interface EdgeItem {
+  dashArray: string;
+  icon: EdgeIcon | null;
+  id: string;
+  path: string;
+  stroke: string;
+  strokeWidth: number;
+}
 
-  return { height: 52, width: 300 };
+function getNodeDimensions(kind: Kind) {
+  return NODE_CONFIG_BY_KIND[kind].dimensions;
 }
 
 function getAnchorPoint(box: NodeBox, anchor: Anchor) {
-  if (anchor === 'top') {
-    return { x: box.x + box.width / 2, y: box.y };
-  }
-
-  if (anchor === 'right') {
-    return { x: box.x + box.width, y: box.y + box.height / 2 };
-  }
-
-  if (anchor === 'left') {
-    return { x: box.x, y: box.y + box.height / 2 };
-  }
-
-  return { x: box.x + box.width / 2, y: box.y + box.height };
+  return ANCHOR_POINT_BY_ANCHOR[anchor](box);
 }
 
-function buildSmoothSkillPath(from: { x: number; y: number }, to: { x: number; y: number }) {
+function buildSmoothSkillPath(from: Point, to: Point) {
   const dx = to.x - from.x;
   const tension = Math.min(Math.abs(dx) * 0.6, 80);
   const dirX = dx >= 0 ? 1 : -1;
@@ -69,62 +136,34 @@ function buildSmoothSkillPath(from: { x: number; y: number }, to: { x: number; y
   return `M ${from.x} ${from.y} C ${cp1x} ${from.y}, ${cp2x} ${to.y}, ${to.x} ${to.y}`;
 }
 
-function buildSmoothVerticalPath(from: { x: number; y: number }, to: { x: number; y: number }) {
+function buildSmoothVerticalPath(from: Point, to: Point) {
   const midY = (from.y + to.y) / 2;
 
   return `M ${from.x} ${from.y} C ${from.x} ${midY}, ${to.x} ${midY}, ${to.x} ${to.y}`;
 }
 
-function mergeBoxShadow(baseShadow: string, ringColor?: string) {
-  if (!ringColor) {
-    return baseShadow;
+function edgeVariantForNode(parentKind: Kind, childKind: Kind, relationType?: RelationType) {
+  if (parentKind === 'main' && childKind === 'main') {
+    return 'main' satisfies EdgeVariant;
   }
 
-  return baseShadow === 'none' ? `0 0 0 2px ${ringColor}` : `${baseShadow}, 0 0 0 2px ${ringColor}`;
+  return relationType ?? 'required';
 }
 
-function nodeTone(kind: 'title' | 'main' | 'sub', theme: RoadmapTheme) {
-  if (kind === 'title') {
-    return {
-      background: 'var(--color-card)',
-      borderColor: 'var(--color-border)',
-      borderWidth: '1px',
-      boxShadow: 'var(--shadow-roadmap-logic-title)',
-      color: 'var(--color-foreground)',
-    };
+function branchAnchors(parentX: number, childX: number) {
+  if (childX < parentX) {
+    return MAIN_TO_SUB_ANCHORS.left;
   }
 
-  if (kind === 'main') {
-    return {
-      background: theme.node.main.background,
-      borderColor: theme.node.main.borderColor,
-      borderWidth: theme.node.main.borderWidth,
-      boxShadow: theme.node.main.shadow,
-      color: theme.node.main.textColor,
-    };
-  }
-
-  return {
-    background: theme.node.skill.background,
-    borderColor: theme.node.skill.borderColor,
-    borderWidth: theme.node.skill.borderWidth,
-    boxShadow: theme.node.skill.shadow,
-    color: theme.node.skill.textColor,
-  };
+  return MAIN_TO_SUB_ANCHORS.right;
 }
 
-export function RoadmapGraphCanvas({
-  activeNodeId,
-  layout,
-  logic,
-  onNodeSelect,
-  theme,
-}: RoadmapGraphCanvasProps) {
+export function RoadmapGraphCanvas({ layout, logic }: RoadmapGraphCanvasProps) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [viewportWidth, setViewportWidth] = useState(0);
 
   const { edges, height, nodes, width } = useMemo(() => {
-    const logicNodeById = new Map(logic.nodes.map((node) => [node.id, node]));
+    const logicNodeById = new Map(logic.nodes.map((node) => [node.id, node] as const));
 
     const layoutEntries = layout.nodes
       .map((entry) => {
@@ -153,85 +192,71 @@ export function RoadmapGraphCanvas({
     const maxX = Math.max(...layoutEntries.map((entry) => entry.position.x + entry.width / 2));
     const maxY = Math.max(...layoutEntries.map((entry) => entry.position.y + entry.height / 2));
 
-    const padding = 180;
-    const canvasWidth = Math.ceil(maxX - minX + padding * 2);
-    const canvasHeight = Math.ceil(maxY - minY + padding * 2);
-    const normalizeX = (x: number) => x - minX + padding;
-    const normalizeY = (y: number) => y - minY + padding;
+    const canvasWidth = Math.ceil(maxX - minX + GRAPH_PADDING * 2);
+    const canvasHeight = Math.ceil(maxY - minY + GRAPH_PADDING * 2);
+    const normalizeX = (x: number) => x - minX + GRAPH_PADDING;
+    const normalizeY = (y: number) => y - minY + GRAPH_PADDING;
 
     const normalizedNodes = layoutEntries.map((entry) => ({
       ...entry,
       renderX: normalizeX(entry.position.x),
       renderY: normalizeY(entry.position.y),
     }));
+    const normalizedNodeById = new Map(normalizedNodes.map((node) => [node.nodeId, node] as const));
 
-    const edgeItems = normalizedNodes
-      .filter((node) => node.parentId)
-      .map((node) => {
-        const parent = normalizedNodes.find((candidate) => candidate.nodeId === node.parentId);
-        if (!parent) {
-          return null;
-        }
+    const edgeItems = normalizedNodes.flatMap((node) => {
+      if (!node.parentId) {
+        return [];
+      }
 
-        const sourceBox: NodeBox = {
-          height: parent.height,
-          width: parent.width,
-          x: parent.renderX - parent.width / 2,
-          y: parent.renderY - parent.height / 2,
-        };
-        const targetBox: NodeBox = {
-          height: node.height,
-          width: node.width,
-          x: node.renderX - node.width / 2,
-          y: node.renderY - node.height / 2,
-        };
+      const parent = normalizedNodeById.get(node.parentId);
+      if (!parent) {
+        return [];
+      }
 
-        const isMainToMain = parent.kind === 'main' && node.kind === 'main';
-        const isMainToSub = parent.kind === 'main' && node.kind === 'sub';
+      const sourceBox: NodeBox = {
+        height: parent.height,
+        width: parent.width,
+        x: parent.renderX - parent.width / 2,
+        y: parent.renderY - parent.height / 2,
+      };
+      const targetBox: NodeBox = {
+        height: node.height,
+        width: node.width,
+        x: node.renderX - node.width / 2,
+        y: node.renderY - node.height / 2,
+      };
 
-        let sourceAnchor: Anchor = 'bottom';
-        let targetAnchor: Anchor = 'top';
+      const isMainToSub = parent.kind === 'main' && node.kind === 'sub';
+      const edgeVariant = edgeVariantForNode(parent.kind, node.kind, node.relationType);
+      const connectorStyle = CONNECTOR_STYLE_BY_VARIANT[edgeVariant];
 
-        if (isMainToSub) {
-          const isLeftBranch = node.renderX < parent.renderX;
-          if (isLeftBranch) {
-            sourceAnchor = 'left';
-            targetAnchor = 'right';
-          } else {
-            sourceAnchor = 'right';
-            targetAnchor = 'left';
-          }
-        }
+      const { source: sourceAnchor, target: targetAnchor } = isMainToSub
+        ? branchAnchors(parent.renderX, node.renderX)
+        : DEFAULT_ANCHORS;
 
-        const start = getAnchorPoint(sourceBox, sourceAnchor);
-        const end = getAnchorPoint(targetBox, targetAnchor);
+      const start = getAnchorPoint(sourceBox, sourceAnchor);
+      const end = getAnchorPoint(targetBox, targetAnchor);
 
-        return {
-          dashed: isMainToSub,
-          id: `${parent.nodeId}->${node.nodeId}`,
+      return [
+        {
+          dashArray: connectorStyle.dashArray,
           icon: isMainToSub
             ? {
-                tone: (node.relationType === 'required' ? 'purple' : 'green') as 'green' | 'purple',
+                tone: RELATION_TYPE_TO_ICON_TONE[node.relationType ?? 'required'],
                 x: end.x,
                 y: end.y,
               }
             : null,
+          id: `${parent.nodeId}->${node.nodeId}`,
           path: isMainToSub
             ? buildSmoothSkillPath(start, end)
             : buildSmoothVerticalPath(start, end),
-          stroke: isMainToMain
-            ? theme.connector.main.stroke
-            : node.relationType === 'optional'
-              ? theme.connector.optional.stroke
-              : theme.connector.required.stroke,
-          strokeWidth: isMainToMain
-            ? theme.connector.main.strokeWidth
-            : node.relationType === 'optional'
-              ? theme.connector.optional.strokeWidth
-              : theme.connector.required.strokeWidth,
-        };
-      })
-      .filter((edge): edge is NonNullable<typeof edge> => Boolean(edge));
+          stroke: connectorStyle.stroke,
+          strokeWidth: connectorStyle.strokeWidth,
+        } satisfies EdgeItem,
+      ];
+    });
 
     return {
       edges: edgeItems,
@@ -239,16 +264,7 @@ export function RoadmapGraphCanvas({
       nodes: normalizedNodes,
       width: canvasWidth,
     };
-  }, [
-    layout.nodes,
-    logic.nodes,
-    theme.connector.main.stroke,
-    theme.connector.main.strokeWidth,
-    theme.connector.optional.stroke,
-    theme.connector.optional.strokeWidth,
-    theme.connector.required.stroke,
-    theme.connector.required.strokeWidth,
-  ]);
+  }, [layout.nodes, logic.nodes]);
 
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
@@ -272,56 +288,20 @@ export function RoadmapGraphCanvas({
   }, []);
 
   if (nodes.length === 0) {
-    return (
-      <div
-        className="rounded-2xl border p-8 text-sm"
-        style={{
-          background: 'var(--color-card)',
-          borderColor: 'var(--color-border)',
-          color: 'var(--color-muted-foreground)',
-        }}
-      >
-        No roadmap data to render.
-      </div>
-    );
+    return <div className="roadmap-graph-empty">No roadmap data to render.</div>;
   }
 
   const scale = width > 0 ? Math.min(1, (viewportWidth || width) / width) : 1;
   const scaledHeight = Math.ceil(height * scale);
 
   return (
-    <div
-      className="w-full overflow-hidden rounded-2xl border"
-      style={{
-        background: 'var(--color-roadmap-logic-surface)',
-        borderColor: 'var(--color-border)',
-        boxShadow: 'var(--shadow-roadmap-logic-title)',
-      }}
-    >
+    <div className="roadmap-graph-shell">
       <div ref={viewportRef} className="surface-roadmap-grid relative w-full">
         <div className="relative" style={{ height: scaledHeight }}>
           <div
             className="absolute top-0 left-0 origin-top-left"
             style={{ height, transform: `scale(${scale})`, width }}
           >
-            <div
-              className="pointer-events-none absolute"
-              style={{
-                height: theme.graph.illustration.height,
-                left: theme.graph.illustration.left,
-                opacity: theme.graph.illustration.opacity,
-                top: theme.graph.illustration.top,
-                width: theme.graph.illustration.width,
-              }}
-            >
-              <Image
-                className="object-contain"
-                fill
-                alt={GRAPH_ILLUSTRATION.alt}
-                src={GRAPH_ILLUSTRATION.src}
-                unoptimized
-              />
-            </div>
             <svg
               className="pointer-events-none absolute inset-0"
               aria-hidden="true"
@@ -336,11 +316,7 @@ export function RoadmapGraphCanvas({
                   d={edge.path}
                   stroke={edge.stroke}
                   strokeWidth={edge.strokeWidth}
-                  strokeDasharray={
-                    edge.dashed
-                      ? theme.connector.required.dashArray
-                      : theme.connector.main.dashArray
-                  }
+                  strokeDasharray={edge.dashArray}
                   strokeLinecap="round"
                 />
               ))}
@@ -351,71 +327,40 @@ export function RoadmapGraphCanvas({
                 return null;
               }
 
-              const iconSize = Number.parseFloat(theme.icon.roadmapLink.badgeSize);
-              const left = edge.icon.x - iconSize / 2;
-              const top = edge.icon.y - iconSize / 2;
+              const left = edge.icon.x - ROADMAP_LINK_ICON_BADGE_SIZE / 2;
+              const top = edge.icon.y - ROADMAP_LINK_ICON_BADGE_SIZE / 2;
 
               return (
                 <div
                   key={`${edge.id}-icon`}
-                  className="pointer-events-none absolute"
-                  style={{ left, top, zIndex: 15 }}
+                  className="pointer-events-none absolute z-[15]"
+                  style={{ left, top }}
                 >
-                  <RoadmapLinkIcon theme={theme} tone={edge.icon.tone} />
+                  <RoadmapLinkIcon tone={edge.icon.tone} />
                 </div>
               );
             })}
 
             {nodes.map((node) => {
               const left = node.renderX - node.width / 2;
-              const tone = nodeTone(node.kind, theme);
               const top = node.renderY - node.height / 2;
 
               return (
                 <div
                   key={node.nodeId}
-                  className="absolute flex items-center justify-center rounded-xl border px-4 py-2 text-center leading-tight"
+                  className={cn(
+                    'absolute flex items-center justify-center rounded-xl border px-4 py-2 text-center leading-tight',
+                    NODE_CONFIG_BY_KIND[node.kind].containerClassName,
+                  )}
                   style={{
-                    background: tone.background,
-                    borderColor: tone.borderColor,
-                    borderStyle: 'solid',
-                    borderWidth: tone.borderWidth,
-                    boxShadow:
-                      activeNodeId === node.nodeId
-                        ? mergeBoxShadow(tone.boxShadow, theme.graph.selectionRingColor)
-                        : tone.boxShadow,
-                    color: tone.color,
                     height: node.height,
                     left,
                     top,
                     width: node.width,
-                    zIndex: node.kind === 'title' ? 30 : node.kind === 'main' ? 20 : 10,
-                    cursor: node.kind === 'title' || !onNodeSelect ? undefined : 'pointer',
                   }}
-                  role={node.kind === 'title' || !onNodeSelect ? undefined : 'button'}
-                  tabIndex={node.kind === 'title' || !onNodeSelect ? undefined : 0}
-                  onKeyDown={
-                    node.kind === 'title' || !onNodeSelect
-                      ? undefined
-                      : (event) => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault();
-                            onNodeSelect(node.nodeId);
-                          }
-                        }
-                  }
-                  onClick={
-                    node.kind === 'title' || !onNodeSelect
-                      ? undefined
-                      : () => {
-                          onNodeSelect(node.nodeId);
-                        }
-                  }
                 >
                   <div className="flex items-center gap-2">
-                    <span
-                      className={node.kind === 'title' ? 'text-lg font-extrabold' : 'font-semibold'}
-                    >
+                    <span className={NODE_CONFIG_BY_KIND[node.kind].labelClassName}>
                       {node.label}
                     </span>
                   </div>

@@ -4,37 +4,6 @@ export const backendRoadmapLogic: MockRoadmapLogic = {
   roadmapId: 'backend',
   title: 'Backend',
   description: 'Step by step guide to becoming a modern backend developer in 2026',
-  hero: {
-    backHref: '/',
-    backLabel: 'All Roadmaps',
-    progressActionLabel: 'Track Progress',
-    progressBadgeLabel: '0% DONE',
-    progressHint: 'Click nodes to track your progress',
-  },
-  introCard: {
-    ctaHref: '/roadmaps/backend',
-    ctaLabel: 'Explore now',
-    description:
-      'Use the roadmap to identify the exact backend topics you need next, instead of guessing what to learn in what order.',
-    items: [
-      { id: 'pick-language', label: 'Pick a Language', tone: 'green', variant: 'check' },
-      { id: 'version-control', label: 'Version Control Systems', tone: 'pink', variant: 'check' },
-      { id: 'databases', label: 'Relational Databases', tone: 'neutral', variant: 'map' },
-      { id: 'apis', label: 'Learn about APIs', tone: 'green', variant: 'check' },
-      { id: 'security', label: 'Web Security Knowledge', tone: 'pink', variant: 'check' },
-    ],
-    title: 'Know Exactly What You\nNeed to Learn',
-  },
-  nodePanel: {
-    aiTutorTabLabel: 'AI Tutor',
-    resourcesTabLabel: 'Resources',
-    statusLabels: {
-      completed: 'Completed',
-      in_progress: 'In progress',
-      locked: 'Pending',
-    },
-    detailsByNodeId: {},
-  },
   nodes: [
     {
       id: 'iogwMmOvub2ZF4zgg6WyF',

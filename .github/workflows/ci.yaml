@@ -27,6 +27,8 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
 
       - name: Typecheck
         run: pnpm check-types

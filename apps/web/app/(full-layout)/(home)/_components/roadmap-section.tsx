@@ -54,8 +54,7 @@ export function RoadmapSection() {
             <div className="flex h-1 w-full flex-col justify-end pt-4">
               <div className="landing-roadmap-divider block h-1 w-full">
                 <svg
-                  className="-mt-px"
-                  style={{ fill: 'var(--color-landing-roadmap-divider-fill)' }}
+                  className="-mt-px fill-[var(--color-landing-roadmap-divider-fill)]"
                   width="6"
                   height="3"
                   viewBox="0 0 6 3"

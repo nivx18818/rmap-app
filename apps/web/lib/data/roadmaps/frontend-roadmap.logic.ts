@@ -5,9 +5,33 @@ export const frontendRoadmapLogic: MockRoadmapLogic = {
   hero: {
     backHref: '/',
     backLabel: 'All Roadmaps',
-    progressActionLabel: 'Track Progress',
-    progressBadgeLabel: '0% DONE',
-    progressHint: 'Click nodes to track your progress',
+    //progressActionLabel: 'Track Progress',
+    //progressBadgeLabel: '0% DONE',
+    //progressHint: 'Click nodes to track your progress',
+  },
+  introCard: {
+    ctaHref: '/roadmaps/frontend',
+    ctaLabel: 'Explore now',
+    description:
+      'Use the roadmap to identify the exact topics you need next, instead of guessing what to learn in what order.',
+    items: [
+      { id: 'road-to-devops', label: 'Road to DevOps Engineer', tone: 'neutral', variant: 'map' },
+      {
+        id: 'learn-language',
+        label: 'Learn a Programming Language',
+        tone: 'green',
+        variant: 'check',
+      },
+      { id: 'operating-system', label: 'Operating System', tone: 'green', variant: 'check' },
+      { id: 'terminal-knowledge', label: 'Terminal Knowledge', tone: 'pink', variant: 'check' },
+      {
+        id: 'version-control-systems',
+        label: 'Version Control Systems',
+        tone: 'pink',
+        variant: 'check',
+      },
+    ],
+    title: 'Know Exactly What You\nNeed to Learn',
   },
   nodePanel: {
     aiTutorTabLabel: 'AI Tutor',

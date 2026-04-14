@@ -4,11 +4,7 @@ import { SectionContainer } from '@repo/design-system/components/common/section-
 
 export function Footer() {
   return (
-    <footer
-      style={{
-        backgroundImage: 'var(--color-bg-footer)',
-      }}
-    >
+    <footer className="[background-image:var(--color-bg-footer)]">
       <SectionContainer className="flex items-center justify-center gap-8 p-8">
         <div className="flex items-center gap-2">
           <HugeiconsIcon className="text-primary-foreground size-8" icon={MapsIcon} />
@@ -16,10 +12,7 @@ export function Footer() {
             RMap
           </span>
         </div>
-        <p
-          className="flex items-center justify-center pt-1 text-sm"
-          style={{ color: 'var(--color-footer-copy)' }}
-        >
+        <p className="text-footer-copy flex items-center justify-center pt-1 text-sm">
           Copyright © 2026 RMap Team
         </p>
       </SectionContainer>

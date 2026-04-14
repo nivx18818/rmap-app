@@ -301,136 +301,127 @@ export function RoadmapGraphCanvas({
       <div ref={viewportRef} className="surface-roadmap-grid relative w-full">
         <div className="relative" style={{ height: scaledHeight }}>
           <div
-            className="absolute inset-x-0 top-0 flex justify-center"
-            style={{
-              height,
-            }}
+            className="absolute top-0 left-0 origin-top-left"
+            style={{ height, transform: `scale(${scale})`, width }}
           >
             <div
-              className="relative origin-top-left"
-              style={{ height, transform: `scale(${scale})`, width }}
+              className="pointer-events-none absolute"
+              style={{
+                height: theme.graph.illustration.height,
+                left: theme.graph.illustration.left,
+                opacity: theme.graph.illustration.opacity,
+                top: theme.graph.illustration.top,
+                width: theme.graph.illustration.width,
+              }}
             >
-              <div
-                className="pointer-events-none absolute"
-                style={{
-                  height: theme.graph.illustration.height,
-                  left: theme.graph.illustration.left,
-                  opacity: theme.graph.illustration.opacity,
-                  top: theme.graph.illustration.top,
-                  width: theme.graph.illustration.width,
-                }}
-              >
-                <Image
-                  className="object-contain"
-                  fill
-                  alt={GRAPH_ILLUSTRATION.alt}
-                  src={GRAPH_ILLUSTRATION.src}
-                  unoptimized
+              <Image
+                className="object-contain"
+                fill
+                alt={GRAPH_ILLUSTRATION.alt}
+                src={GRAPH_ILLUSTRATION.src}
+                unoptimized
+              />
+            </div>
+            <svg
+              className="pointer-events-none absolute inset-0"
+              aria-hidden="true"
+              height={height}
+              width={width}
+              viewBox={`0 0 ${width} ${height}`}
+            >
+              {edges.map((edge) => (
+                <path
+                  key={edge.id}
+                  fill="none"
+                  d={edge.path}
+                  stroke={edge.stroke}
+                  strokeWidth={edge.strokeWidth}
+                  strokeDasharray={
+                    edge.dashed
+                      ? theme.connector.required.dashArray
+                      : theme.connector.main.dashArray
+                  }
+                  strokeLinecap="round"
                 />
-              </div>
-              <svg
-                className="pointer-events-none absolute inset-0"
-                aria-hidden="true"
-                height={height}
-                width={width}
-                viewBox={`0 0 ${width} ${height}`}
-              >
-                {edges.map((edge) => (
-                  <path
-                    key={edge.id}
-                    fill="none"
-                    d={edge.path}
-                    stroke={edge.stroke}
-                    strokeWidth={edge.strokeWidth}
-                    strokeDasharray={
-                      edge.dashed
-                        ? theme.connector.required.dashArray
-                        : theme.connector.main.dashArray
-                    }
-                    strokeLinecap="round"
-                  />
-                ))}
-              </svg>
+              ))}
+            </svg>
 
-              {edges.map((edge) => {
-                if (!edge.icon) {
-                  return null;
-                }
+            {edges.map((edge) => {
+              if (!edge.icon) {
+                return null;
+              }
 
-                const iconSize = Number.parseFloat(theme.icon.roadmapLink.badgeSize);
-                const left = edge.icon.x - iconSize / 2;
-                const top = edge.icon.y - iconSize / 2;
+              const iconSize = Number.parseFloat(theme.icon.roadmapLink.badgeSize);
+              const left = edge.icon.x - iconSize / 2;
+              const top = edge.icon.y - iconSize / 2;
 
-                return (
-                  <div
-                    key={`${edge.id}-icon`}
-                    className="pointer-events-none absolute"
-                    style={{ left, top, zIndex: 15 }}
-                  >
-                    <RoadmapLinkIcon theme={theme} tone={edge.icon.tone} />
-                  </div>
-                );
-              })}
+              return (
+                <div
+                  key={`${edge.id}-icon`}
+                  className="pointer-events-none absolute"
+                  style={{ left, top, zIndex: 15 }}
+                >
+                  <RoadmapLinkIcon theme={theme} tone={edge.icon.tone} />
+                </div>
+              );
+            })}
 
-              {nodes.map((node) => {
-                const left = node.renderX - node.width / 2;
-                const tone = nodeTone(node.kind, theme);
-                const top = node.renderY - node.height / 2;
+            {nodes.map((node) => {
+              const left = node.renderX - node.width / 2;
+              const tone = nodeTone(node.kind, theme);
+              const top = node.renderY - node.height / 2;
 
-                return (
-                  <div
-                    key={node.nodeId}
-                    className="absolute flex items-center justify-center rounded-xl border px-4 py-2 text-center leading-tight"
-                    style={{
-                      background: tone.background,
-                      borderColor: tone.borderColor,
-                      borderStyle: 'solid',
-                      borderWidth: tone.borderWidth,
-                      boxShadow:
-                        activeNodeId === node.nodeId
-                          ? mergeBoxShadow(tone.boxShadow, theme.graph.selectionRingColor)
-                          : tone.boxShadow,
-                      color: tone.color,
-                      height: node.height,
-                      left,
-                      top,
-                      width: node.width,
-                      zIndex: node.kind === 'title' ? 30 : node.kind === 'main' ? 20 : 10,
-                      cursor: node.kind === 'title' || !onNodeSelect ? undefined : 'pointer',
-                    }}
-                    role={node.kind === 'title' || !onNodeSelect ? undefined : 'button'}
-                    tabIndex={node.kind === 'title' || !onNodeSelect ? undefined : 0}
-                    onKeyDown={
-                      node.kind === 'title' || !onNodeSelect
-                        ? undefined
-                        : (event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
-                              onNodeSelect(node.nodeId);
-                            }
-                          }
-                    }
-                    onClick={
-                      node.kind === 'title' || !onNodeSelect
-                        ? undefined
-                        : () => {
+              return (
+                <div
+                  key={node.nodeId}
+                  className="absolute flex items-center justify-center rounded-xl border px-4 py-2 text-center leading-tight"
+                  style={{
+                    background: tone.background,
+                    borderColor: tone.borderColor,
+                    borderStyle: 'solid',
+                    borderWidth: tone.borderWidth,
+                    boxShadow:
+                      activeNodeId === node.nodeId
+                        ? mergeBoxShadow(tone.boxShadow, theme.graph.selectionRingColor)
+                        : tone.boxShadow,
+                    color: tone.color,
+                    height: node.height,
+                    left,
+                    top,
+                    width: node.width,
+                    zIndex: node.kind === 'title' ? 30 : node.kind === 'main' ? 20 : 10,
+                    cursor: node.kind === 'title' || !onNodeSelect ? undefined : 'pointer',
+                  }}
+                  role={node.kind === 'title' || !onNodeSelect ? undefined : 'button'}
+                  tabIndex={node.kind === 'title' || !onNodeSelect ? undefined : 0}
+                  onKeyDown={
+                    node.kind === 'title' || !onNodeSelect
+                      ? undefined
+                      : (event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
                             onNodeSelect(node.nodeId);
                           }
-                    }
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={
-                          node.kind === 'title' ? 'text-lg font-extrabold' : 'font-semibold'
                         }
-                      >
-                        {node.label}
-                      </span>
-                    </div>
+                  }
+                  onClick={
+                    node.kind === 'title' || !onNodeSelect
+                      ? undefined
+                      : () => {
+                          onNodeSelect(node.nodeId);
+                        }
+                  }
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={node.kind === 'title' ? 'text-lg font-extrabold' : 'font-semibold'}
+                    >
+                      {node.label}
+                    </span>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

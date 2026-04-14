@@ -7,12 +7,7 @@ import Link from 'next/link';
 
 export function ContactSection() {
   return (
-    <section
-      className="relative overflow-hidden"
-      style={{
-        backgroundImage: `var(--color-bg-contact)`,
-      }}
-    >
+    <section className="relative overflow-hidden [background-image:var(--color-bg-contact)]">
       <SectionContainer className="relative flex flex-col items-center gap-6 py-32">
         <h2 className="text-contact-title text-center">
           Need a Hand? We&apos;re Here to Help You.

@@ -1,20 +1,17 @@
-import { ArrowLeft01Icon, InformationCircleIcon } from '@hugeicons/core-free-icons';
-import { HugeiconsIcon } from '@hugeicons/react';
-import { Button } from '@repo/design-system/components/ui/button';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import type { MockRoadmapLayout, MockRoadmapLogic } from '@/lib/data/roadmaps/roadmap-mock.types';
 import type { RoadmapTheme } from '@/types/roadmap';
 
+import { RoadmapIntroCard } from '@/components/roadmap/roadmap-intro-card';
 import { mockRoadmapThemeBySlug } from '@/lib/data/roadmaps/roadmap-themes';
 
 import { RoadmapGraphContainer } from '../_components/roadmap-graph-container';
+import { RoadmapPageHero } from '../_components/roadmap-page-hero';
 
 interface MockRoadmapRouteData {
   layout: MockRoadmapLayout;
   logic: MockRoadmapLogic;
-  theme: RoadmapTheme;
 }
 
 const mockRoadmapModuleLoaders: Record<
@@ -35,10 +32,9 @@ const mockRoadmapModuleLoaders: Record<
 };
 
 async function loadMockRoadmapRouteData(id: string): Promise<MockRoadmapRouteData | null> {
-  const theme = mockRoadmapThemeBySlug[id];
   const moduleLoaders = mockRoadmapModuleLoaders[id];
 
-  if (!theme || !moduleLoaders) {
+  if (!moduleLoaders) {
     return null;
   }
 
@@ -62,7 +58,6 @@ async function loadMockRoadmapRouteData(id: string): Promise<MockRoadmapRouteDat
     return {
       layout,
       logic,
-      theme,
     };
   } catch {
     return null;
@@ -81,7 +76,7 @@ export default async function RoadmapDetailPage(props: PageProps<'/roadmaps/[id]
     notFound();
   }
 
-  const { layout, logic, theme } = routeData;
+  const { layout, logic } = routeData;
 
   return (
     <main className="pt-full-layout-header-offset">
@@ -89,7 +84,7 @@ export default async function RoadmapDetailPage(props: PageProps<'/roadmaps/[id]
         <Link
           className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium"
           style={{ color: 'var(--color-roadmap-connector-required)' }}
-          href={logic.hero.backHref as '/'}
+          href={logic.hero.backHref}
         >
           <HugeiconsIcon className="size-4" icon={ArrowLeft01Icon} />
           {logic.hero.backLabel}
@@ -129,6 +124,10 @@ export default async function RoadmapDetailPage(props: PageProps<'/roadmaps/[id]
       </section>
 
       <div className="mx-auto max-w-400 px-4 pt-2 pb-6 sm:px-6 lg:px-8">
+        <section className="mb-6">
+          <RoadmapIntroCard {...logic.introCard} theme={theme} />
+        </section>
+
         <RoadmapGraphContainer
           layout={layout}
           logic={logic}

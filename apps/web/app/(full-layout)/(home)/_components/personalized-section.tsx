@@ -22,10 +22,10 @@ const NOTEBOOK_ITEMS = [
   { label: 'Version Control Systems', icon: Tick01Icon, tone: 'locked' },
 ] as const;
 
-const NOTEBOOK_ICON_COLOR_BY_TONE = {
-  complete: 'var(--color-landing-personalized-icon-complete)',
-  locked: 'var(--color-landing-personalized-icon-locked)',
-  start: 'var(--color-landing-personalized-icon-start)',
+const NOTEBOOK_ICON_CLASS_BY_TONE = {
+  complete: 'text-landing-personalized-icon-complete',
+  locked: 'text-landing-personalized-icon-locked',
+  start: 'text-landing-personalized-icon-start',
 } as const;
 
 /**
@@ -99,8 +99,7 @@ export function PersonalizedSection() {
                     aria-hidden="true"
                   >
                     <HugeiconsIcon
-                      className="size-4"
-                      style={{ color: NOTEBOOK_ICON_COLOR_BY_TONE[item.tone] }}
+                      className={`size-4 ${NOTEBOOK_ICON_CLASS_BY_TONE[item.tone]}`}
                       icon={item.icon}
                     />
                   </div>

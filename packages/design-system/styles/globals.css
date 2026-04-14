@@ -7,8 +7,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-graph-heading: var(--font-noto-serif), serif;
-  --font-graph-node: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-graph-heading: var(--font-mackinac), serif;
+  --font-graph-node: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-mackinac), serif;
   --color-background: var(--background);
@@ -76,12 +76,9 @@
   --color-gradient-roadmap-divider: var(--gradient-roadmap-divider);
   --color-gradient-nav-menu-underline: var(--gradient-nav-menu-underline);
   --color-gradient-nav-menu-glow: var(--gradient-nav-menu-glow);
-  --gradient-roadmap-intro-card: var(--roadmap-intro-card);
-  --gradient-roadmap-intro-branch: var(--roadmap-intro-branch);
   --gradient-roadmap-page-hero: var(--roadmap-page-hero);
   --gradient-roadmap-page-promo: var(--roadmap-page-promo);
   --gradient-roadmap-page-promo-highlight: var(--roadmap-page-promo-highlight);
-  --color-roadmap-intro-item-foreground: var(--roadmap-intro-item-foreground);
   --color-roadmap-connector-header: var(--roadmap-connector-header);
   --color-roadmap-connector-main: var(--roadmap-connector-main);
   --color-roadmap-connector-optional: var(--roadmap-connector-optional);
@@ -90,13 +87,7 @@
   --color-roadmap-title-foreground: var(--roadmap-title-foreground);
   --color-roadmap-hero-badge-surface: var(--roadmap-hero-badge-surface);
   --color-roadmap-hero-badge-foreground: var(--roadmap-hero-badge-foreground);
-  --color-roadmap-copy-subtle: var(--roadmap-copy-subtle);
   --color-roadmap-ui-foreground: var(--roadmap-ui-foreground);
-  --color-roadmap-intro-accent: var(--roadmap-intro-accent);
-  --color-roadmap-intro-row: var(--roadmap-intro-row);
-  --color-roadmap-intro-heading: var(--roadmap-intro-heading);
-  --color-roadmap-intro-check-green: var(--roadmap-intro-check-green);
-  --color-roadmap-intro-check-pink: var(--roadmap-intro-check-pink);
   --color-roadmap-link-green: var(--roadmap-link-green);
   --color-roadmap-link-purple: var(--roadmap-link-purple);
   --color-roadmap-link-badge-green-surface: var(--roadmap-link-badge-green-surface);
@@ -107,18 +98,6 @@
   --color-roadmap-node-main: var(--roadmap-node-main);
   --color-roadmap-node-skill: var(--roadmap-node-skill);
   --color-roadmap-node-skill-foreground: var(--roadmap-node-skill-foreground);
-  --color-roadmap-panel-surface: var(--roadmap-panel-surface);
-  --color-roadmap-panel-border: var(--roadmap-panel-border);
-  --color-roadmap-panel-overlay: var(--roadmap-panel-overlay);
-  --color-roadmap-panel-highlight: var(--roadmap-panel-highlight);
-  --color-roadmap-panel-highlight-foreground: var(--roadmap-panel-highlight-foreground);
-  --color-roadmap-panel-info-surface: var(--roadmap-panel-info-surface);
-  --color-roadmap-panel-info-border: var(--roadmap-panel-info-border);
-  --color-roadmap-panel-info-foreground: var(--roadmap-panel-info-foreground);
-  --color-roadmap-panel-success-surface: var(--roadmap-panel-success-surface);
-  --color-roadmap-panel-success-border: var(--roadmap-panel-success-border);
-  --color-roadmap-panel-success-foreground: var(--roadmap-panel-success-foreground);
-  --color-roadmap-panel-muted: var(--roadmap-panel-muted);
   --color-roadmap-promo-copy: var(--roadmap-promo-copy);
   --color-roadmap-promo-heading: var(--roadmap-promo-heading);
   --color-roadmap-selection-ring: var(--roadmap-selection-ring);
@@ -126,9 +105,7 @@
   --color-roadmap-logic-surface: var(--roadmap-logic-surface);
   --shadow-roadmap-logic-title: var(--roadmap-logic-title-shadow);
   --shadow-roadmap-link: var(--roadmap-link-shadow);
-  --shadow-roadmap-intro-inset: var(--roadmap-intro-inset);
   --shadow-roadmap-node-skill: var(--roadmap-node-skill-shadow);
-  --shadow-roadmap-panel: var(--roadmap-panel-shadow);
   --shadow-roadmap-promo-image: var(--roadmap-promo-image-shadow);
   --shadow-roadmap-promo-card: var(--roadmap-promo-card-shadow);
   --color-roadmap-promo-card-surface: var(--roadmap-promo-card-surface);
@@ -285,20 +262,6 @@
     hsla(262, 83%, 58%, 0) 90%
   );
   --gradient-nav-menu-glow: linear-gradient(0deg, hsla(262, 83%, 58%, 0.2) 0%, transparent 100%);
-  --roadmap-intro-card:
-    linear-gradient(
-      160.31deg,
-      rgb(255, 251, 235) 0%,
-      rgb(255, 247, 237) 50%,
-      rgb(251, 207, 232) 100%
-    ),
-    linear-gradient(90deg, hsla(0, 0%, 100%, 0.75) 0%, hsla(0, 0%, 100%, 0.75) 100%);
-  --roadmap-intro-branch: linear-gradient(
-    180deg,
-    hsla(351, 95%, 71%, 0.12),
-    hsla(351, 95%, 71%, 0.48),
-    hsla(351, 95%, 71%, 0.08)
-  );
   --roadmap-page-hero:
     radial-gradient(circle at 45% 0%, hsla(293, 80%, 90%, 0.24), transparent 34%),
     radial-gradient(circle at 100% 0%, hsla(199, 89%, 85%, 0.18), transparent 24%),
@@ -314,7 +277,6 @@
     hsla(230, 77%, 82%, 0.45),
     hsla(330, 79%, 80%, 0.35)
   );
-  --roadmap-intro-item-foreground: hsl(0, 0%, 0%);
   --roadmap-connector-header: hsl(245, 79%, 59%);
   --roadmap-connector-main: hsl(220, 39%, 11%);
   --roadmap-connector-optional: hsl(142, 71%, 45%);
@@ -323,13 +285,7 @@
   --roadmap-title-foreground: hsl(0, 0%, 0%);
   --roadmap-hero-badge-surface: hsl(254, 91%, 97%);
   --roadmap-hero-badge-foreground: hsl(262, 83%, 58%);
-  --roadmap-copy-subtle: hsla(263, 52%, 21%, 0.75);
   --roadmap-ui-foreground: hsl(215, 28%, 17%);
-  --roadmap-intro-accent: hsl(330, 79%, 80%);
-  --roadmap-intro-row: hsl(199, 89%, 85%);
-  --roadmap-intro-heading: hsl(262, 52%, 21%);
-  --roadmap-intro-check-green: hsl(160, 84%, 39%);
-  --roadmap-intro-check-pink: hsl(331, 76%, 51%);
   --roadmap-link-green: hsl(87, 53%, 39%);
   --roadmap-link-purple: hsl(262, 83%, 58%);
   --roadmap-link-badge-green-surface: hsl(87, 53%, 96%);
@@ -340,18 +296,6 @@
   --roadmap-node-main: hsl(201, 79%, 79%);
   --roadmap-node-skill: hsl(6, 79%, 82%);
   --roadmap-node-skill-foreground: hsl(272, 15%, 27%);
-  --roadmap-panel-surface: hsl(0, 0%, 100%);
-  --roadmap-panel-border: hsl(240, 6%, 87%);
-  --roadmap-panel-overlay: hsla(215, 28%, 17%, 0.36);
-  --roadmap-panel-highlight: hsl(54, 93%, 60%);
-  --roadmap-panel-highlight-foreground: hsl(0, 0%, 7%);
-  --roadmap-panel-info-surface: hsl(214, 100%, 97%);
-  --roadmap-panel-info-border: hsl(217, 91%, 60%);
-  --roadmap-panel-info-foreground: hsl(217, 91%, 60%);
-  --roadmap-panel-success-surface: hsl(138, 76%, 97%);
-  --roadmap-panel-success-border: hsl(142, 71%, 45%);
-  --roadmap-panel-success-foreground: hsl(142, 76%, 36%);
-  --roadmap-panel-muted: hsl(220, 9%, 46%);
   --roadmap-promo-copy: hsl(268, 18%, 44%);
   --roadmap-promo-heading: hsl(273, 44%, 15%);
   --roadmap-selection-ring: hsla(262, 83%, 58%, 0.5);
@@ -359,9 +303,7 @@
   --roadmap-logic-surface: hsl(220, 33%, 98%);
   --roadmap-logic-title-shadow: 0 1px 2px 0 hsla(222, 47%, 11%, 0.05);
   --roadmap-link-shadow: 0 0 0 3px hsl(0, 0%, 100%), 0 8px 18px hsla(220, 39%, 11%, 0.18);
-  --roadmap-intro-inset: inset 0 0 0 1px hsla(267, 67%, 35%, 0.1);
   --roadmap-node-skill-shadow: 0 5px 0 hsla(220, 39%, 11%, 0.08);
-  --roadmap-panel-shadow: -24px 0 64px hsla(215, 28%, 17%, 0.08);
   --roadmap-promo-image-shadow: 0 20px 30px hsla(262, 83%, 58%, 0.18);
   --roadmap-promo-card-shadow: 0 24px 80px hsla(245, 20%, 17%, 0.06);
   --roadmap-promo-card-surface: hsla(0, 0%, 100%, 0.7);
@@ -669,6 +611,31 @@
 
   .text-roadmap-page-subtitle {
     color: var(--color-muted-foreground);
+  }
+
+  .roadmap-link-icon {
+    @apply inline-flex h-[17px] w-[17px] items-center justify-center rounded-full border-2;
+    box-shadow: var(--shadow-roadmap-link);
+  }
+
+  .roadmap-link-icon-green {
+    @apply bg-roadmap-link-badge-green-surface border-roadmap-link-badge-green-border;
+  }
+
+  .roadmap-link-icon-purple {
+    @apply bg-roadmap-link-badge-purple-surface border-roadmap-link-badge-purple-border;
+  }
+
+  .roadmap-link-icon-glyph {
+    @apply h-[10px] w-[10px] shrink-0;
+  }
+
+  .roadmap-graph-empty {
+    @apply bg-card border-border text-muted-foreground rounded-2xl border p-8 text-sm;
+  }
+
+  .roadmap-graph-shell {
+    @apply bg-roadmap-logic-surface border-border shadow-roadmap-logic-title w-full overflow-hidden rounded-2xl border;
   }
 
   .pt-full-layout-header-offset {

@@ -1,59 +1,22 @@
-import { CheckmarkCircle03Icon, MapsIcon, Tick02Icon } from '@hugeicons/core-free-icons';
+import { Tick02Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
+import { cn } from '@repo/design-system/lib/utils';
 
-import type { RoadmapTheme } from '@/types/roadmap';
+const ROADMAP_LINK_ICON_BADGE_CLASS_BY_TONE = {
+  green: 'roadmap-link-icon-green',
+  purple: 'roadmap-link-icon-purple',
+} as const;
 
-export function IntroMapIcon() {
-  return <HugeiconsIcon className="size-4" icon={MapsIcon} />;
-}
+const ROADMAP_LINK_ICON_GLYPH_CLASS_BY_TONE = {
+  green: 'text-roadmap-link-green',
+  purple: 'text-roadmap-link-purple',
+} as const;
 
-export function IntroCheckIcon({ theme, tone }: { theme: RoadmapTheme; tone: 'green' | 'pink' }) {
+export function RoadmapLinkIcon({ tone }: { tone: 'green' | 'purple' }) {
   return (
-    <HugeiconsIcon
-      className="size-4"
-      style={{ color: tone === 'green' ? theme.icon.introCheck.green : theme.icon.introCheck.pink }}
-      aria-hidden="true"
-      icon={CheckmarkCircle03Icon}
-    />
-  );
-}
-
-export function RoadmapLinkIcon({
-  theme,
-  tone,
-}: {
-  theme: RoadmapTheme;
-  tone: 'green' | 'purple';
-}) {
-  const badgeBackground =
-    tone === 'green'
-      ? theme.icon.roadmapLink.badgeGreenSurface
-      : theme.icon.roadmapLink.badgePurpleSurface;
-  const badgeBorderColor =
-    tone === 'green'
-      ? theme.icon.roadmapLink.badgeGreenBorder
-      : theme.icon.roadmapLink.badgePurpleBorder;
-  const iconColor = tone === 'green' ? theme.icon.roadmapLink.green : theme.icon.roadmapLink.purple;
-
-  return (
-    <span
-      className="inline-flex items-center justify-center rounded-full border"
-      style={{
-        background: badgeBackground,
-        borderColor: badgeBorderColor,
-        borderWidth: '2px',
-        boxShadow: theme.icon.roadmapLink.shadow,
-        height: theme.icon.roadmapLink.badgeSize,
-        width: theme.icon.roadmapLink.badgeSize,
-      }}
-    >
+    <span className={cn('roadmap-link-icon', ROADMAP_LINK_ICON_BADGE_CLASS_BY_TONE[tone])}>
       <HugeiconsIcon
-        className="shrink-0"
-        style={{
-          color: iconColor,
-          height: '10px',
-          width: '10px',
-        }}
+        className={cn('roadmap-link-icon-glyph', ROADMAP_LINK_ICON_GLYPH_CLASS_BY_TONE[tone])}
         aria-hidden="true"
         icon={Tick02Icon}
       />

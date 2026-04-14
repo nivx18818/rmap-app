@@ -1,4 +1,4 @@
-import { Bricolage_Grotesque, Inter, Noto_Serif } from 'next/font/google';
+import { Bricolage_Grotesque } from 'next/font/google';
 import localFont from 'next/font/local';
 
 import { cn } from './utils';
@@ -7,20 +7,6 @@ const bricolage = Bricolage_Grotesque({
   subsets: ['latin', 'vietnamese'],
   variable: '--font-bricolage',
   display: 'swap',
-});
-
-const inter = Inter({
-  subsets: ['latin', 'vietnamese'],
-  variable: '--font-inter',
-  display: 'swap',
-  weight: ['400', '500', '700'],
-});
-
-const notoSerif = Noto_Serif({
-  subsets: ['latin', 'vietnamese'],
-  variable: '--font-noto-serif',
-  display: 'swap',
-  weight: ['400', '500', '700'],
 });
 
 const mackinac = localFont({
@@ -72,8 +58,6 @@ const mackinac = localFont({
 
 export const fonts = cn(
   bricolage.variable,
-  inter.variable,
   mackinac.variable,
-  notoSerif.variable,
   'touch-manipulation font-sans antialiased',
 );

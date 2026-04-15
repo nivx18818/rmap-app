@@ -13,12 +13,14 @@ import {
 import { toast } from '@repo/design-system/lib/toast';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { NAV_ITEMS } from '@/app/(full-layout)/(home)/_data/landing';
 import { useAuth } from '@/hooks/use-auth';
 
 export function Header() {
+  const router = useRouter();
   const { isAuthenticated, isLoading, signOut, user } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -28,6 +30,7 @@ export function Header() {
     try {
       await signOut();
       toast.success('Logout successfully');
+      router.push('/');
     } catch {
       toast.error('Sign out failed', {
         description: 'Please try again.',
@@ -104,11 +107,12 @@ export function Header() {
                 <Link className="flex items-center gap-2" href={'/ai' as Route<string>}>
                   {user?.avatarUrl ? (
                     <Image
-                      className="size-5 rounded-full object-cover"
+                      className="size-6 rounded-full object-cover"
                       src={user.avatarUrl}
                       alt={user.fullName}
                       width={20}
                       height={20}
+                      unoptimized
                     />
                   ) : (
                     <HugeiconsIcon className="size-4" icon={UserCircleIcon} />

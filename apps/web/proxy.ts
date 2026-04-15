@@ -2,11 +2,11 @@ import type { NextRequest } from 'next/server';
 
 import { NextResponse } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const token = request.cookies.get('access_token')?.value;
   const { pathname } = request.nextUrl;
 
-  const protectedRoutes = ['/ai', '/roadmaps'];
+  const protectedRoutes = ['/ai'];
   const authRoutes = ['/sign-in', '/sign-up'];
 
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
@@ -26,5 +26,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/ai/:path*', '/sign-in', '/sign-up'],
+  matcher: ['/ai/:path*', '/roadmaps/:path*', '/sign-in', '/sign-up'],
 };

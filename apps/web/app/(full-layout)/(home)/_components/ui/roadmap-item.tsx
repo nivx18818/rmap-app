@@ -7,19 +7,33 @@ import type { RoadmapItemData } from '@/app/(full-layout)/(home)/_types/landing'
 
 type RoadmapItemProps = RoadmapItemData;
 
-export function RoadmapItem({ label, href = '#', variant = 'default' }: RoadmapItemProps) {
+export function RoadmapItem({
+  label,
+  href = '#',
+  variant = 'default',
+  isComingSoon = false,
+}: RoadmapItemProps) {
   const isCreate = variant === 'create';
 
+  const baseClass = cn(
+    'group flex h-12 items-center rounded-md border px-4 text-sm font-medium transition-all duration-200',
+    isCreate
+      ? 'text-primary justify-center border-dashed border-violet-500/20 bg-violet-500/5 hover:border-violet-500/40 hover:bg-violet-500/10 hover:shadow-xs focus-visible:ring-primary/30 focus-visible:ring-2 focus-visible:outline-hidden'
+      : isComingSoon
+        ? 'text-muted-foreground/50 justify-between border-border/40 bg-background/50 cursor-not-allowed select-none'
+        : 'bg-background text-foreground justify-between border-[rgba(91,33,182,0.08)] hover:-translate-y-0.5 hover:border-[rgba(91,33,182,0.2)] hover:bg-slate-50 hover:shadow-sm focus-visible:ring-primary/30 focus-visible:ring-2 focus-visible:outline-hidden',
+  );
+
+  if (isComingSoon) {
+    return (
+      <span className={baseClass} aria-disabled="true">
+        <span className="whitespace-nowrap">{label}</span>
+      </span>
+    );
+  }
+
   return (
-    <Link
-      className={cn(
-        'group focus-visible:ring-primary/30 flex h-12 items-center rounded-md border px-4 text-sm font-medium transition-all duration-200 focus-visible:ring-2 focus-visible:outline-hidden',
-        isCreate
-          ? 'text-primary justify-center border-dashed border-violet-500/20 bg-violet-500/5 hover:border-violet-500/40 hover:bg-violet-500/10 hover:shadow-xs'
-          : 'bg-background text-foreground justify-between border-[rgba(91,33,182,0.08)] hover:-translate-y-0.5 hover:border-[rgba(91,33,182,0.2)] hover:bg-slate-50 hover:shadow-sm',
-      )}
-      href={href as never}
-    >
+    <Link className={baseClass} href={href as never}>
       <span className="whitespace-nowrap">{label}</span>
       {!isCreate && (
         <HugeiconsIcon

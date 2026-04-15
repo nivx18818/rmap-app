@@ -9,6 +9,7 @@ export interface RoadmapItemData {
   label: string;
   href?: string;
   variant?: 'default' | 'create';
+  isComingSoon?: boolean;
 }
 
 export interface RoadmapTimelineItem {

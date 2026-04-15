@@ -6,6 +6,7 @@
     "DIRECT_URL",
     "PORT",
     "COOKIE_DOMAIN",
+    "CLIENT_URL",
     "NODE_ENV"
   ],
   "tasks": {

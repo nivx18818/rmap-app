@@ -23,6 +23,8 @@ RUN pnpm install --frozen-lockfile
 COPY --from=builder /app/out/full/ .
 
 ARG APP=api
+ARG DIRECT_URL=postgresql://postgres:postgres@localhost:5432/rmap?schema=public
+ENV DIRECT_URL=$DIRECT_URL
 RUN pnpm turbo run build --filter="${APP:-api}"
 
 # runner

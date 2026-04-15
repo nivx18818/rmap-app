@@ -1,6 +1,7 @@
 'use client';
 
-import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { EyeIcon, ViewOffIcon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { Input } from '@repo/design-system/components/ui/input';
 import { cn } from '@repo/design-system/lib/utils';
 import { useState } from 'react';
@@ -20,9 +21,9 @@ export function PasswordInput({ className, ...props }: PasswordInputProps) {
         onClick={() => setIsVisible((current) => !current)}
       >
         {isVisible ? (
-          <EyeSlashIcon className="size-4 sm:size-5" />
+          <HugeiconsIcon className="size-4 sm:size-5" icon={ViewOffIcon} />
         ) : (
-          <EyeIcon className="size-4 sm:size-5" />
+          <HugeiconsIcon className="size-4 sm:size-5" icon={EyeIcon} />
         )}
       </button>
     </div>

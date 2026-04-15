@@ -7,6 +7,7 @@
     "PORT",
     "COOKIE_DOMAIN",
     "CLIENT_URL",
+    "CLIENT_URLS",
     "NODE_ENV"
   ],
   "tasks": {

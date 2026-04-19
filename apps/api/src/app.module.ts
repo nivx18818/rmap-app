@@ -6,6 +6,7 @@ import { AppController } from './app.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { PrismaModule } from './modules/prisma/prisma.module';
+import { RoadmapModule } from './modules/roadmap/roadmap.module';
 import { UserModule } from './modules/user/user.module';
 
 @Module({
@@ -16,6 +17,7 @@ import { UserModule } from './modules/user/user.module';
     PrismaModule,
     AuthModule,
     UserModule,
+    RoadmapModule,
   ],
   controllers: [AppController],
   providers: [

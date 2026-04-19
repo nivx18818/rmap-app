@@ -1,5 +1,6 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 
+import { Public } from '../auth/decorators/public.decorator';
 import { QuizDto } from './dto/quiz.dto';
 import { RoadmapService } from './roadmap.service';
 
@@ -7,8 +8,10 @@ import { RoadmapService } from './roadmap.service';
 export class RoadmapController {
   constructor(private readonly roadmapService: RoadmapService) {}
 
+  @Public()
   @Post('quiz')
+  @HttpCode(HttpStatus.OK)
   quiz(@Body() dto: QuizDto) {
-    return { message: 'Quiz created successfully' };
+    return this.roadmapService.generateQuiz(dto);
   }
 }

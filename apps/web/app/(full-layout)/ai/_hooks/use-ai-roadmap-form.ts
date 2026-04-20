@@ -10,7 +10,7 @@ import {
 
 async function mockGenerateRoadmap(values: AiRoadmapValues) {
   await new Promise((resolve) => {
-    setTimeout(resolve, 1200);
+    setTimeout(resolve, 5000);
   });
 
   if (values.topic.trim().toLowerCase().includes('error')) {
@@ -24,7 +24,7 @@ async function mockGenerateRoadmap(values: AiRoadmapValues) {
 
 async function mockSavePersonalizationInput() {
   await new Promise((resolve) => {
-    setTimeout(resolve, 3000);
+    setTimeout(resolve, 5000);
   });
 }
 

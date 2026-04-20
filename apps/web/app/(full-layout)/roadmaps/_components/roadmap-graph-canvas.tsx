@@ -306,14 +306,15 @@ export function RoadmapGraphCanvas({ layout, logic }: RoadmapGraphCanvasProps) {
 
   const scale = width > 0 ? Math.min(1, (viewportWidth || width) / width) : 1;
   const scaledHeight = Math.ceil(height * scale);
+  const centeredOffsetX = Math.max(0, Math.floor(((viewportWidth || width) - width * scale) / 2));
 
   return (
-    <div className="roadmap-graph-shell">
+    <div className="roadmap-graph-shell mt-12">
       <div ref={viewportRef} className="surface-roadmap-grid relative w-full">
         <div className="relative" style={{ height: scaledHeight }}>
           <div
-            className="absolute top-0 left-0 origin-top-left"
-            style={{ height, transform: `scale(${scale})`, width }}
+            className="absolute top-0 origin-top-left"
+            style={{ height, left: centeredOffsetX, transform: `scale(${scale})`, width }}
           >
             <svg
               className="pointer-events-none absolute inset-0"

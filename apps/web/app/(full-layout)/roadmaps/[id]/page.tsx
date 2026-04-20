@@ -2,6 +2,9 @@ import { notFound } from 'next/navigation';
 
 import type { MockRoadmapLayout, MockRoadmapLogic } from '@/lib/data/roadmaps/roadmap-mock.types';
 
+import { HeroGradient } from '@/components/shared/hero-gradient';
+import { RainbowBar } from '@/components/shared/rainbow-bar';
+
 import { RoadmapGraphContainer } from '../_components/roadmap-graph-container';
 import { RoadmapPageHero } from '../_components/roadmap-page-hero';
 
@@ -112,6 +115,8 @@ export default async function RoadmapDetailPage(props: PageProps<'/roadmaps/[id]
 
   return (
     <main className="pt-full-layout-header-offset">
+      <HeroGradient />
+      <RainbowBar />
       <RoadmapPageHero title={logic.title} description={logic.description} />
 
       <div className="mx-auto max-w-400 px-4 pt-2 pb-6 sm:px-6 lg:px-8">

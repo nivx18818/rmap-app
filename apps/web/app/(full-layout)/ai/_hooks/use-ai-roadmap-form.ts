@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from '@repo/design-system/lib/toast';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { type SubmitHandler, useForm } from 'react-hook-form';
 
@@ -18,6 +19,7 @@ async function mockGenerateRoadmap(values: AiRoadmapValues) {
   }
 
   return {
+    roadmapTopic: values.topic,
     roadmapId: crypto.randomUUID(),
   };
 }
@@ -33,6 +35,7 @@ export function useAiRoadmapForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isQuizStarted, setIsQuizStarted] = useState(false);
   const [isQuestionsCompleted, setIsQuestionsCompleted] = useState(false);
+  const router = useRouter();
 
   const form = useForm<AiRoadmapValues>({
     resolver: zodResolver(aiRoadmapSchema),
@@ -78,8 +81,10 @@ export function useAiRoadmapForm() {
       const result = await mockGenerateRoadmap(values);
 
       toast.success('Roadmap generated successfully', {
-        description: `Roadmap ID: ${result.roadmapId}`,
+        description: `Roadmap Topic: ${result.roadmapTopic}`,
       });
+
+      router.push(`/roadmaps/${result.roadmapId}`);
     } catch {
       toast.error('Failed to generate roadmap', {
         description: 'Please try again. Tip: any topic containing "error" will mock a failure.',

@@ -67,7 +67,8 @@ const mockRoadmapModuleLoaders: Record<
 };
 
 async function loadMockRoadmapRouteData(id: string): Promise<MockRoadmapRouteData | null> {
-  const moduleLoaders = mockRoadmapModuleLoaders[id];
+  const resolvedRoadmapId = id in mockRoadmapModuleLoaders ? id : 'frontend';
+  const moduleLoaders = mockRoadmapModuleLoaders[resolvedRoadmapId];
 
   if (!moduleLoaders) {
     return null;
@@ -86,7 +87,7 @@ async function loadMockRoadmapRouteData(id: string): Promise<MockRoadmapRouteDat
       return null;
     }
 
-    if (layout.roadmapId !== id || logic.roadmapId !== id) {
+    if (layout.roadmapId !== resolvedRoadmapId || logic.roadmapId !== resolvedRoadmapId) {
       return null;
     }
 

@@ -1,15 +1,62 @@
 model Skill {
-  id             String  @id @default(dbgenerated("gen_random_uuid()"))
-  name           String
-  slug           String  @unique
-  description    String?
-  category       String?
-  estimatedHours Int?    @map("estimated_hours")
+  id                    String        @id @default(dbgenerated("gen_random_uuid()"))
+  name                  String        @unique
+  description           String?
+  defaultEstimatedHours Decimal?      @map("default_estimated_hours") @db.Decimal(6, 2)
+  roleCategory          RoleCategory? @map("role_category")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
 
-  roleSkills   RoleSkills[]
-  userSkills   UserSkills[]
-  roadmapNodes RoadmapNode[]
-  resources    Resource[]
+  prerequisites   SkillPrerequisite[] @relation("SkillPrerequisites")
+  prerequisiteFor SkillPrerequisite[] @relation("PrerequisiteFor")
+  resources       Resource[]
+  quizQuestions   QuizQuestion[]
+  roadmapNodes    RoadmapNode[]
 
   @@map("skills")
+}
+
+model SkillPrerequisite {
+  skillId             String @map("skill_id")
+  prerequisiteSkillId String @map("prerequisite_skill_id")
+
+  skill             Skill @relation("SkillPrerequisites", fields: [skillId], references: [id], onDelete: Cascade)
+  prerequisiteSkill Skill @relation("PrerequisiteFor", fields: [prerequisiteSkillId], references: [id], onDelete: Cascade)
+
+  @@id([skillId, prerequisiteSkillId])
+  @@map("skill_prerequisites")
+}
+
+model Resource {
+  id           Int          @id @default(autoincrement())
+  skillId      String       @map("skill_id")
+  title        String
+  url          String       @db.Text
+  resourceType ResourceType @map("resource_type")
+  isFree       Boolean      @default(true) @map("is_free")
+  isPrimary    Boolean      @default(false) @map("is_primary")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@index([skillId])
+  @@map("resources")
+}
+
+model QuizQuestion {
+  id            String   @id @default(dbgenerated("gen_random_uuid()"))
+  skillId       String   @map("skill_id")
+  questionText  String   @map("question_text") @db.Text
+  optionA       String   @map("option_a") @db.Text
+  optionB       String   @map("option_b") @db.Text
+  optionC       String   @map("option_c") @db.Text
+  optionD       String   @map("option_d") @db.Text
+  correctOption String   @map("correct_option") @db.VarChar(1)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@index([skillId])
+  @@map("quiz_questions")
 }

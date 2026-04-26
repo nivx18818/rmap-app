@@ -1,36 +1,78 @@
 model Roadmap {
-  id          String   @id @default(dbgenerated("gen_random_uuid()"))
-  title       String
-  description String?
-  isTemplate  Boolean  @default(false) @map("is_template")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id             String       @id @default(dbgenerated("gen_random_uuid()"))
+  isTemplate     Boolean      @default(false) @map("is_template")
+  userId         String?      @map("user_id")
+  roleCategory   RoleCategory @map("role_category")
+  title          String
+  description    String?      @db.Text
+  goalName       String?      @map("goal_name")
+  hoursPerDay    Decimal?     @map("hours_per_day") @db.Decimal(4, 2)
+  deadlineDate   DateTime?    @map("deadline_date") @db.Timestamp
+  estimatedWeeks Int?         @map("estimated_weeks")
+  generatedAt    DateTime     @default(now()) @map("generated_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
 
-  userId            String?            @unique @map("user_id")
-  user              User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  roleId            String?            @map("role_id")
-  role              Role?              @relation(fields: [roleId], references: [id], onDelete: SetNull)
-  roadmapNodes      RoadmapNode[]
-  userSavedRoadmaps UserSavedRoadmap[]
+  user  User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nodes RoadmapNode[]
 
-  @@index([roleId])
+  @@index([userId])
   @@index([isTemplate])
+  @@index([roleCategory])
   @@map("roadmaps")
 }
 
 model RoadmapNode {
-  id           String       @id @default(dbgenerated("gen_random_uuid()"))
-  relationType RelationType @default(REQUIRED) @map("relation_type")
-  sortOrder    Int          @default(0) @map("sort_order")
+  id             String   @id @default(dbgenerated("gen_random_uuid()"))
+  roadmapId      String   @map("roadmap_id")
+  parentId       String?  @map("parent_id")
+  skillId        String?  @map("skill_id")
+  name           String
+  description    String?  @db.Text
+  nodeType       NodeType @map("node_type")
+  estimatedHours Decimal? @map("estimated_hours") @db.Decimal(6, 2)
+  posX           Decimal  @map("pos_x") @db.Decimal(8, 2)
+  posY           Decimal  @map("pos_y") @db.Decimal(8, 2)
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  roadmapId          String             @map("roadmap_id")
-  roadmap            Roadmap            @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
-  skillId            String             @map("skill_id")
-  skill              Skill              @relation(fields: [skillId], references: [id], onDelete: Cascade)
-  parentNodeId       String?            @map("parent_node_id")
-  parentNode         RoadmapNode?       @relation("RoadmapNodeHierarchy", fields: [parentNodeId], references: [id], onDelete: SetNull)
-  childNodes         RoadmapNode[]      @relation("RoadmapNodeHierarchy")
-  userNodeProgresses UserNodeProgress[]
+  roadmap          Roadmap            @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  parent           RoadmapNode?       @relation("RoadmapNodeHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children         RoadmapNode[]      @relation("RoadmapNodeHierarchy")
+  skill            Skill?             @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  userNodeProgress UserNodeProgress[]
 
   @@index([roadmapId])
+  @@index([parentId])
   @@map("roadmap_nodes")
+}
+
+model UserNodeProgress {
+  id            String     @id @default(dbgenerated("gen_random_uuid()"))
+  userId        String     @map("user_id")
+  roadmapNodeId String     @map("roadmap_node_id")
+  status        NodeStatus @default(LOCKED)
+  startedAt     DateTime?  @map("started_at")
+  completedAt   DateTime?  @map("completed_at")
+  quizScorePct  Decimal?   @map("quiz_score_pct") @db.Decimal(5, 2)
+  quizPassed    Boolean?   @map("quiz_passed")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roadmapNode RoadmapNode @relation(fields: [roadmapNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roadmapNodeId])
+  @@index([userId])
+  @@map("user_node_progress")
+}
+
+model DailyActivity {
+  id             String   @id @default(dbgenerated("gen_random_uuid()"))
+  userId         String   @map("user_id")
+  activityDate   DateTime @map("activity_date")
+  nodesCompleted Int      @default(0) @map("nodes_completed")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, activityDate])
+  @@index([userId])
+  @@map("daily_activity")
 }

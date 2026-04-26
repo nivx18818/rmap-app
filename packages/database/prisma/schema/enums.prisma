@@ -1,12 +1,23 @@
-enum UserRole {
-  USER
-  ADMIN
+enum RoleCategory {
+  FRONTEND
+  BACKEND
+  MOBILE
+  DEVOPS
+  DATA
 }
 
-enum SkillLevel {
-  FRESHER
-  JUNIOR
-  MIDDLE
+enum ResourceType {
+  YOUTUBE
+  DOCS
+  COURSE
+  ARTICLE
+}
+
+enum NodeType {
+  GROUP
+  MILESTONE
+  REQUIRED
+  OPTIONAL
 }
 
 enum NodeStatus {
@@ -15,20 +26,7 @@ enum NodeStatus {
   COMPLETED
 }
 
-enum ResourcePlatform {
-  UDEMY
-  COURSERA
-  YOUTUBE
-  OTHER
-}
-
-enum SkillProficiency {
-  NONE // hasn't learned it
-  BASIC // knows the fundamentals
-  INTERMEDIATE // can apply it in practice
-}
-
-enum RelationType {
-  REQUIRED // must learn before moving on
-  OPTIONAL // good to have, not blocking
+enum UserRole {
+  USER
+  ADMIN
 }

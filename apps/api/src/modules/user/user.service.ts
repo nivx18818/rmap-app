@@ -37,4 +37,11 @@ export class UserService {
       throw error;
     }
   }
+
+  async updateProfile(id: string, fullName: string) {
+    return await this.prisma.user.update({
+      where: { id },
+      data: { fullName },
+    });
+  }
 }

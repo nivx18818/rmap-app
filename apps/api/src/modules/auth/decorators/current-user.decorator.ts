@@ -5,7 +5,9 @@ import { createParamDecorator } from '@nestjs/common';
 export interface RequestUser {
   id: string;
   email: string;
-  fullName?: string;
+  fullName: string;
+  role: string;
+  createdAt: Date;
 }
 
 export const CurrentUser = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {

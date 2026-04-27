@@ -37,7 +37,7 @@ export class RefreshTokenService {
       return await this.prisma.refreshToken.create({
         data: {
           userId,
-          token: tokenHash,
+          tokenHash,
           expiresAt,
         },
       });
@@ -67,7 +67,7 @@ export class RefreshTokenService {
     return await this.prisma.refreshToken.findFirst({
       where: {
         userId,
-        token: tokenHash,
+        tokenHash,
         expiresAt: { gt: new Date() },
       },
     });
@@ -77,7 +77,7 @@ export class RefreshTokenService {
     const tokenHash = this.hashToken(refreshToken);
 
     return await this.prisma.refreshToken.deleteMany({
-      where: { token: tokenHash },
+      where: { tokenHash },
     });
   }
 

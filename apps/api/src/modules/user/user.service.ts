@@ -5,6 +5,8 @@ import { EmailAlreadyExistsException } from '@/common/exceptions/app.exceptions'
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UserProfileDto } from './dto/user-profile.dto';
 
 @Injectable()
 export class UserService {
@@ -38,10 +40,17 @@ export class UserService {
     }
   }
 
-  async updateProfile(id: string, fullName: string) {
+  async updateProfile(id: string, updateProfileDto: UpdateProfileDto): Promise<UserProfileDto> {
     return await this.prisma.user.update({
       where: { id },
-      data: { fullName },
+      data: { ...updateProfileDto },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        createdAt: true,
+      },
     });
   }
 }

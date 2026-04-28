@@ -7,25 +7,26 @@ import { EmailAlreadyExistsException } from '@/common/exceptions/app.exceptions'
 import { PrismaService } from '@/modules/prisma/prisma.service';
 import { UserService } from '@/modules/user/user.service';
 
+import type { Context, MockContext } from '../../utils/prisma-mock';
+
+import { createMockContext, resetMockContext } from '../../utils/prisma-mock';
+
 describe('UserService', () => {
   let service: UserService;
   let prismaService: PrismaService;
-
-  const mockPrismaService = {
-    user: {
-      findUnique: jest.fn(),
-      create: jest.fn(),
-      update: jest.fn(),
-    },
-  };
+  let mockCtx: MockContext;
+  let ctx: Context;
 
   beforeEach(async () => {
+    mockCtx = createMockContext();
+    ctx = mockCtx as unknown as Context;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UserService,
         {
           provide: PrismaService,
-          useValue: mockPrismaService,
+          useValue: ctx.prisma,
         },
       ],
     }).compile();
@@ -35,13 +36,14 @@ describe('UserService', () => {
   });
 
   afterEach(() => {
+    resetMockContext(mockCtx);
     jest.clearAllMocks();
   });
 
   describe('findByEmail', () => {
     it('should return a user if found', async () => {
       const mockUser = { id: '1', email: 'test@example.com' };
-      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockCtx.prisma.user.findUnique.mockResolvedValue(mockUser);
 
       const result = await service.findByEmail('test@example.com');
 
@@ -55,7 +57,7 @@ describe('UserService', () => {
   describe('findById', () => {
     it('should return a user if found', async () => {
       const mockUser = { id: '1', email: 'test@example.com' };
-      mockPrismaService.user.findUnique.mockResolvedValue(mockUser);
+      mockCtx.prisma.user.findUnique.mockResolvedValue(mockUser);
 
       const result = await service.findById('1');
 
@@ -70,7 +72,7 @@ describe('UserService', () => {
     it('should successfully create a user', async () => {
       const createUserDto = { email: 'test@example.com', passwordHash: 'hash', fullName: 'Test' };
       const mockUser = { id: '1', ...createUserDto };
-      mockPrismaService.user.create.mockResolvedValue(mockUser);
+      mockCtx.prisma.user.create.mockResolvedValue(mockUser);
 
       const result = await service.create(createUserDto);
 
@@ -89,7 +91,7 @@ describe('UserService', () => {
         meta: { target: ['email'] },
       });
 
-      mockPrismaService.user.create.mockRejectedValue(error);
+      mockCtx.prisma.user.create.mockRejectedValue(error);
 
       await expect(service.create(createUserDto)).rejects.toThrow(EmailAlreadyExistsException);
     });
@@ -97,14 +99,27 @@ describe('UserService', () => {
 
   describe('updateProfile', () => {
     it('should update and return the user', async () => {
-      const mockUser = { id: '1', fullName: 'New Name' };
-      mockPrismaService.user.update.mockResolvedValue(mockUser);
+      const mockUser = {
+        id: '1',
+        email: 'test@example.com',
+        fullName: 'New Name',
+        role: 'USER',
+        createdAt: new Date('2025-04-24T07:00:00Z'),
+      };
+      mockCtx.prisma.user.update.mockResolvedValue(mockUser);
 
-      const result = await service.updateProfile('1', 'New Name');
+      const result = await service.updateProfile('1', { fullName: 'New Name' });
 
       expect(prismaService.user.update).toHaveBeenCalledWith({
         where: { id: '1' },
         data: { fullName: 'New Name' },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          role: true,
+          createdAt: true,
+        },
       });
       expect(result).toEqual(mockUser);
     });

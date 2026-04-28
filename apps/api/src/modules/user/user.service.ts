@@ -4,9 +4,9 @@ import { PrismaClientKnownRequestError } from '@repo/db/prisma/internal/prismaNa
 import { EmailAlreadyExistsException } from '@/common/exceptions/app.exceptions';
 
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateUserProfileDto } from './dto/create-user-profile.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { UserProfileDto } from './dto/user-profile.dto';
 
 @Injectable()
 export class UserService {
@@ -40,7 +40,10 @@ export class UserService {
     }
   }
 
-  async updateProfile(id: string, updateProfileDto: UpdateProfileDto): Promise<UserProfileDto> {
+  async updateProfile(
+    id: string,
+    updateProfileDto: UpdateProfileDto,
+  ): Promise<CreateUserProfileDto> {
     return await this.prisma.user.update({
       where: { id },
       data: { ...updateProfileDto },

@@ -23,14 +23,14 @@ describe('OnboardingService', () => {
     it('should return all suggestions when no roleCategory is provided', () => {
       const suggestions = service.getGoalSuggestions();
       expect(suggestions.length).toBeGreaterThan(0);
-      expect(suggestions.some((s) => s.role_category === 'Backend')).toBeTruthy();
-      expect(suggestions.some((s) => s.role_category === 'Frontend')).toBeTruthy();
+      expect(suggestions.some((s) => s.roleCategory === 'Backend')).toBeTruthy();
+      expect(suggestions.some((s) => s.roleCategory === 'Frontend')).toBeTruthy();
     });
 
     it('should return only backend suggestions when roleCategory is Backend', () => {
       const suggestions = service.getGoalSuggestions('Backend');
       expect(suggestions.length).toBeGreaterThan(0);
-      expect(suggestions.every((s) => s.role_category === 'Backend')).toBeTruthy();
+      expect(suggestions.every((s) => s.roleCategory === 'Backend')).toBeTruthy();
     });
 
     it('should return empty array if no suggestions for a category', () => {
@@ -41,7 +41,7 @@ describe('OnboardingService', () => {
     it('should be case-insensitive for role category', () => {
       const suggestions = service.getGoalSuggestions('bacKeNd');
       expect(suggestions.length).toBeGreaterThan(0);
-      expect(suggestions.every((s) => s.role_category === 'Backend')).toBeTruthy();
+      expect(suggestions.every((s) => s.roleCategory === 'Backend')).toBeTruthy();
     });
   });
 });

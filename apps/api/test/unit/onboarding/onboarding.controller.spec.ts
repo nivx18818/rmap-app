@@ -12,9 +12,9 @@ describe('OnboardingController', () => {
   const mockSuggestions = [
     {
       label: 'Backend Intern',
-      role_category: 'Backend',
+      roleCategory: 'Backend',
       description: 'Test description',
-      estimated_weeks: 16,
+      estimatedWeeks: 16,
     },
   ];
 
@@ -53,7 +53,7 @@ describe('OnboardingController', () => {
     });
 
     it('should call getGoalSuggestions with query param', () => {
-      const result = controller.getGoals('Backend');
+      const result = controller.getGoals({ roleCategory: 'Backend' });
       expect(service.getGoalSuggestions).toHaveBeenCalledWith('Backend');
       expect(result).toEqual({ suggestions: mockSuggestions });
     });

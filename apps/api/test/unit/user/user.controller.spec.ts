@@ -47,9 +47,9 @@ describe('UserController', () => {
       expect(result).toEqual({
         id: '1',
         email: 'test@example.com',
-        full_name: 'Test User',
+        fullName: 'Test User',
         role: 'user',
-        created_at: new Date('2025-04-24T07:00:00Z'),
+        createdAt: new Date('2025-04-24T07:00:00Z'),
       });
     });
   });
@@ -71,17 +71,17 @@ describe('UserController', () => {
 
       mockUserService.updateProfile.mockResolvedValue(updatedUser);
 
-      const updateDto = { full_name: 'New Name' };
+      const updateDto = { fullName: 'New Name' };
 
       const result = await controller.updateProfile(mockUser, updateDto);
 
-      expect(userService.updateProfile).toHaveBeenCalledWith('1', 'New Name');
+      expect(userService.updateProfile).toHaveBeenCalledWith('1', updateDto);
       expect(result).toEqual({
         id: '1',
         email: 'test@example.com',
-        full_name: 'New Name',
+        fullName: 'New Name',
         role: 'user',
-        created_at: new Date('2025-04-24T07:00:00Z'),
+        createdAt: new Date('2025-04-24T07:00:00Z'),
       });
     });
   });

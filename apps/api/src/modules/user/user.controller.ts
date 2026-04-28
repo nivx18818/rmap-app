@@ -24,7 +24,6 @@ export class UserController {
   }
 
   private formatCreateUserProfile(user: CreateUserProfileDto): CreateUserProfileDto {
-    const { role, ...rest } = user;
-    return { ...rest, role: role.toLowerCase() };
+    return { ...user, role: user.role.toLowerCase() };
   }
 }

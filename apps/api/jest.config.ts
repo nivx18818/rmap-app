@@ -12,8 +12,7 @@ export default {
   testEnvironment: 'node',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^@repo/db/prisma/client$': '<rootDir>/test/unit/__mocks__/prismaClient.mock.ts',
-    '^@repo/db/prisma/internal/prismaNamespace$':
-      '<rootDir>/test/unit/__mocks__/prismaNamespace.mock.ts',
+    '^@repo/db/prisma/client$': '<rootDir>/test/utils/prisma-client.mock.ts',
+    '^@repo/db/prisma/internal/prismaNamespace$': '<rootDir>/test/utils/prisma-namespace.mock.ts',
   },
 } as const satisfies Config;

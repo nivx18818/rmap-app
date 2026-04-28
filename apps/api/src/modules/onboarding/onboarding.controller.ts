@@ -10,7 +10,11 @@ export class OnboardingController {
 
   @Public()
   @Get('goals')
-  getGoals(@Query('role_category') roleCategory?: string) {
+  getGoals(
+    @Query()
+    query: { roleCategory?: string } = {},
+  ) {
+    const roleCategory = query.roleCategory;
     const suggestions = this.onboardingService.getGoalSuggestions(roleCategory);
     return { suggestions };
   }

@@ -3,7 +3,7 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 
 import { ExternalServiceErrorException } from '@/common/exceptions/app.exceptions';
-import { GeminiService } from '@/modules/gemini/gemini.service';
+import { GeminiService } from '@/modules/ai/gemini.service';
 import { OnboardingService } from '@/modules/onboarding/onboarding.service';
 
 describe('OnboardingService', () => {

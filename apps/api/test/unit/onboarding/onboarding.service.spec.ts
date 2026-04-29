@@ -64,7 +64,7 @@ describe('OnboardingService', () => {
 
   describe('generateQuiz', () => {
     it('should return quiz response from Gemini and normalized role category', async () => {
-      const payload = { topic: 'learn backend', hoursPerDay: 2, durationMonths: 3 };
+      const payload = { topic: 'learn backend' };
 
       const quizResponse = {
         roleCategory: 'backend',

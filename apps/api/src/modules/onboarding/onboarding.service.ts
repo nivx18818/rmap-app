@@ -5,7 +5,7 @@ import { ExternalServiceErrorException } from '@/common/exceptions/app.exception
 
 import type { GoalSuggestion } from './constants/goal-suggestions';
 
-import { GeminiService } from '../gemini/gemini.service';
+import { GeminiService } from '../ai/gemini.service';
 import { GOAL_SUGGESTIONS } from './constants/goal-suggestions';
 import { OnboardingQuizRequestDto } from './dto/onboarding.dto';
 

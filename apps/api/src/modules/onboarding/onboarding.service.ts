@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { RoleCategory } from '@repo/db/prisma/client';
 
 import { ExternalServiceErrorException } from '@/common/exceptions/app.exceptions';
 
 import type { GoalSuggestion } from './constants/goal-suggestions';
 
+import { GeminiService } from '../gemini/gemini.service';
 import { GOAL_SUGGESTIONS } from './constants/goal-suggestions';
 import { OnboardingQuizRequestDto } from './dto/onboarding.dto';
 
@@ -23,7 +23,7 @@ export interface OnboardingQuizResponse {
 
 @Injectable()
 export class OnboardingService {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly geminiService: GeminiService) {}
 
   getGoalSuggestions(roleCategory?: string): GoalSuggestion[] {
     if (!roleCategory) {
@@ -37,7 +37,7 @@ export class OnboardingService {
   async generateQuiz(payload: OnboardingQuizRequestDto): Promise<OnboardingQuizResponse> {
     const roleSlugs = this.getRoleSlugs();
     const prompt = this.buildPrompt(payload, roleSlugs);
-    const responseText = await this.callGemini(prompt);
+    const responseText = await this.geminiService.generateContent(prompt);
     const quiz = this.parseQuizResponse(responseText, roleSlugs, payload);
 
     return quiz;
@@ -69,53 +69,6 @@ export class OnboardingService {
       '{ "role_category": "...", "hoursPerDay": number|null, "durationMonths": number|null, "questions":',
       '[ { "question": "...", "possibleAnswers": ["A", "B", "C", "D"] } ] }',
     ].join('\n');
-  }
-
-  private async callGemini(prompt: string): Promise<string> {
-    const apiKey = this.configService.get<string>('GEMINI_API_KEY');
-    const model = this.configService.get<string>('GEMINI_MODEL') ?? 'gemini-1.5-flash';
-
-    if (!apiKey) {
-      throw new ExternalServiceErrorException('Gemini');
-    }
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: prompt }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.4,
-            responseMimeType: 'application/json',
-          },
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      throw new ExternalServiceErrorException('Gemini');
-    }
-
-    const data = (await response.json()) as {
-      candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-    };
-
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-
-    if (!text) {
-      throw new ExternalServiceErrorException('Gemini');
-    }
-
-    return text;
   }
 
   private parseQuizResponse(

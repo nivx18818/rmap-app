@@ -2,7 +2,7 @@ import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 
 import { Public } from '@/common/decorators/public.decorator';
 
-import { OnboardingQuizRequestDto } from './dto/onboarding.dto';
+import { OnboardingQuizRequestDto } from './dto/onboarding-quiz-request.dto';
 import { OnboardingService } from './onboarding.service';
 
 @Controller('onboarding')

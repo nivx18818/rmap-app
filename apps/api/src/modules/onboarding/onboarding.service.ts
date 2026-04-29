@@ -5,25 +5,23 @@ import { ExternalServiceErrorException } from '@/common/exceptions/app.exception
 
 import type { GoalSuggestion } from './constants/goal-suggestions';
 
-import { GeminiService } from '../ai/gemini.service';
+import { AiService } from '../ai/ai.service';
 import { GOAL_SUGGESTIONS } from './constants/goal-suggestions';
-import { OnboardingQuizRequestDto } from './dto/onboarding.dto';
+import { OnboardingQuizRequestDto } from './dto/onboarding-quiz-request.dto';
 
-export interface QuizQuestion {
+export interface OnboardingQuizQuestionDto {
   question: string;
   possibleAnswers: string[];
 }
 
-export interface OnboardingQuizResponse {
-  role_category: string;
-  hoursPerDay: number | null;
-  durationMonths: number | null;
-  questions: QuizQuestion[];
+export interface OnboardingQuizResultDto {
+  roleCategory: string;
+  questions: OnboardingQuizQuestionDto[];
 }
 
 @Injectable()
 export class OnboardingService {
-  constructor(private readonly geminiService: GeminiService) {}
+  constructor(private readonly aiService: AiService) {}
 
   getGoalSuggestions(roleCategory?: string): GoalSuggestion[] {
     if (!roleCategory) {
@@ -34,11 +32,11 @@ export class OnboardingService {
     );
   }
 
-  async generateQuiz(payload: OnboardingQuizRequestDto): Promise<OnboardingQuizResponse> {
+  async generateQuiz(payload: OnboardingQuizRequestDto): Promise<OnboardingQuizResultDto> {
     const roleSlugs = this.getRoleSlugs();
     const prompt = this.buildPrompt(payload, roleSlugs);
-    const responseText = await this.geminiService.generateContent(prompt);
-    const quiz = this.parseQuizResponse(responseText, roleSlugs, payload);
+    const responseText = await this.aiService.generateContent(prompt);
+    const quiz = this.parseQuizResponse(responseText, roleSlugs);
 
     return quiz;
   }
@@ -48,12 +46,18 @@ export class OnboardingService {
     return Array.from(new Set(enumRoles.map((role) => this.toRoleCategory(role))));
   }
 
+  private toRoleCategory(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+  }
+
   private buildPrompt(payload: OnboardingQuizRequestDto, roleSlugs: string[]): string {
     return [
       'You are a learning roadmap specialist.',
       `INPUT: Topic: "${payload.topic}"`,
-      `hoursPerDay: ${payload.hoursPerDay ?? 'null'}`,
-      `durationMonths: ${payload.durationMonths ?? 'null'}`,
       'TASK:',
       `1) Map the topic into exactly one role category from: [${roleSlugs.join(', ')}].`,
       '2) Generate a profiling quiz with 6-10 questions.',
@@ -64,9 +68,9 @@ export class OnboardingService {
       '- Q5: Biggest fear or focus area (example: security, logic, or UI).',
       '- Q6: Open-ended extra requirements (possibleAnswers must be []).',
       'Flexibility: add 1-2 role-specific questions based on the topic.',
-      'Return role_category as a lowercase slug using hyphens (example: "full-stack").',
+      'Return roleCategory as a lowercase slug using hyphens (example: "full-stack").',
       'Output JSON only, no markdown fences, with this shape:',
-      '{ "role_category": "...", "hoursPerDay": number|null, "durationMonths": number|null, "questions":',
+      '{ "roleCategory": "...", "questions":',
       '[ { "question": "...", "possibleAnswers": ["A", "B", "C", "D"] } ] }',
     ].join('\n');
   }
@@ -74,8 +78,7 @@ export class OnboardingService {
   private parseQuizResponse(
     responseText: string,
     allowedRoleSlugs: string[],
-    payload: OnboardingQuizRequestDto,
-  ): OnboardingQuizResponse {
+  ): OnboardingQuizResultDto {
     const jsonText = this.extractJson(responseText);
     let parsed: unknown;
 
@@ -90,7 +93,7 @@ export class OnboardingService {
     }
 
     const fallbackRole = allowedRoleSlugs[0] ?? 'backend';
-    const normalizedRole = this.toRoleCategory(parsed.role_category);
+    const normalizedRole = this.toRoleCategory(parsed.roleCategory);
     const roleCategory = allowedRoleSlugs.includes(normalizedRole) ? normalizedRole : fallbackRole;
 
     const normalizedQuestions = parsed.questions.map((question) => ({
@@ -99,9 +102,7 @@ export class OnboardingService {
     }));
 
     return {
-      role_category: roleCategory,
-      hoursPerDay: payload.hoursPerDay ?? null,
-      durationMonths: payload.durationMonths ?? null,
+      roleCategory,
       questions: normalizedQuestions,
     };
   }
@@ -119,13 +120,13 @@ export class OnboardingService {
     return trimmed;
   }
 
-  private isQuizResponse(payload: unknown): payload is OnboardingQuizResponse {
+  private isQuizResponse(payload: unknown): payload is OnboardingQuizResultDto {
     if (!payload || typeof payload !== 'object') {
       return false;
     }
 
-    const candidate = payload as OnboardingQuizResponse;
-    if (typeof candidate.role_category !== 'string') {
+    const candidate = payload as OnboardingQuizResultDto;
+    if (typeof candidate.roleCategory !== 'string') {
       return false;
     }
 
@@ -139,13 +140,5 @@ export class OnboardingService {
         Array.isArray(question.possibleAnswers) &&
         question.possibleAnswers.every((answer) => typeof answer === 'string'),
     );
-  }
-
-  private toRoleCategory(value: string): string {
-    return value
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)+/g, '');
   }
 }

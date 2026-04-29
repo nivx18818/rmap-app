@@ -5,30 +5,15 @@ import { Test } from '@nestjs/testing';
 
 import { ExternalServiceErrorException } from '@/common/exceptions/app.exceptions';
 import { OnboardingService } from '@/modules/onboarding/onboarding.service';
-import { PrismaService } from '@/modules/prisma/prisma.service';
-
-import type { Context, MockContext } from '../../utils/prisma-mock';
-
-import { createMockContext, resetMockContext } from '../../utils/prisma-mock';
 
 describe('OnboardingService', () => {
   let service: OnboardingService;
-  let prismaService: PrismaService;
   let configService: ConfigService;
-  let mockCtx: MockContext;
-  let ctx: Context;
 
   beforeEach(async () => {
-    mockCtx = createMockContext();
-    ctx = mockCtx as unknown as Context;
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OnboardingService,
-        {
-          provide: PrismaService,
-          useValue: ctx.prisma,
-        },
         {
           provide: ConfigService,
           useValue: {
@@ -39,12 +24,10 @@ describe('OnboardingService', () => {
     }).compile();
 
     service = module.get<OnboardingService>(OnboardingService);
-    prismaService = module.get<PrismaService>(PrismaService);
     configService = module.get<ConfigService>(ConfigService);
   });
 
   afterEach(() => {
-    resetMockContext(mockCtx);
     jest.restoreAllMocks();
     jest.clearAllMocks();
   });
@@ -82,7 +65,6 @@ describe('OnboardingService', () => {
   describe('generateQuiz', () => {
     it('should return quiz response from Gemini and normalized role category', async () => {
       const payload = { topic: 'learn backend', hoursPerDay: 2, durationMonths: 3 };
-      mockCtx.prisma.skill.findMany.mockResolvedValue([{ roleCategory: 'BACKEND' }]);
       jest.spyOn(configService, 'get').mockImplementation((key: string) => {
         if (key === 'GEMINI_API_KEY') {
           return 'test-key';
@@ -95,7 +77,8 @@ describe('OnboardingService', () => {
 
       const quizResponse = {
         role_category: 'backend',
-        estimated_intensity: 'High',
+        hoursPerDay: 2,
+        durationMonths: 3,
         questions: [{ question: 'Goal?', possibleAnswers: ['Career', 'Project'] }],
       };
 
@@ -112,18 +95,12 @@ describe('OnboardingService', () => {
 
       const result = await service.generateQuiz(payload);
 
-      expect(prismaService.skill.findMany).toHaveBeenCalledWith({
-        where: { roleCategory: { not: null } },
-        distinct: ['roleCategory'],
-        select: { roleCategory: true },
-      });
       expect(fetchMock).toHaveBeenCalled();
       expect(result).toEqual(quizResponse);
     });
 
     it('should throw ExternalServiceErrorException when API key is missing', async () => {
       jest.spyOn(configService, 'get').mockReturnValue(undefined);
-      mockCtx.prisma.skill.findMany.mockResolvedValue([{ roleCategory: 'FRONTEND' }]);
 
       await expect(service.generateQuiz({ topic: 'frontend' })).rejects.toThrow(
         ExternalServiceErrorException,

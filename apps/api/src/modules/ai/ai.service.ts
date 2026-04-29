@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { ExternalServiceErrorException } from '@/common/exceptions/app.exceptions';
 
 @Injectable()
-export class GeminiService {
+export class AiService {
   constructor(private readonly configService: ConfigService) {}
 
   async generateContent(prompt: string): Promise<string> {

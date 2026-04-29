@@ -63,9 +63,7 @@ describe('OnboardingController', () => {
   describe('createQuiz', () => {
     it('should call generateQuiz and return result', async () => {
       const mockResponse = {
-        role_category: 'backend',
-        hoursPerDay: 2,
-        durationMonths: 3,
+        roleCategory: 'backend',
         questions: [{ question: 'Goal?', possibleAnswers: ['Career'] }],
       };
       mockOnboardingService.generateQuiz.mockResolvedValue(mockResponse);

@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 
-import { GeminiModule } from '../ai/gemini.module';
+import { AiModule } from '../ai/ai.module';
 import { OnboardingController } from './onboarding.controller';
 import { OnboardingService } from './onboarding.service';
 
 @Module({
-  imports: [GeminiModule],
+  imports: [AiModule],
   controllers: [OnboardingController],
   providers: [OnboardingService],
 })

@@ -3,19 +3,19 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 
 import { ExternalServiceErrorException } from '@/common/exceptions/app.exceptions';
-import { GeminiService } from '@/modules/ai/gemini.service';
+import { AiService } from '@/modules/ai/ai.service';
 import { OnboardingService } from '@/modules/onboarding/onboarding.service';
 
 describe('OnboardingService', () => {
   let service: OnboardingService;
-  let geminiService: GeminiService;
+  let aiService: AiService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OnboardingService,
         {
-          provide: GeminiService,
+          provide: AiService,
           useValue: {
             generateContent: jest.fn(),
           },
@@ -24,7 +24,7 @@ describe('OnboardingService', () => {
     }).compile();
 
     service = module.get<OnboardingService>(OnboardingService);
-    geminiService = module.get<GeminiService>(GeminiService);
+    aiService = module.get<AiService>(AiService);
   });
 
   afterEach(() => {
@@ -67,23 +67,21 @@ describe('OnboardingService', () => {
       const payload = { topic: 'learn backend', hoursPerDay: 2, durationMonths: 3 };
 
       const quizResponse = {
-        role_category: 'backend',
-        hoursPerDay: 2,
-        durationMonths: 3,
+        roleCategory: 'backend',
         questions: [{ question: 'Goal?', possibleAnswers: ['Career', 'Project'] }],
       };
 
-      jest.spyOn(geminiService, 'generateContent').mockResolvedValue(JSON.stringify(quizResponse));
+      jest.spyOn(aiService, 'generateContent').mockResolvedValue(JSON.stringify(quizResponse));
 
       const result = await service.generateQuiz(payload);
 
-      expect(geminiService.generateContent).toHaveBeenCalled();
+      expect(aiService.generateContent).toHaveBeenCalled();
       expect(result).toEqual(quizResponse);
     });
 
     it('should throw ExternalServiceErrorException when API key is missing', async () => {
       jest
-        .spyOn(geminiService, 'generateContent')
+        .spyOn(aiService, 'generateContent')
         .mockRejectedValue(new ExternalServiceErrorException('Gemini'));
 
       await expect(service.generateQuiz({ topic: 'frontend' })).rejects.toThrow(

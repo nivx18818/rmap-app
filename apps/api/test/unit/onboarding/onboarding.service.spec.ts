@@ -1,30 +1,30 @@
 import type { TestingModule } from '@nestjs/testing';
 
-import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
 import { ExternalServiceErrorException } from '@/common/exceptions/app.exceptions';
+import { GeminiService } from '@/modules/gemini/gemini.service';
 import { OnboardingService } from '@/modules/onboarding/onboarding.service';
 
 describe('OnboardingService', () => {
   let service: OnboardingService;
-  let configService: ConfigService;
+  let geminiService: GeminiService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OnboardingService,
         {
-          provide: ConfigService,
+          provide: GeminiService,
           useValue: {
-            get: jest.fn(),
+            generateContent: jest.fn(),
           },
         },
       ],
     }).compile();
 
     service = module.get<OnboardingService>(OnboardingService);
-    configService = module.get<ConfigService>(ConfigService);
+    geminiService = module.get<GeminiService>(GeminiService);
   });
 
   afterEach(() => {
@@ -65,15 +65,6 @@ describe('OnboardingService', () => {
   describe('generateQuiz', () => {
     it('should return quiz response from Gemini and normalized role category', async () => {
       const payload = { topic: 'learn backend', hoursPerDay: 2, durationMonths: 3 };
-      jest.spyOn(configService, 'get').mockImplementation((key: string) => {
-        if (key === 'GEMINI_API_KEY') {
-          return 'test-key';
-        }
-        if (key === 'GEMINI_MODEL') {
-          return 'gemini-1.5-flash';
-        }
-        return undefined;
-      });
 
       const quizResponse = {
         role_category: 'backend',
@@ -82,25 +73,18 @@ describe('OnboardingService', () => {
         questions: [{ question: 'Goal?', possibleAnswers: ['Career', 'Project'] }],
       };
 
-      const fetchMock = jest.spyOn(
-        globalThis as unknown as { fetch: (...args: unknown[]) => Promise<unknown> },
-        'fetch',
-      );
-      fetchMock.mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          candidates: [{ content: { parts: [{ text: JSON.stringify(quizResponse) }] } }],
-        }),
-      } as { ok: boolean; json: () => Promise<unknown> });
+      jest.spyOn(geminiService, 'generateContent').mockResolvedValue(JSON.stringify(quizResponse));
 
       const result = await service.generateQuiz(payload);
 
-      expect(fetchMock).toHaveBeenCalled();
+      expect(geminiService.generateContent).toHaveBeenCalled();
       expect(result).toEqual(quizResponse);
     });
 
     it('should throw ExternalServiceErrorException when API key is missing', async () => {
-      jest.spyOn(configService, 'get').mockReturnValue(undefined);
+      jest
+        .spyOn(geminiService, 'generateContent')
+        .mockRejectedValue(new ExternalServiceErrorException('Gemini'));
 
       await expect(service.generateQuiz({ topic: 'frontend' })).rejects.toThrow(
         ExternalServiceErrorException,

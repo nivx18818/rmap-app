@@ -20,6 +20,7 @@ describe('OnboardingController', () => {
 
   const mockOnboardingService = {
     getGoalSuggestions: jest.fn().mockReturnValue(mockSuggestions),
+    generateQuiz: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -56,6 +57,22 @@ describe('OnboardingController', () => {
       const result = controller.getGoals({ roleCategory: 'Backend' });
       expect(service.getGoalSuggestions).toHaveBeenCalledWith('Backend');
       expect(result).toEqual({ suggestions: mockSuggestions });
+    });
+  });
+
+  describe('createQuiz', () => {
+    it('should call generateQuiz and return result', async () => {
+      const mockResponse = {
+        role_category: 'backend',
+        estimated_intensity: 'High',
+        questions: [{ question: 'Goal?', possibleAnswers: ['Career'] }],
+      };
+      mockOnboardingService.generateQuiz.mockResolvedValue(mockResponse);
+
+      const result = await controller.createQuiz({ topic: 'backend' });
+
+      expect(service.generateQuiz).toHaveBeenCalledWith({ topic: 'backend' });
+      expect(result).toEqual(mockResponse);
     });
   });
 });

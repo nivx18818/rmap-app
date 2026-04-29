@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { GeminiModule } from '../gemini/gemini.module';
+import { GeminiModule } from '../ai/gemini.module';
 import { OnboardingController } from './onboarding.controller';
 import { OnboardingService } from './onboarding.service';
 

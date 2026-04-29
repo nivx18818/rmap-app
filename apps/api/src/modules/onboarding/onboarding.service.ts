@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
-import type { GoalSuggestion } from '../../common/constants/onboarding.constants';
+import type { GoalSuggestion } from './constants/goal-suggestions';
 
-import { GOAL_SUGGESTIONS } from '../../common/constants/onboarding.constants';
+import { GOAL_SUGGESTIONS } from './constants/goal-suggestions';
 
 @Injectable()
 export class OnboardingService {

@@ -1,6 +1,56 @@
+import { PrismaClientKnownRequestError } from './prisma-namespace.mock';
+
 export class PrismaClient {
   constructor(_options?: { adapter?: unknown }) {}
 
   $connect = jest.fn();
   $disconnect = jest.fn();
 }
+
+export const Prisma = {
+  PrismaClientKnownRequestError,
+};
+
+export const RoleCategory = {
+  FRONTEND: 'FRONTEND',
+  BACKEND: 'BACKEND',
+  MOBILE: 'MOBILE',
+  DEVOPS: 'DEVOPS',
+  DATA: 'DATA',
+  FULL_STACK: 'FULL_STACK',
+  DEVSECOPS: 'DEVSECOPS',
+  DATA_ANALYST: 'DATA_ANALYST',
+  AI_ENGINEER: 'AI_ENGINEER',
+  AI_AND_DATA_SCIENTIST: 'AI_AND_DATA_SCIENTIST',
+  DATA_ENGINEER: 'DATA_ENGINEER',
+  ANDROID: 'ANDROID',
+  MACHINE_LEARNING: 'MACHINE_LEARNING',
+  POSTGRESQL: 'POSTGRESQL',
+  IOS: 'IOS',
+  BLOCKCHAIN: 'BLOCKCHAIN',
+  QA: 'QA',
+  SOFTWARE_ARCHITECT: 'SOFTWARE_ARCHITECT',
+  CYBER_SECURITY: 'CYBER_SECURITY',
+  UX_DESIGN: 'UX_DESIGN',
+  TECHNICAL_WRITER: 'TECHNICAL_WRITER',
+  GAME_DEVELOPER: 'GAME_DEVELOPER',
+  SERVER_SIDE_GAME_DEVELOPER: 'SERVER_SIDE_GAME_DEVELOPER',
+  MLOPS: 'MLOPS',
+  PRODUCT_MANAGER: 'PRODUCT_MANAGER',
+  ENGINEERING_MANAGER: 'ENGINEERING_MANAGER',
+  DEVELOPER_RELATIONS: 'DEVELOPER_RELATIONS',
+  BI_ANALYST: 'BI_ANALYST',
+} as const;
+
+export const NodeStatus = {
+  LOCKED: 'LOCKED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  COMPLETED: 'COMPLETED',
+} as const;
+
+export const NodeType = {
+  GROUP: 'GROUP',
+  MILESTONE: 'MILESTONE',
+  REQUIRED: 'REQUIRED',
+  OPTIONAL: 'OPTIONAL',
+} as const;

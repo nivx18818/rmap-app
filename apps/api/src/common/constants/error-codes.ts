@@ -11,6 +11,7 @@ export enum ErrorCode {
   INVALID_PASSWORD = 40003,
   INVALID_FULLNAME = 40004,
   MISSING_REQUIRED_FIELD = 40005,
+  DEADLINE_IN_PAST = 40006,
   // 401 - Unauthorized
   UNAUTHORIZED = 40100,
   INVALID_ACCESS_TOKEN = 40101,
@@ -39,6 +40,8 @@ export enum ErrorCode {
   INTERNAL_SERVER_ERROR = 50000,
   DATABASE_ERROR = 50001,
   EXTERNAL_SERVICE_ERROR = 50002,
+  // 503 - Service Unavailable
+  ROADMAP_GENERATION_UNAVAILABLE = 50300,
 }
 
 export const ErrorMessages: Record<ErrorCode, string> = {
@@ -49,6 +52,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.INVALID_PASSWORD]: 'Invalid password format',
   [ErrorCode.INVALID_FULLNAME]: 'Invalid username format',
   [ErrorCode.MISSING_REQUIRED_FIELD]: 'Required field is missing',
+  [ErrorCode.DEADLINE_IN_PAST]: 'deadline_date must be in the future',
   // 401 - Unauthorized
   [ErrorCode.UNAUTHORIZED]: 'Authentication required',
   [ErrorCode.INVALID_ACCESS_TOKEN]: 'Invalid authentication token',
@@ -77,6 +81,9 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.INTERNAL_SERVER_ERROR]: 'An unexpected error occurred',
   [ErrorCode.DATABASE_ERROR]: 'Database operation failed',
   [ErrorCode.EXTERNAL_SERVICE_ERROR]: 'External service is unavailable',
+  // 503 - Service Unavailable
+  [ErrorCode.ROADMAP_GENERATION_UNAVAILABLE]:
+    'Roadmap generation is temporarily unavailable. Please try again later and explore default templates while waiting.',
 };
 
 export function getErrorMessage(code: ErrorCode): string {

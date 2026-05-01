@@ -17,6 +17,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^3.0.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^3.1.1",
     "@nestjs/core": "^11.0.1",
@@ -44,6 +45,7 @@
     "@repo/typescript-config": "workspace:*",
     "@types/bcrypt": "^5.0.2",
     "@types/cookie-parser": "^1.4.10",
+    "@types/dagre": "^0.7.54",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/ms": "^2.1.0",

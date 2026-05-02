@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
 import type { AuthUser } from '@/types/auth';
-import type { SignInValues, SignUpValues } from '@/validations/auth';
+import type { SignInValues, SignUpValues } from '@/validations/auth.schema';
 
 import { authService } from '@/services/auth-service';
 import { normalizeUser } from '@/utils/user';

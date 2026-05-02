@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaClientKnownRequestError } from '@repo/db/prisma/internal/prismaNamespace';
+import { Prisma } from '@repo/db/prisma/client';
 
 import { EmailAlreadyExistsException } from '@/common/exceptions/app.exceptions';
 
@@ -28,12 +28,14 @@ export class UserService {
     try {
       return await this.prisma.user.create({ data: { ...createUserDto } });
     } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
-        const target = error.meta?.target as string[] | undefined;
-        const field = target?.[0];
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          const target = error.meta?.target as string[] | undefined;
+          const field = target?.[0];
 
-        if (field === 'email') {
-          throw new EmailAlreadyExistsException(createUserDto.email);
+          if (field === 'email') {
+            throw new EmailAlreadyExistsException(createUserDto.email);
+          }
         }
       }
       throw error;

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrismaClientKnownRequestError } from '@repo/db/prisma/internal/prismaNamespace';
+import { Prisma } from '@repo/db/prisma/client';
 import { createHmac } from 'node:crypto';
 
 import {
@@ -42,7 +42,7 @@ export class RefreshTokenService {
         },
       });
     } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
           const target = error.meta?.target as string[] | undefined;
           const field = target?.[0];

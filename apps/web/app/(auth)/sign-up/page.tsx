@@ -18,7 +18,7 @@ import { useForm } from 'react-hook-form';
 import { PasswordInput } from '@/app/(auth)/_components/password-input';
 import { SocialAuthButtons } from '@/app/(auth)/_components/social-auth-buttons';
 import { useAuth } from '@/hooks/use-auth';
-import { type SignUpValues, signUpSchema } from '@/validations/auth';
+import { type SignUpValues, signUpSchema } from '@/validations/auth.schema';
 
 export default function SignUpPage() {
   const router = useRouter();

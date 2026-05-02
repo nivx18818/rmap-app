@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
+import { RoadmapsModule } from './modules/roadmaps/roadmaps.module';
 import { UserModule } from './modules/user/user.module';
 
 @Module({
@@ -19,6 +20,7 @@ import { UserModule } from './modules/user/user.module';
     AuthModule,
     UserModule,
     OnboardingModule,
+    RoadmapsModule,
   ],
   controllers: [AppController],
   providers: [

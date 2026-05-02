@@ -68,19 +68,21 @@ export function useOnboardingWizard() {
 
       if (result.timelineWarning) {
         setTimelineWarning(result.timelineWarning);
-        toast.warning('Timeline Warning', {
-          description: result.timelineWarning.message,
-        });
+        // toast.warning('Timeline Warning', {
+        //   description: result.timelineWarning.message,
+        // });
         setStep('success');
         return;
       }
 
-      toast.success('Roadmap generated!');
+      toast.success('Roadmap Generated Successfully!', {
+        description: `Topic: ${stepOneData.goal}`,
+      });
       setStep('success');
 
       setTimeout(() => {
         router.push(`/roadmaps/${result.roadmap.id}`);
-      }, 2500);
+      }, 3000);
     } catch (error) {
       console.error('Failed to generate roadmap', error);
       setGenerationError(true);

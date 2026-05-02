@@ -68,9 +68,6 @@ export function useOnboardingWizard() {
 
       if (result.timelineWarning) {
         setTimelineWarning(result.timelineWarning);
-        // toast.warning('Timeline Warning', {
-        //   description: result.timelineWarning.message,
-        // });
         setStep('success');
         return;
       }

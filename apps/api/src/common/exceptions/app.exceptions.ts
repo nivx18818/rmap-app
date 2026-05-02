@@ -87,6 +87,15 @@ export class AppBadRequestException extends BadRequestException {
   }
 }
 
+export class DeadlineInPastException extends BadRequestException {
+  constructor() {
+    super({
+      code: ErrorCode.DEADLINE_IN_PAST,
+      message: getErrorMessage(ErrorCode.DEADLINE_IN_PAST),
+    });
+  }
+}
+
 // ==========================================
 // 401 - Unauthorized (Authentication Errors)
 // ==========================================
@@ -332,6 +341,22 @@ export class ExternalServiceErrorException extends HttpException {
   }
 }
 
+// ======================
+// 503 - Service Unavailable
+// ======================
+
+export class RoadmapGenerationUnavailableException extends HttpException {
+  constructor() {
+    super(
+      {
+        code: ErrorCode.ROADMAP_GENERATION_UNAVAILABLE,
+        message: getErrorMessage(ErrorCode.ROADMAP_GENERATION_UNAVAILABLE),
+      },
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
+  }
+}
+
 export const ErrorCodeToException = {
   // 400 - Bad Request
   [ErrorCode.BAD_REQUEST]: AppBadRequestException,
@@ -340,6 +365,7 @@ export const ErrorCodeToException = {
   [ErrorCode.INVALID_PASSWORD]: InvalidPasswordException,
   [ErrorCode.INVALID_FULLNAME]: InvalidFullnameException,
   [ErrorCode.MISSING_REQUIRED_FIELD]: MissingRequiredFieldException,
+  [ErrorCode.DEADLINE_IN_PAST]: DeadlineInPastException,
   // 401 - Unauthorized
   [ErrorCode.UNAUTHORIZED]: AppUnauthorizedException,
   [ErrorCode.INVALID_ACCESS_TOKEN]: InvalidTokenException,
@@ -368,4 +394,6 @@ export const ErrorCodeToException = {
   [ErrorCode.INTERNAL_SERVER_ERROR]: InternalServerErrorException,
   [ErrorCode.DATABASE_ERROR]: DatabaseErrorException,
   [ErrorCode.EXTERNAL_SERVICE_ERROR]: ExternalServiceErrorException,
+  // 503 - Service Unavailable
+  [ErrorCode.ROADMAP_GENERATION_UNAVAILABLE]: RoadmapGenerationUnavailableException,
 } satisfies Record<ErrorCode, new (...args: any[]) => HttpException>;

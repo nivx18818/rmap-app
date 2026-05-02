@@ -68,7 +68,7 @@ export function Header() {
         <Button
           variant="outline"
           size="sm"
-          className="rounded-l-full!"
+          className="rounded-full"
           aria-label="Star us on GitHub"
           render={
             <Link
@@ -88,11 +88,12 @@ export function Header() {
             <Button
               variant="outline"
               size="sm"
+              className="rounded-full"
               render={<Link href={'/sign-in' as Route<string>}>Login</Link>}
             />
             <Button
               size="sm"
-              className="rounded-full rounded-l-md"
+              className="rounded-full"
               render={<Link href={'/sign-up' as Route<string>}>Get started</Link>}
             />
           </>
@@ -103,6 +104,7 @@ export function Header() {
             <Button
               variant="outline"
               size="sm"
+              className="rounded-full"
               render={
                 <Link className="flex items-center gap-2" href={'/ai' as Route<string>}>
                   {user?.avatarUrl ? (
@@ -124,7 +126,7 @@ export function Header() {
 
             <Button
               size="sm"
-              className="rounded-l-md rounded-r-full"
+              className="rounded-full"
               disabled={isLoggingOut}
               onClick={handleSignOut}
             >

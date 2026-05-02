@@ -188,7 +188,10 @@ export function AiRoadmapForm({ initialData, onNext }: AiRoadmapFormProps) {
             <PopoverContent className="w-auto p-0" align="start">
               <Calendar
                 disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                fromMonth={new Date()}
+                toYear={new Date().getFullYear() + 10}
                 mode="single"
+                captionLayout="dropdown"
                 initialFocus
                 selected={deadlineDate}
                 onSelect={(date) => {

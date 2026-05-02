@@ -7,6 +7,13 @@ export const ENDPOINTS = {
     refresh: '/auth/refresh',
     register: '/auth/register',
   },
+  onboarding: {
+    goals: '/onboarding/goals',
+    quiz: '/onboarding/quiz',
+  },
+  roadmaps: {
+    generate: '/roadmaps/generate',
+  },
   users: {
     me: '/users/me',
   },

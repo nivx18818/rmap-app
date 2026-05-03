@@ -79,7 +79,7 @@ export function useOnboardingWizard() {
 
       setTimeout(() => {
         router.push(`/roadmaps/${result.roadmap.id}`);
-      }, 3000);
+      }, 2000);
     } catch (error) {
       console.error('Failed to generate roadmap', error);
       setGenerationError(true);

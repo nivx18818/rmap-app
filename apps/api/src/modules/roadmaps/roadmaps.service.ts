@@ -344,28 +344,48 @@ export class RoadmapsService {
     return candidate.nodes.every((node) => this.isValidAiNode(node));
   }
 
-  private isValidAiNode(node: unknown): node is AiNode {
+  private isValidAiNode(node: unknown, depth = 0): node is AiNode {
     if (!node || typeof node !== 'object') return false;
     const n = node as AiNode;
 
     if (typeof n.name !== 'string') return false;
     if (!['group', 'milestone', 'required', 'optional'].includes(n.nodeType)) return false;
 
+    // Leaf nodes (required/optional) must not have children
     if (n.nodeType === 'required' || n.nodeType === 'optional') {
       if (typeof n.skillId !== 'string') return false;
       if (typeof n.estimatedHours !== 'number') return false;
+      if (n.children && n.children.length > 0) return false;
+      return true;
     }
 
+    // Milestone nodes must not have children
+    if (n.nodeType === 'milestone') {
+      if (n.children && n.children.length > 0) return false;
+      return true;
+    }
+
+    // Group nodes:
+    // - Must not have skillId
+    // - Must have children
+    // - Max depth for groups is 1 (Parent Group at depth 0, Child Group at depth 1)
     if (n.nodeType === 'group') {
       if (n.skillId !== undefined) return false;
       if (!Array.isArray(n.children) || n.children.length === 0) return false;
+
+      // If this is a nested group (depth >= 1), its children MUST be leaf nodes only
+      if (depth >= 1) {
+        const allChildrenAreLeaves = n.children.every((child) => {
+          const c = child;
+          return c && (c.nodeType === 'required' || c.nodeType === 'optional');
+        });
+        if (!allChildrenAreLeaves) return false;
+      }
+
+      return n.children.every((child) => this.isValidAiNode(child, depth + 1));
     }
 
-    if (Array.isArray(n.children)) {
-      return n.children.every((child) => this.isValidAiNode(child));
-    }
-
-    return true;
+    return false;
   }
 
   private stripMarkdownFences(text: string): string {

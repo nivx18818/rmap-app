@@ -28,7 +28,7 @@ export interface AiNode {
   estimatedHours?: number;
   /** Required/optional leaf nodes only. Group/milestone nodes must not have a skillId. */
   skillId?: string | null;
-  /** Group nodes only — max 1 level deep. */
+  /** Group nodes only — max 2 levels deep (Parent Group -> Sub Group -> Leaf). */
   children?: AiNode[];
 }
 

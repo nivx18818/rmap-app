@@ -60,7 +60,7 @@ export class GenerateRoadmapDto {
   @IsDateString()
   declare deadlineDate: string;
 
-  /** Answers to the onboarding assessment quiz (7-10 items). */
+  /** Answers to the onboarding assessment quiz. */
   @IsArray()
   @ArrayMinSize(7)
   @ArrayMaxSize(10)

@@ -38,10 +38,6 @@ export class AiRoadmapService {
     return this.parseResponse(responseText, input.skillMap);
   }
 
-  // ---------------------------------------------------------------------------
-  // Private helpers
-  // ---------------------------------------------------------------------------
-
   private buildPrompt(input: GenerateRoadmapInput): string {
     const skillCatalog = JSON.stringify(
       input.skillMap.map((s) => ({

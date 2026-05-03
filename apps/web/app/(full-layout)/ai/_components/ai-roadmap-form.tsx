@@ -191,6 +191,7 @@ export function AiRoadmapForm({ initialData, onNext }: AiRoadmapFormProps) {
                 fromMonth={new Date()}
                 toYear={new Date().getFullYear() + 10}
                 mode="single"
+                defaultMonth={deadlineDate}
                 captionLayout="dropdown"
                 initialFocus
                 selected={deadlineDate}

@@ -4,10 +4,6 @@ import { DagreLayoutService } from '@/modules/roadmaps/dagre-layout.service';
 
 import { MOCK_FLAT_NODES } from '../../utils/roadmaps.mock';
 
-// ---------------------------------------------------------------------------
-// Test suite
-// ---------------------------------------------------------------------------
-
 describe('DagreLayoutService', () => {
   let service: DagreLayoutService;
 

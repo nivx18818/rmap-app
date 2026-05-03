@@ -17,7 +17,7 @@ describe('OnboardingService', () => {
         {
           provide: AiService,
           useValue: {
-            generateContent: jest.fn(),
+            generateOnboardingQuiz: jest.fn(),
           },
         },
       ],
@@ -71,17 +71,38 @@ describe('OnboardingService', () => {
         questions: [{ question: 'Goal?', possibleAnswers: ['Career', 'Project'] }],
       };
 
-      jest.spyOn(aiService, 'generateContent').mockResolvedValue(JSON.stringify(quizResponse));
+      jest
+        .spyOn(aiService, 'generateOnboardingQuiz')
+        .mockResolvedValue(JSON.stringify(quizResponse));
 
       const result = await service.generateQuiz(payload);
 
-      expect(aiService.generateContent).toHaveBeenCalled();
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(aiService.generateOnboardingQuiz).toHaveBeenCalled();
       expect(result).toEqual(quizResponse);
+    });
+
+    it('should throw ExternalServiceErrorException when JSON parse fails', async () => {
+      jest.spyOn(aiService, 'generateOnboardingQuiz').mockResolvedValue('invalid-json');
+
+      await expect(service.generateQuiz({ topic: 'learn backend' })).rejects.toThrow(
+        ExternalServiceErrorException,
+      );
+    });
+
+    it('should throw ExternalServiceErrorException when schema validation fails', async () => {
+      jest
+        .spyOn(aiService, 'generateOnboardingQuiz')
+        .mockResolvedValue(JSON.stringify({ bad: 'schema' }));
+
+      await expect(service.generateQuiz({ topic: 'learn backend' })).rejects.toThrow(
+        ExternalServiceErrorException,
+      );
     });
 
     it('should throw ExternalServiceErrorException when API key is missing', async () => {
       jest
-        .spyOn(aiService, 'generateContent')
+        .spyOn(aiService, 'generateOnboardingQuiz')
         .mockRejectedValue(new ExternalServiceErrorException('Gemini'));
 
       await expect(service.generateQuiz({ topic: 'frontend' })).rejects.toThrow(

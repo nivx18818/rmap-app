@@ -7,8 +7,8 @@ import {
   DeadlineInPastException,
   RoadmapGenerationUnavailableException,
 } from '@/common/exceptions/app.exceptions';
+import { AiService } from '@/modules/ai/ai.service';
 import { PrismaService } from '@/modules/prisma/prisma.service';
-import { AiRoadmapService } from '@/modules/roadmaps/ai-roadmap.service';
 import { DagreLayoutService } from '@/modules/roadmaps/dagre-layout.service';
 import { RoadmapsService } from '@/modules/roadmaps/roadmaps.service';
 
@@ -23,10 +23,6 @@ import {
   MOCK_ROADMAP,
 } from '../../utils/roadmaps.mock';
 
-// ---------------------------------------------------------------------------
-// Prisma tx mock factory
-// ---------------------------------------------------------------------------
-
 function makeTxMock() {
   return {
     roadmap: { create: jest.fn().mockResolvedValue(MOCK_ROADMAP) },
@@ -38,14 +34,10 @@ function makeTxMock() {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Test suite
-// ---------------------------------------------------------------------------
-
 describe('RoadmapsService', () => {
   let service: RoadmapsService;
   let prisma: jest.Mocked<PrismaService>;
-  let aiRoadmapService: jest.Mocked<AiRoadmapService>;
+  let aiService: jest.Mocked<AiService>;
   let dagreLayout: jest.Mocked<DagreLayoutService>;
 
   beforeEach(async () => {
@@ -67,8 +59,10 @@ describe('RoadmapsService', () => {
           },
         },
         {
-          provide: AiRoadmapService,
-          useValue: { generateRoadmap: jest.fn().mockResolvedValue(MOCK_AI_OUTPUT) },
+          provide: AiService,
+          useValue: {
+            generateRoadmap: jest.fn().mockResolvedValue(JSON.stringify(MOCK_AI_OUTPUT)),
+          },
         },
         {
           provide: DagreLayoutService,
@@ -79,7 +73,7 @@ describe('RoadmapsService', () => {
 
     service = module.get<RoadmapsService>(RoadmapsService);
     prisma = module.get(PrismaService);
-    aiRoadmapService = module.get(AiRoadmapService);
+    aiService = module.get(AiService);
     dagreLayout = module.get(DagreLayoutService);
   });
 
@@ -91,8 +85,6 @@ describe('RoadmapsService', () => {
   it('should be defined', () => {
     expect(service).toBeDefined();
   });
-
-  // ── Deadline validation ──────────────────────────────────────────────────
 
   describe('deadline validation', () => {
     it('should throw DeadlineInPastException for a past date', async () => {
@@ -112,11 +104,9 @@ describe('RoadmapsService', () => {
       await expect(
         service.generate(MOCK_USER_ID, { ...MOCK_DTO, deadlineDate: '2000-01-01' }),
       ).rejects.toThrow();
-      expect(aiRoadmapService.generateRoadmap).not.toHaveBeenCalled();
+      expect(aiService.generateRoadmap).not.toHaveBeenCalled();
     });
   });
-
-  // ── Timeline warning ─────────────────────────────────────────────────────
 
   describe('timeline feasibility check', () => {
     it('should return timelineWarning=null when deadline is comfortably far', async () => {
@@ -138,21 +128,83 @@ describe('RoadmapsService', () => {
     });
   });
 
-  // ── Gemini failure ───────────────────────────────────────────────────────
+  describe('AI generation and parsing failure', () => {
+    it('should propagate RoadmapGenerationUnavailableException from AiService', async () => {
+      aiService.generateRoadmap.mockRejectedValue(new RoadmapGenerationUnavailableException());
 
-  describe('AI generation failure', () => {
-    it('should propagate RoadmapGenerationUnavailableException from AiRoadmapService', async () => {
-      aiRoadmapService.generateRoadmap.mockRejectedValue(
-        new RoadmapGenerationUnavailableException(),
+      await expect(service.generate(MOCK_USER_ID, MOCK_DTO)).rejects.toThrow(
+        RoadmapGenerationUnavailableException,
       );
+    });
+
+    it('should throw RoadmapGenerationUnavailableException on malformed JSON', async () => {
+      aiService.generateRoadmap.mockResolvedValue('not-valid-json{{');
+
+      await expect(service.generate(MOCK_USER_ID, MOCK_DTO)).rejects.toThrow(
+        RoadmapGenerationUnavailableException,
+      );
+    });
+
+    it('should throw RoadmapGenerationUnavailableException when title is missing', async () => {
+      const invalid = {
+        description: 'ok',
+        nodes: [{ name: 'X', nodeType: 'group', skillId: 'X' }],
+      };
+      aiService.generateRoadmap.mockResolvedValue(JSON.stringify(invalid));
+
+      await expect(service.generate(MOCK_USER_ID, MOCK_DTO)).rejects.toThrow(
+        RoadmapGenerationUnavailableException,
+      );
+    });
+
+    it('should throw RoadmapGenerationUnavailableException when nodes array is empty', async () => {
+      const invalid = { title: 'T', description: 'D', nodes: [] };
+      aiService.generateRoadmap.mockResolvedValue(JSON.stringify(invalid));
+
+      await expect(service.generate(MOCK_USER_ID, MOCK_DTO)).rejects.toThrow(
+        RoadmapGenerationUnavailableException,
+      );
+    });
+
+    it('should throw RoadmapGenerationUnavailableException when a group node has skillId', async () => {
+      const invalid = {
+        title: 'T',
+        description: 'D',
+        nodes: [
+          {
+            name: 'Backend Foundations',
+            nodeType: 'group',
+            skillId: 'skill-1',
+            children: [{ name: 'HTTP & REST', nodeType: 'required', skillId: 'skill-1' }],
+          },
+        ],
+      };
+      aiService.generateRoadmap.mockResolvedValue(JSON.stringify(invalid));
+
+      await expect(service.generate(MOCK_USER_ID, MOCK_DTO)).rejects.toThrow(
+        RoadmapGenerationUnavailableException,
+      );
+    });
+
+    it('should throw RoadmapGenerationUnavailableException when a leaf node has no skillId', async () => {
+      const invalid = {
+        title: 'T',
+        description: 'D',
+        nodes: [
+          {
+            name: 'Backend Foundations',
+            nodeType: 'group',
+            children: [{ name: 'HTTP & REST', nodeType: 'required' }],
+          },
+        ],
+      };
+      aiService.generateRoadmap.mockResolvedValue(JSON.stringify(invalid));
 
       await expect(service.generate(MOCK_USER_ID, MOCK_DTO)).rejects.toThrow(
         RoadmapGenerationUnavailableException,
       );
     });
   });
-
-  // ── Happy path ───────────────────────────────────────────────────────────
 
   describe('happy path', () => {
     it('should call skill.findMany with the correct roleCategory', async () => {
@@ -179,10 +231,10 @@ describe('RoadmapsService', () => {
       });
     });
 
-    it('should pass prerequisites to AiRoadmapService', async () => {
+    it('should pass prerequisites to AiService', async () => {
       await service.generate(MOCK_USER_ID, MOCK_DTO);
 
-      expect(aiRoadmapService.generateRoadmap).toHaveBeenCalledWith(
+      expect(aiService.generateRoadmap).toHaveBeenCalledWith(
         expect.objectContaining({
           prerequisites: MOCK_SKILL_PREREQUISITES,
         }),

@@ -9,7 +9,7 @@ import { PrismaService } from '@/modules/prisma/prisma.service';
 import type { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
 import type { AiNode, AiRoadmapOutput, FlatNode } from './types/ai-roadmap.types';
 
-import { AiRoadmapService } from './ai-roadmap.service';
+import { AiService } from '../ai/ai.service';
 import { DagreLayoutService } from './dagre-layout.service';
 
 /** Number of calendar days in a day. */
@@ -24,7 +24,7 @@ export class RoadmapsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiRoadmapService: AiRoadmapService,
+    private readonly aiService: AiService,
     private readonly dagreLayout: DagreLayoutService,
   ) {}
 
@@ -101,7 +101,7 @@ export class RoadmapsService {
     // Quiz answers are forwarded verbatim; never stored.
     let aiOutput: AiRoadmapOutput;
     try {
-      aiOutput = await this.aiRoadmapService.generateRoadmap({
+      const responseText = await this.aiService.generateRoadmap({
         goal: dto.goal,
         roleCategory: dto.roleCategory,
         hoursPerDay: dto.hoursPerDay,
@@ -120,7 +120,10 @@ export class RoadmapsService {
         })),
       });
 
-      // this.logger.log('AI roadmap generated successfully', aiOutput);
+      aiOutput = this.parseRoadmapResponse(
+        responseText,
+        skills.map((s) => ({ id: s.id, name: s.name })),
+      );
     } catch (err) {
       if (err instanceof RoadmapGenerationUnavailableException) throw err;
       this.logger.error('Unexpected error during AI roadmap generation', err);
@@ -250,5 +253,129 @@ export class RoadmapsService {
     }
 
     return result;
+  }
+
+  private parseRoadmapResponse(
+    text: string,
+    skillMap: Array<{ id: string; name: string }>,
+  ): AiRoadmapOutput {
+    const cleaned = this.stripMarkdownFences(text);
+    let parsed: unknown;
+
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch (err) {
+      this.logger.error('Failed to parse Gemini JSON response', { raw: text, err });
+      throw new RoadmapGenerationUnavailableException();
+    }
+
+    if (!this.isValidAiRoadmapOutput(parsed)) {
+      this.logger.error('Gemini response failed schema validation', { parsed });
+      throw new RoadmapGenerationUnavailableException();
+    }
+
+    return this.normalizeRoadmapOutput(parsed, skillMap);
+  }
+
+  private normalizeRoadmapOutput(
+    output: AiRoadmapOutput,
+    skillMap: Array<{ id: string; name: string }>,
+  ): AiRoadmapOutput {
+    const validSkillIds = new Set(skillMap.map((s) => s.id));
+
+    const cleanNodes = (nodes: AiNode[]): AiNode[] => {
+      return nodes
+        .map((node) => {
+          if (node.nodeType === 'group' || node.nodeType === 'milestone') {
+            const { skillId: _skillId, ...rest } = node;
+            return {
+              ...rest,
+              children: node.children ? cleanNodes(node.children) : [],
+            };
+          }
+
+          if ((node.nodeType === 'required' || node.nodeType === 'optional') && node.skillId) {
+            if (!validSkillIds.has(node.skillId)) {
+              this.logger.warn(
+                `LLM hallucinated skillId: ${node.skillId}. Matching by name: ${node.name}`,
+              );
+              const matched = skillMap.find(
+                (s) => s.name.toLowerCase() === node.name.toLowerCase(),
+              );
+              if (matched) {
+                node.skillId = matched.id;
+              } else {
+                this.logger.error(`Could not recover hallucinated skill: ${node.name}`);
+              }
+            }
+          }
+
+          return {
+            ...node,
+            children: node.children ? cleanNodes(node.children) : [],
+          };
+        })
+        .filter((n) => {
+          if (n.nodeType === 'required' || n.nodeType === 'optional') {
+            return !!n.skillId;
+          }
+          if (n.nodeType === 'group') {
+            return !!n.children && n.children.length > 0;
+          }
+          return true;
+        });
+    };
+
+    return {
+      title: output.title,
+      description: output.description,
+      nodes: cleanNodes(output.nodes),
+    };
+  }
+
+  private isValidAiRoadmapOutput(payload: unknown): payload is AiRoadmapOutput {
+    if (!payload || typeof payload !== 'object') return false;
+
+    const candidate = payload as AiRoadmapOutput;
+    if (typeof candidate.title !== 'string') return false;
+    if (typeof candidate.description !== 'string') return false;
+    if (!Array.isArray(candidate.nodes) || candidate.nodes.length === 0) return false;
+
+    return candidate.nodes.every((node) => this.isValidAiNode(node));
+  }
+
+  private isValidAiNode(node: unknown): node is AiNode {
+    if (!node || typeof node !== 'object') return false;
+    const n = node as AiNode;
+
+    if (typeof n.name !== 'string') return false;
+    if (!['group', 'milestone', 'required', 'optional'].includes(n.nodeType)) return false;
+
+    if (n.nodeType === 'required' || n.nodeType === 'optional') {
+      if (typeof n.skillId !== 'string') return false;
+      if (typeof n.estimatedHours !== 'number') return false;
+    }
+
+    if (n.nodeType === 'group') {
+      if (n.skillId !== undefined) return false;
+      if (!Array.isArray(n.children) || n.children.length === 0) return false;
+    }
+
+    if (Array.isArray(n.children)) {
+      return n.children.every((child) => this.isValidAiNode(child));
+    }
+
+    return true;
+  }
+
+  private stripMarkdownFences(text: string): string {
+    const trimmed = text.trim();
+    if (trimmed.startsWith('```')) {
+      return trimmed
+        .replace(/^```(?:json)?/i, '')
+        .replace(/```$/, '')
+        .trim();
+    }
+    return trimmed;
   }
 }

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { AI_PROMPTS } from '@/common/constants/ai-prompts.constant';
+import { AI_PROMPTS } from '@/common/constants/prompts';
 import {
   ExternalServiceErrorException,
   RoadmapGenerationUnavailableException,

@@ -46,4 +46,15 @@ export class RoadmapsController {
   ) {
     return this.roadmapsService.listNodes(user.id, roadmapId, query);
   }
+
+  @Get(':id')
+  async get(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    return this.service.getByIdForOwner(user.id, id);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  async remove(@CurrentUser() user: RequestUser, @Param('id') id: string) {
+    await this.service.deleteByIdForOwner(user.id, id);
+  }
 }

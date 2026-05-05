@@ -587,4 +587,29 @@ export class RoadmapsService {
     }
     return trimmed;
   }
+
+  async getByIdForOwner(userId: string, roadmapId: string) {
+    const roadmap = await this.prisma.roadmap.findUnique({
+      where: { id: roadmapId },
+    });
+
+    if (!roadmap || roadmap.userId !== userId) {
+      throw new RoadmapNotFoundException(roadmapId);
+    }
+
+    return roadmap;
+  }
+
+  async deleteByIdForOwner(userId: string, roadmapId: string) {
+    const roadmap = await this.prisma.roadmap.findUnique({
+      where: { id: roadmapId },
+      select: { id: true, userId: true },
+    });
+
+    if (!roadmap || roadmap.userId !== userId) {
+      throw new RoadmapNotFoundException(roadmapId);
+    }
+
+    await this.prisma.$transaction([this.prisma.roadmap.delete({ where: { id: roadmapId } })]);
+  }
 }

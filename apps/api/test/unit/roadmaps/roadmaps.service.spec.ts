@@ -569,3 +569,141 @@ describe('RoadmapsService', () => {
     });
   });
 });
+
+describe('RoadmapsService', () => {
+  let service: RoadmapsService;
+  let prismaService: {
+    roadmap: {
+      findUnique: jest.Mock;
+      delete: jest.Mock;
+    };
+    roadmapNode: {
+      deleteMany: jest.Mock;
+    };
+    userNodeProgress: {
+      deleteMany: jest.Mock;
+    };
+    $transaction: jest.Mock;
+  };
+
+  beforeEach(async () => {
+    prismaService = {
+      roadmap: {
+        findUnique: jest.fn(),
+        delete: jest.fn(),
+      },
+      roadmapNode: {
+        deleteMany: jest.fn(),
+      },
+      userNodeProgress: {
+        deleteMany: jest.fn(),
+      },
+      $transaction: jest.fn(),
+    };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        RoadmapsService,
+        {
+          provide: PrismaService,
+          useValue: prismaService,
+        },
+      ],
+    }).compile();
+
+    service = module.get<RoadmapsService>(RoadmapsService);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('getByIdForOwner', () => {
+    it('returns roadmap when owned by user', async () => {
+      const roadmapId = 'roadmap-1';
+      const userId = 'user-1';
+      const roadmap = {
+        id: roadmapId,
+        userId,
+        title: 'Backend roadmap',
+      };
+
+      prismaService.roadmap.findUnique.mockResolvedValue(roadmap);
+
+      await expect(service.getByIdForOwner(userId, roadmapId)).resolves.toEqual(roadmap);
+
+      expect(prismaService.roadmap.findUnique).toHaveBeenCalledWith({
+        where: { id: roadmapId },
+      });
+    });
+
+    it('throws 404 when roadmap does not belong to user', async () => {
+      prismaService.roadmap.findUnique.mockResolvedValue({
+        id: 'roadmap-1',
+        userId: 'other-user',
+      });
+
+      await expect(service.getByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
+        RoadmapNotFoundException,
+      );
+    });
+
+    it('throws 404 when roadmap not found', async () => {
+      prismaService.roadmap.findUnique.mockResolvedValue(null);
+
+      await expect(service.getByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
+        RoadmapNotFoundException,
+      );
+    });
+
+    it('throws 404 when roadmap is template (userId null)', async () => {
+      prismaService.roadmap.findUnique.mockResolvedValue({
+        id: 'roadmap-1',
+        userId: null,
+      });
+
+      await expect(service.getByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
+        RoadmapNotFoundException,
+      );
+    });
+  });
+
+  describe('deleteByIdForOwner', () => {
+    it('deletes roadmap', async () => {
+      const roadmapId = 'roadmap-1';
+      const userId = 'user-1';
+
+      prismaService.roadmap.findUnique.mockResolvedValue({ id: roadmapId, userId });
+      prismaService.roadmap.delete.mockResolvedValue({ id: roadmapId });
+
+      await service.deleteByIdForOwner(userId, roadmapId);
+
+      expect(prismaService.roadmap.delete).toHaveBeenCalledWith({
+        where: { id: roadmapId },
+      });
+      expect(prismaService.$transaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('throws 404 and does not delete when roadmap belongs to another user', async () => {
+      prismaService.roadmap.findUnique.mockResolvedValue({ id: 'roadmap-1', userId: 'other-user' });
+
+      await expect(service.deleteByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
+        RoadmapNotFoundException,
+      );
+
+      expect(prismaService.$transaction).not.toHaveBeenCalled();
+      expect(prismaService.roadmap.delete).not.toHaveBeenCalled();
+    });
+
+    it('throws 404 and does not delete when roadmap not found', async () => {
+      prismaService.roadmap.findUnique.mockResolvedValue(null);
+
+      await expect(service.deleteByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
+        RoadmapNotFoundException,
+      );
+
+      expect(prismaService.$transaction).not.toHaveBeenCalled();
+      expect(prismaService.roadmap.delete).not.toHaveBeenCalled();
+    });
+  });
+});

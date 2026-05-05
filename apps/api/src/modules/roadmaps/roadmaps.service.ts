@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { NodeType, type Prisma } from '@repo/db/prisma/client';
+import { NodeType, type Prisma, type Roadmap } from '@repo/db/prisma/client';
 
 import {
   DeadlineInPastException,
@@ -8,7 +8,9 @@ import {
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
 import type { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
+import type { ListRoadmapsQueryDto } from './dto/list-roadmaps-query.dto';
 import type { RoadmapNodesFilterDto } from './dto/roadmap-nodes-filter.dto';
+import type { PaginatedRoadmapsResponseDto, RoadmapResponseDto } from './dto/roadmap-response.dto';
 import type { AiNode, AiRoadmapOutput, FlatNode } from './types/ai-roadmap.types';
 import type { RoadmapNodesListResponse } from './types/roadmap-nodes.types';
 
@@ -23,6 +25,41 @@ const FEASIBILITY_THRESHOLD = 0.15;
 
 const LEAF_NODE_TYPES: NodeType[] = [NodeType.REQUIRED, NodeType.OPTIONAL];
 
+const ROADMAP_SELECT = {
+  deadlineDate: true,
+  description: true,
+  estimatedWeeks: true,
+  generatedAt: true,
+  goalName: true,
+  hoursPerDay: true,
+  id: true,
+  isTemplate: true,
+  roleCategory: true,
+  title: true,
+  updatedAt: true,
+  userId: true,
+} satisfies Prisma.RoadmapSelect;
+
+const ROLE_CATEGORY_WORD_LABELS: Record<string, string> = {
+  AI: 'AI',
+  AND: 'and',
+  BI: 'BI',
+  DEVOPS: 'DevOps',
+  DEVSECOPS: 'DevSecOps',
+  IOS: 'iOS',
+  MLOPS: 'MLOps',
+  POSTGRESQL: 'PostgreSQL',
+  QA: 'QA',
+  UX: 'UX',
+};
+
+type SelectedRoadmap = Pick<Roadmap, keyof typeof ROADMAP_SELECT>;
+
+type DecimalLike = {
+  toNumber?: () => number;
+  toString: () => string;
+};
+
 const toNumberOrNull = (value: Prisma.Decimal | number | null) =>
   value === null ? null : Number(value);
 
@@ -35,6 +72,40 @@ export class RoadmapsService {
     private readonly aiService: AiService,
     private readonly dagreLayout: DagreLayoutService,
   ) {}
+
+  async listUserRoadmaps(
+    userId: string,
+    query: ListRoadmapsQueryDto,
+  ): Promise<PaginatedRoadmapsResponseDto> {
+    const page = query.page ?? 1;
+    const perPage = query.perPage ?? 20;
+    const skip = (page - 1) * perPage;
+    const where = {
+      isTemplate: false,
+      userId,
+    } satisfies Prisma.RoadmapWhereInput;
+
+    const [roadmaps, total] = await this.prisma.$transaction([
+      this.prisma.roadmap.findMany({
+        orderBy: { updatedAt: 'desc' },
+        select: ROADMAP_SELECT,
+        skip,
+        take: perPage,
+        where,
+      }),
+      this.prisma.roadmap.count({ where }),
+    ]);
+
+    return {
+      data: roadmaps.map((roadmap) => this.formatRoadmap(roadmap)),
+      meta: {
+        page,
+        perPage,
+        total,
+        totalPages: Math.ceil(total / perPage),
+      },
+    };
+  }
 
   async listNodes(
     userId: string,
@@ -488,6 +559,50 @@ export class RoadmapsService {
     }
 
     return false;
+  }
+
+  private formatRoadmap(roadmap: SelectedRoadmap): RoadmapResponseDto {
+    return {
+      deadlineDate: this.formatDateOnly(roadmap.deadlineDate),
+      description: roadmap.description,
+      estimatedWeeks: roadmap.estimatedWeeks,
+      generatedAt: roadmap.generatedAt.toISOString(),
+      goalName: roadmap.goalName,
+      hoursPerDay: this.formatDecimal(roadmap.hoursPerDay),
+      id: roadmap.id,
+      isTemplate: roadmap.isTemplate,
+      roleCategory: this.formatRoleCategory(roadmap.roleCategory),
+      title: roadmap.title,
+      updatedAt: roadmap.updatedAt.toISOString(),
+      userId: roadmap.userId,
+    };
+  }
+
+  private formatDateOnly(date: Date | null): null | string {
+    return date ? date.toISOString().slice(0, 10) : null;
+  }
+
+  private formatDecimal(value: DecimalLike | null): null | number {
+    if (!value) {
+      return null;
+    }
+
+    return typeof value.toNumber === 'function' ? value.toNumber() : Number(value.toString());
+  }
+
+  private formatRoleCategory(roleCategory: string): string {
+    return roleCategory
+      .split('_')
+      .map((word) => {
+        const override = ROLE_CATEGORY_WORD_LABELS[word];
+
+        if (override) {
+          return override;
+        }
+
+        return word.charAt(0) + word.slice(1).toLowerCase();
+      })
+      .join(' ');
   }
 
   private stripMarkdownFences(text: string): string {

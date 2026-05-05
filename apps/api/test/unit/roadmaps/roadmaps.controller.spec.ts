@@ -11,6 +11,7 @@ describe('RoadmapsController', () => {
   const mockRoadmapsService = {
     generate: jest.fn(),
     listNodes: jest.fn(),
+    listUserRoadmaps: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -49,5 +50,35 @@ describe('RoadmapsController', () => {
       q: 'REST',
     });
     expect(result).toEqual(mockResponse);
+  });
+
+  describe('listRoadmaps', () => {
+    it('should list roadmaps for current user', async () => {
+      const mockResponse = {
+        data: [],
+        meta: {
+          page: 1,
+          perPage: 20,
+          total: 0,
+          totalPages: 0,
+        },
+      };
+
+      mockRoadmapsService.listUserRoadmaps.mockResolvedValue(mockResponse);
+
+      const user = {
+        id: 'user-1',
+        email: 'test@example.com',
+        fullName: 'Test User',
+        role: 'USER',
+        createdAt: new Date('2025-04-24T07:00:00Z'),
+      };
+      const query = { page: 2, perPage: 10 };
+
+      const result = await controller.listRoadmaps(user, query);
+
+      expect(mockRoadmapsService.listUserRoadmaps).toHaveBeenCalledWith('user-1', query);
+      expect(result).toEqual(mockResponse);
+    });
   });
 });

@@ -1,13 +1,24 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
 
+import type { PaginatedRoadmapsResponseDto } from './dto/roadmap-response.dto';
+
 import { CurrentUser, type RequestUser } from '../auth/decorators/current-user.decorator';
 import { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
+import { ListRoadmapsQueryDto } from './dto/list-roadmaps-query.dto';
 import { RoadmapNodesFilterDto } from './dto/roadmap-nodes-filter.dto';
 import { RoadmapsService } from './roadmaps.service';
 
 @Controller('roadmaps')
 export class RoadmapsController {
   constructor(private readonly roadmapsService: RoadmapsService) {}
+
+  @Get()
+  async listRoadmaps(
+    @CurrentUser() user: RequestUser,
+    @Query() query: ListRoadmapsQueryDto,
+  ): Promise<PaginatedRoadmapsResponseDto> {
+    return this.roadmapsService.listUserRoadmaps(user.id, query);
+  }
 
   /**
    * POST /roadmaps/generate

@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { AI_PROMPTS } from '@/common/constants/prompts';
+import { getOnboardingQuizPrompt, getRoadmapGenerationPrompt } from '@/common/constants/prompts';
 import {
   ExternalServiceErrorException,
   RoadmapGenerationUnavailableException,
@@ -68,7 +68,7 @@ export class AiService {
     payload: OnboardingQuizRequestDto,
     roleSlugs: string[],
   ): Promise<string> {
-    const prompt = AI_PROMPTS.getOnboardingQuizPrompt(payload.topic, roleSlugs);
+    const prompt = getOnboardingQuizPrompt(payload.topic, roleSlugs);
     const responseText = await this.generateContent(prompt);
 
     this.logger.log('AI quiz generated successfully', responseText);
@@ -76,7 +76,7 @@ export class AiService {
   }
 
   async generateRoadmap(input: GenerateRoadmapInput): Promise<string> {
-    const prompt = AI_PROMPTS.getRoadmapGenerationPrompt(input);
+    const prompt = getRoadmapGenerationPrompt(input);
 
     let responseText: string;
     try {

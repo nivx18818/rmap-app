@@ -35,30 +35,77 @@ function makeTxMock() {
   };
 }
 
+type TransactionMock = ReturnType<typeof makeTxMock>;
+type TransactionCallback = (tx: TransactionMock) => unknown;
+type AsyncMock<TResult = unknown, TArgs extends unknown[] = unknown[]> = jest.Mock<
+  Promise<TResult>,
+  TArgs
+>;
+
+interface RoadmapsPrismaMock {
+  $transaction: AsyncMock<unknown, [unknown]>;
+  roadmap: {
+    count: AsyncMock<number>;
+    findMany: AsyncMock<unknown[]>;
+  };
+  roadmapNode: {
+    findMany: AsyncMock<unknown[]>;
+  };
+  skill: {
+    findMany: AsyncMock<typeof MOCK_SKILLS>;
+  };
+  skillPrerequisite: {
+    findMany: AsyncMock<typeof MOCK_PRISMA_SKILL_PREREQUISITES>;
+  };
+}
+
+const createDecimal = (value: number) => ({
+  toNumber: () => value,
+  toString: () => value.toString(),
+});
+
+const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
+  $transaction: jest.fn<Promise<unknown>, [unknown]>().mockImplementation(async (input) => {
+    if (Array.isArray(input)) {
+      const transactionItems = input as Promise<unknown>[];
+
+      return Promise.all(transactionItems);
+    }
+
+    const transactionCallback = input as TransactionCallback;
+    return transactionCallback(txMock);
+  }),
+  roadmap: {
+    count: jest.fn<Promise<number>, unknown[]>(),
+    findMany: jest.fn<Promise<unknown[]>, unknown[]>(),
+  },
+  roadmapNode: { findMany: jest.fn<Promise<unknown[]>, unknown[]>() },
+  skill: {
+    findMany: jest.fn<Promise<typeof MOCK_SKILLS>, unknown[]>().mockResolvedValue(MOCK_SKILLS),
+  },
+  skillPrerequisite: {
+    findMany: jest
+      .fn<Promise<typeof MOCK_PRISMA_SKILL_PREREQUISITES>, unknown[]>()
+      .mockResolvedValue(MOCK_PRISMA_SKILL_PREREQUISITES),
+  },
+});
+
 describe('RoadmapsService', () => {
   let service: RoadmapsService;
-  let prisma: jest.Mocked<PrismaService>;
+  let prisma: RoadmapsPrismaMock;
   let aiService: jest.Mocked<AiService>;
   let dagreLayout: jest.Mocked<DagreLayoutService>;
 
   beforeEach(async () => {
     const txMock = makeTxMock();
+    const prismaMock = createPrismaMock(txMock);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RoadmapsService,
         {
           provide: PrismaService,
-          useValue: {
-            skill: { findMany: jest.fn().mockResolvedValue(MOCK_SKILLS) },
-            skillPrerequisite: {
-              findMany: jest.fn().mockResolvedValue(MOCK_PRISMA_SKILL_PREREQUISITES),
-            },
-            roadmapNode: { findMany: jest.fn() },
-            $transaction: jest
-              .fn()
-              .mockImplementation(async (fn: (tx: typeof txMock) => unknown) => await fn(txMock)),
-          },
+          useValue: prismaMock,
         },
         {
           provide: AiService,
@@ -74,7 +121,7 @@ describe('RoadmapsService', () => {
     }).compile();
 
     service = module.get<RoadmapsService>(RoadmapsService);
-    prisma = module.get(PrismaService);
+    prisma = prismaMock;
     aiService = module.get(AiService);
     dagreLayout = module.get(DagreLayoutService);
   });
@@ -376,7 +423,7 @@ describe('RoadmapsService', () => {
                 userId: MOCK_USER_ID,
               },
             },
-          }),
+          }) as unknown,
         }),
       );
     });
@@ -391,7 +438,7 @@ describe('RoadmapsService', () => {
           where: expect.objectContaining({
             roadmapId,
             name: { contains: 'REST', mode: 'insensitive' },
-          }),
+          }) as unknown,
         }),
       );
     });
@@ -404,6 +451,121 @@ describe('RoadmapsService', () => {
 
       expect(result).toEqual({ nodes: [] });
       expect(prisma.roadmapNode.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listUserRoadmaps', () => {
+    it('should return paginated current user roadmaps with mapped response fields', async () => {
+      const roadmap = {
+        deadlineDate: new Date('2025-10-01T00:00:00.000Z'),
+        description: 'A backend plan',
+        estimatedWeeks: null,
+        generatedAt: new Date('2025-04-24T07:00:00.000Z'),
+        goalName: 'Backend Intern at a product company',
+        hoursPerDay: createDecimal(2.5),
+        id: 'roadmap-1',
+        isTemplate: false,
+        roleCategory: 'BACKEND',
+        title: 'Your Backend Intern Roadmap',
+        updatedAt: new Date('2025-04-25T08:00:00.000Z'),
+        userId: 'user-1',
+      };
+
+      prisma.roadmap.findMany.mockResolvedValue([roadmap]);
+      prisma.roadmap.count.mockResolvedValue(42);
+
+      const result = await service.listUserRoadmaps('user-1', { page: 2, perPage: 10 });
+
+      expect(prisma.roadmap.findMany.mock.calls[0]?.[0]).toEqual({
+        orderBy: { updatedAt: 'desc' },
+        select: {
+          deadlineDate: true,
+          description: true,
+          estimatedWeeks: true,
+          generatedAt: true,
+          goalName: true,
+          hoursPerDay: true,
+          id: true,
+          isTemplate: true,
+          roleCategory: true,
+          title: true,
+          updatedAt: true,
+          userId: true,
+        },
+        skip: 10,
+        take: 10,
+        where: {
+          isTemplate: false,
+          userId: 'user-1',
+        },
+      });
+      expect(prisma.roadmap.count.mock.calls[0]?.[0]).toEqual({
+        where: {
+          isTemplate: false,
+          userId: 'user-1',
+        },
+      });
+      expect(result).toEqual({
+        data: [
+          {
+            deadlineDate: '2025-10-01',
+            description: 'A backend plan',
+            estimatedWeeks: null,
+            generatedAt: '2025-04-24T07:00:00.000Z',
+            goalName: 'Backend Intern at a product company',
+            hoursPerDay: 2.5,
+            id: 'roadmap-1',
+            isTemplate: false,
+            roleCategory: 'Backend',
+            title: 'Your Backend Intern Roadmap',
+            updatedAt: '2025-04-25T08:00:00.000Z',
+            userId: 'user-1',
+          },
+        ],
+        meta: {
+          page: 2,
+          perPage: 10,
+          total: 42,
+          totalPages: 5,
+        },
+      });
+    });
+
+    it('should use default pagination values', async () => {
+      prisma.roadmap.findMany.mockResolvedValue([]);
+      prisma.roadmap.count.mockResolvedValue(0);
+
+      const result = await service.listUserRoadmaps('user-1', {});
+
+      expect(prisma.roadmap.findMany.mock.calls[0]?.[0]).toEqual(
+        expect.objectContaining({
+          skip: 0,
+          take: 20,
+        }),
+      );
+      expect(result.meta).toEqual({
+        page: 1,
+        perPage: 20,
+        total: 0,
+        totalPages: 0,
+      });
+    });
+
+    it('should return an empty data array when no roadmaps exist for the requested page', async () => {
+      prisma.roadmap.findMany.mockResolvedValue([]);
+      prisma.roadmap.count.mockResolvedValue(21);
+
+      const result = await service.listUserRoadmaps('user-1', { page: 4, perPage: 10 });
+
+      expect(result).toEqual({
+        data: [],
+        meta: {
+          page: 4,
+          perPage: 10,
+          total: 21,
+          totalPages: 3,
+        },
+      });
     });
   });
 });

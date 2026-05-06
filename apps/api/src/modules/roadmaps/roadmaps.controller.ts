@@ -13,7 +13,7 @@ export class RoadmapsController {
    *
    * End of the onboarding flow. Validates the timeline, calls the Gemini AI
    * engine with the role skill map, computes Dagre layout, and persists the
-   * roadmap + nodes + initial user_node_progress rows. (FR-06, FR-07, FR-08)
+   * roadmap + nodes + initial user_node_progress rows.
    */
   @Post('generate')
   @HttpCode(HttpStatus.CREATED)

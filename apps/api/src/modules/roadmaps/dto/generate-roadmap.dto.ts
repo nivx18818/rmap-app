@@ -18,7 +18,7 @@ import {
 
 /**
  * A single onboarding quiz answer forwarded verbatim to the AI engine.
- * Both fields are free-text — never persisted (FR-05).
+ * Both fields are free-text — never persisted.
  */
 export class AssessmentAnswerDto {
   /** The original question text returned by POST /onboarding/quiz. */

@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 
 import { AppController } from './app.controller';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { AiModule } from './modules/ai/ai.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
@@ -17,6 +18,7 @@ import { UserModule } from './modules/user/user.module';
       isGlobal: true,
     }),
     PrismaModule,
+    AiModule,
     AuthModule,
     UserModule,
     OnboardingModule,

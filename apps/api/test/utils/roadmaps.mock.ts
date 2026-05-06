@@ -7,7 +7,7 @@ export const MOCK_USER_ID = 'user-uuid-1234';
 
 export const MOCK_DTO: GenerateRoadmapDto = {
   goal: 'Backend Engineer at a product company',
-  roleCategory: RoleCategory.BACKEND,
+  roleCategory: RoleCategory.WEB_DEVELOPMENT,
   hoursPerDay: 3,
   deadlineDate: '2030-12-31',
   quizAnswers: [
@@ -398,7 +398,7 @@ export const MOCK_LAYOUT_MAP = new Map(
 export const MOCK_ROADMAP = {
   id: 'roadmap-uuid-5678',
   userId: MOCK_USER_ID,
-  roleCategory: RoleCategory.BACKEND,
+  roleCategory: RoleCategory.WEB_DEVELOPMENT,
   title: 'Backend Engineer Roadmap',
   description: 'A comprehensive plan tailored to Node.js, NestJS, and production practices.',
   goalName: MOCK_DTO.goal,

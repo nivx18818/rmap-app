@@ -10,7 +10,7 @@ import type { FlatNode } from './types/ai-roadmap.types';
  * Computes a top-to-bottom Dagre layout for a flat list of roadmap nodes.
  *
  * Coordinates are calculated ONCE during generation and persisted to
- * roadmap_nodes.pos_x / pos_y — never recalculated client-side (FR-07).
+ * roadmap_nodes.pos_x / pos_y — never recalculated client-side.
  */
 @Injectable()
 export class DagreLayoutService {

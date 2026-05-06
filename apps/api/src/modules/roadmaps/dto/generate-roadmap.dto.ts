@@ -24,12 +24,12 @@ export class AssessmentAnswerDto {
   /** The original question text returned by POST /onboarding/quiz. */
   @IsString()
   @IsNotEmpty()
-  declare question: string;
+  question!: string;
 
   /** The option text the user selected (full text, not the letter). */
   @IsString()
   @IsNotEmpty()
-  declare answer: string;
+  answer!: string;
 }
 
 /**
@@ -41,24 +41,24 @@ export class GenerateRoadmapDto {
   @IsString()
   @MinLength(10)
   @MaxLength(300)
-  declare goal: string;
+  goal!: string;
 
   /**
    * Role category inferred by the AI in POST /onboarding/quiz and echoed
    * back here so the backend can load the role skill map.
    */
   @IsEnum(RoleCategory)
-  declare roleCategory: RoleCategory;
+  roleCategory!: RoleCategory;
 
   /** Daily study hours available. */
   @IsNumber()
   @Min(0.5)
   @Max(16)
-  declare hoursPerDay: number;
+  hoursPerDay!: number;
 
   /** Target completion date. Must be in the future. Format: YYYY-MM-DD. */
   @IsDateString()
-  declare deadlineDate: string;
+  deadlineDate!: string;
 
   /** Answers to the onboarding assessment quiz. */
   @IsArray()
@@ -66,5 +66,5 @@ export class GenerateRoadmapDto {
   @ArrayMaxSize(10)
   @ValidateNested({ each: true })
   @Type(() => AssessmentAnswerDto)
-  declare quizAnswers: AssessmentAnswerDto[];
+  quizAnswers!: AssessmentAnswerDto[];
 }

@@ -12,10 +12,10 @@ import type { AiNode, AiRoadmapOutput, FlatNode } from './types/ai-roadmap.types
 import { AiService } from '../ai/ai.service';
 import { DagreLayoutService } from './dagre-layout.service';
 
-/** Number of calendar days in a day. */
+/** Number of milliseconds in a day. */
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-/** Timeline warning threshold: warn when total > available × (1 + THRESHOLD). */
+/** Timeline warning threshold: warn when total > available * (1 + THRESHOLD). */
 const FEASIBILITY_THRESHOLD = 0.15;
 
 @Injectable()
@@ -42,14 +42,14 @@ export class RoadmapsService {
    * Quiz answers are forwarded to AI but NEVER written to the DB.
    */
   async generate(userId: string, dto: GenerateRoadmapDto) {
-    // ── Step 1: Validate deadline ──────────────────────────────────────────
+    // Step 1: Validate deadline
     const deadline = new Date(dto.deadlineDate);
     deadline.setHours(23, 59, 59, 999); // treat as end-of-day
     if (deadline <= new Date()) {
       throw new DeadlineInPastException();
     }
 
-    // ── Step 2: Load role skill map + prerequisites from DB ────────────────
+    // Step 2: Load role skill map + prerequisites from DB
     const skills = await this.prisma.skill.findMany({
       where: { roleCategory: dto.roleCategory },
       select: { id: true, name: true, defaultEstimatedHours: true },
@@ -69,7 +69,7 @@ export class RoadmapsService {
       },
     });
 
-    // ── Step 3: Feasibility check (FR-03, FR-15) ───────────────────────────
+    // Step 3: Feasibility check (FR-03, FR-15)
     const totalHours = skills.reduce((sum, s) => sum + Number(s.defaultEstimatedHours ?? 0), 0);
     const nowMs = Date.now();
     const days = Math.max(1, Math.ceil((deadline.getTime() - nowMs) / MS_PER_DAY));
@@ -97,7 +97,7 @@ export class RoadmapsService {
       );
     }
 
-    // ── Step 4: Call Gemini ────────────────────────────────────────────────
+    // Step 4: Call Gemini
     // Quiz answers are forwarded verbatim; never stored.
     let aiOutput: AiRoadmapOutput;
     try {
@@ -130,7 +130,7 @@ export class RoadmapsService {
       throw new RoadmapGenerationUnavailableException();
     }
 
-    // ── Step 5: Flatten AI tree and preserve AI parent-child relationships ─
+    // Step 5: Flatten AI tree and preserve AI parent-child relationships
     const counter = { n: 0 };
     const flatNodes = this.flattenTree(aiOutput.nodes, null, counter);
 
@@ -140,10 +140,10 @@ export class RoadmapsService {
       node.realParentId = node.tempParentId ? (tempToReal.get(node.tempParentId) ?? null) : null;
     }
 
-    // ── Step 6: Dagre layout ────────────────────────────────────────────────
+    // Step 6: Dagre layout
     const layoutMap = this.dagreLayout.computeLayout(flatNodes);
 
-    // ── Step 7: Persist in a single transaction ─────────────────────────────
+    // Step 7: Persist in a single transaction
     const roadmap = await this.prisma.$transaction(async (tx) => {
       // a) Create roadmap row
       const created = await tx.roadmap.create({
@@ -209,15 +209,12 @@ export class RoadmapsService {
       return created;
     });
 
-    // ── Step 8: Return ─────────────────────────────────────────────────────
+    // Step 8: Return
     // Quiz answers are NOT in roadmap or any other returned field.
     return { roadmap, timelineWarning };
   }
 
-  // ---------------------------------------------------------------------------
   // Private helpers
-  // ---------------------------------------------------------------------------
-
   private flattenTree(
     nodes: AiNode[],
     parentTempId: string | null,

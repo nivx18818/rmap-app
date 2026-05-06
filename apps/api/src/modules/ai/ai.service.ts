@@ -81,7 +81,7 @@ export class AiService {
     let responseText: string;
     try {
       responseText = await this.generateContent(prompt, {
-        temperature: 0.7,
+        temperature: 0.5,
       });
       this.logger.log('AI roadmap generated successfully', responseText);
     } catch (err) {

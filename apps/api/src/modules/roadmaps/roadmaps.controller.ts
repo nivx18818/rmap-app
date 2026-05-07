@@ -1,7 +1,8 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Query } from '@nestjs/common';
 
 import { CurrentUser, type RequestUser } from '../auth/decorators/current-user.decorator';
 import { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
+import { RoadmapNodesFilterDto } from './dto/roadmap-nodes-filter.dto';
 import { RoadmapsService } from './roadmaps.service';
 
 @Controller('roadmaps')
@@ -19,5 +20,15 @@ export class RoadmapsController {
   @HttpCode(HttpStatus.CREATED)
   async generate(@Body() dto: GenerateRoadmapDto, @CurrentUser() user: RequestUser) {
     return this.roadmapsService.generate(user.id, dto);
+  }
+
+  /**
+   * GET /roadmaps/nodes
+   *
+   * Returns a flat list of roadmap nodes with embedded progress for the user.
+   */
+  @Get('nodes')
+  async listNodes(@CurrentUser() user: RequestUser, @Query() query: RoadmapNodesFilterDto) {
+    return this.roadmapsService.listNodes(user.id, query);
   }
 }

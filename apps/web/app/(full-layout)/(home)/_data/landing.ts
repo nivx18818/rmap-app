@@ -6,7 +6,7 @@ import type {
 
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Explore roadmaps', href: '/' },
-  { label: 'Generate personalized roadmap', href: '/generate-roadmap' },
+  { label: 'Generate personalized roadmap', href: '/roadmaps/generate' },
 ];
 
 export const ROLE_BASED_ROADMAPS: RoadmapItemData[] = [
@@ -64,7 +64,7 @@ export const ROLE_BASED_ROADMAPS: RoadmapItemData[] = [
     isComingSoon: true,
   },
   { label: 'BI Analyst (Coming soon)', href: '/roadmaps/bi-analyst', isComingSoon: true },
-  { label: '+ Create your own Roadmap', href: '/generate-roadmap', variant: 'create' as const },
+  { label: '+ Create your own Roadmap', href: '/roadmaps/generate', variant: 'create' as const },
 ];
 
 export const SKILL_BASED_ROADMAPS: RoadmapItemData[] = [

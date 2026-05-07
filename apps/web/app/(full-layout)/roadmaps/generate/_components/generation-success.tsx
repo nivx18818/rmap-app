@@ -12,7 +12,7 @@ import { cn } from '@repo/design-system/lib/utils';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
-import { type TimelineWarning } from '@/app/(full-layout)/generate-roadmap/_types/onboarding';
+import { type TimelineWarning } from '@/app/(full-layout)/roadmaps/generate/_types/onboarding';
 
 interface GenerationSuccessProps {
   generatedRoadmapId?: string;

@@ -2,7 +2,7 @@ import { toast } from '@repo/design-system/lib/toast';
 import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
 
-import { type TimelineWarning } from '@/app/(full-layout)/generate-roadmap/_types/onboarding';
+import { type TimelineWarning } from '@/app/(full-layout)/roadmaps/generate/_types/onboarding';
 import { roadmapService } from '@/services/roadmap-service';
 
 export type WizardStep = 1 | 2 | 'loading' | 'success' | 'error';

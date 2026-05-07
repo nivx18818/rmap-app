@@ -108,7 +108,7 @@ export function Header() {
               render={
                 <Link
                   className="flex items-center gap-2"
-                  href={'/generate-roadmap' as Route<string>}
+                  href={'/roadmaps/generate' as Route<string>}
                 >
                   {user?.avatarUrl ? (
                     <Image

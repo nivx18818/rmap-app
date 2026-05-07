@@ -60,7 +60,7 @@ export function PersonalizedSection() {
             <Button
               size="lg"
               className="group/btn rounded-full"
-              render={<Link href={'/ai-tutor' as never} />}
+              render={<Link href={'/roadmaps/generate' as never} />}
             >
               Try now
               <AnimatedIconSwap icon={ArrowRight} hoverIcon={ArrowRight02FreeIcons} />
@@ -124,7 +124,7 @@ export function PersonalizedSection() {
             <Button
               size="lg"
               className="group/btn rounded-full"
-              render={<Link href={'/roadmaps' as never} />}
+              render={<Link href={'/' as never} />}
             >
               Explore now
               <AnimatedIconSwap icon={ArrowRight} hoverIcon={ArrowRight02FreeIcons} />

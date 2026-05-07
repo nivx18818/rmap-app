@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { QuizQuestion } from '@/app/(full-layout)/generate-roadmap/_types/onboarding';
+import type { QuizQuestion } from '@/app/(full-layout)/roadmaps/generate/_types/onboarding';
 
 import {
   type ChatConversationItem,

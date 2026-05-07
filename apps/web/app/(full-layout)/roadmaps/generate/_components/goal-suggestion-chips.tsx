@@ -6,7 +6,7 @@ import { Badge } from '@repo/design-system/components/ui/badge';
 import { Skeleton } from '@repo/design-system/components/ui/skeleton';
 import { useEffect, useRef, useState } from 'react';
 
-import type { GoalSuggestion } from '@/app/(full-layout)/generate-roadmap/_types/onboarding';
+import type { GoalSuggestion } from '@/app/(full-layout)/roadmaps/generate/_types/onboarding';
 
 import { onboardingService } from '@/services/onboarding-service';
 

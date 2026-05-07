@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import type {
   OnboardingQuizResult,
   QuizQuestion,
-} from '@/app/(full-layout)/generate-roadmap/_types/onboarding';
+} from '@/app/(full-layout)/roadmaps/generate/_types/onboarding';
 
 import { LoadingState } from '@/components/shared/loading-state';
 import { onboardingService } from '@/services/onboarding-service';

@@ -5,6 +5,6 @@ export const metadata: Metadata = {
   description: 'Create your personalized roadmap with AI.',
 };
 
-export default function AILayout(props: LayoutProps<'/generate-roadmap'>) {
+export default function AILayout(props: LayoutProps<'/roadmaps/generate'>) {
   return props.children;
 }

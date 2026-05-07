@@ -19,7 +19,7 @@ import { useForm } from 'react-hook-form';
 import {
   stepOneSchema,
   type StepOneValues,
-} from '@/app/(full-layout)/generate-roadmap/_validations/ai-roadmap.schema';
+} from '@/app/(full-layout)/roadmaps/generate/_validations/ai-roadmap.schema';
 
 import { DEFAULT_HOURS_PER_DAY } from '../_hooks/use-onboarding-wizard';
 import { getIntensityConfig } from '../_utils/intensity';

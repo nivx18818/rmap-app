@@ -38,7 +38,7 @@ export default function SignInPage() {
     try {
       await signIn(values);
       toast.success('Signed in successfully');
-      router.push('/ai');
+      router.push('/');
     } catch {
       toast.error('Sign in failed', {
         description: 'Please check your credentials and try again.',

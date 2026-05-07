@@ -81,7 +81,7 @@ export function HeroSection() {
             <AnimatedIconSwap icon={ArrowRight} hoverIcon={ArrowRight02FreeIcons} />
           </Button>
           <Button variant="outline" size="lg" className="group/btn rounded-full">
-            <Link href={'/ai' as Route<string>}>Create your roadmap</Link>
+            <Link href={'/generate-roadmap' as Route<string>}>Create your roadmap</Link>
             <AnimatedIconSwap icon={ArrowRight} hoverIcon={ArrowRight02FreeIcons} />
           </Button>
         </div>

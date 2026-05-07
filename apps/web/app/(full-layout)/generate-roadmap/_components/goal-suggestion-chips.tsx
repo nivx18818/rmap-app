@@ -6,7 +6,7 @@ import { Badge } from '@repo/design-system/components/ui/badge';
 import { Skeleton } from '@repo/design-system/components/ui/skeleton';
 import { useEffect, useRef, useState } from 'react';
 
-import type { GoalSuggestion } from '@/app/(full-layout)/ai/_types/onboarding';
+import type { GoalSuggestion } from '@/app/(full-layout)/generate-roadmap/_types/onboarding';
 
 import { onboardingService } from '@/services/onboarding-service';
 
@@ -23,26 +23,29 @@ export function GoalSuggestionChips({ onSelect }: GoalSuggestionChipsProps) {
   useEffect(() => {
     let mounted = true;
 
-    if (!activeFetch.current) {
-      activeFetch.current = onboardingService.getGoals();
-    }
+    const fetchSuggestions = async () => {
+      try {
+        if (!activeFetch.current) {
+          activeFetch.current = onboardingService.getGoals();
+        }
 
-    activeFetch.current
-      .then((data) => {
+        const data = await activeFetch.current;
+
         if (mounted) {
           setSuggestions(data.suggestions);
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         if (mounted) {
           console.error('Failed to fetch goals', error);
         }
-      })
-      .finally(() => {
+      } finally {
         if (mounted) {
           setIsLoading(false);
         }
-      });
+      }
+    };
+
+    fetchSuggestions();
 
     return () => {
       mounted = false;

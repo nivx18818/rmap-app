@@ -4,10 +4,10 @@ import { CheckmarkCircle02Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { useEffect, useRef } from 'react';
 
-import type { QuizQuestion } from '@/app/(full-layout)/ai/_types/onboarding';
+import type { QuizQuestion } from '@/app/(full-layout)/generate-roadmap/_types/onboarding';
 
-import { usePersonalizedQuestionsChat } from '@/app/(full-layout)/ai/_hooks/use-personalized-questions-chat';
-import { ConversationRole } from '@/app/(full-layout)/ai/_types/personalized-questions-chat.types';
+import { usePersonalizedQuestionsChat } from '@/app/(full-layout)/generate-roadmap/_hooks/use-personalized-questions-chat';
+import { ConversationRole } from '@/app/(full-layout)/generate-roadmap/_types/personalized-questions-chat.types';
 import { ChatInput, ChatLoading, ChatMessage } from '@/components/shared/chat-message';
 
 interface PersonalizedQuestionsPanelProps {

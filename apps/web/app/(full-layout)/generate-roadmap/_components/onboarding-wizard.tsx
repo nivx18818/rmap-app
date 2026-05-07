@@ -1,6 +1,6 @@
 'use client';
 
-import { useOnboardingWizard } from '@/app/(full-layout)/ai/_hooks/use-onboarding-wizard';
+import { useOnboardingWizard } from '@/app/(full-layout)/generate-roadmap/_hooks/use-onboarding-wizard';
 
 import { AiRoadmapForm } from './ai-roadmap-form';
 import { GenerationError } from './generation-error';

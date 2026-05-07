@@ -80,3 +80,4 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 *.pem
 docs/*
 !docs/SRS.md
+**/developer-roadmap/

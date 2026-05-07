@@ -106,7 +106,10 @@ export function Header() {
               size="sm"
               className="rounded-full"
               render={
-                <Link className="flex items-center gap-2" href={'/ai' as Route<string>}>
+                <Link
+                  className="flex items-center gap-2"
+                  href={'/generate-roadmap' as Route<string>}
+                >
                   {user?.avatarUrl ? (
                     <Image
                       className="size-6 rounded-full object-cover"

@@ -6,7 +6,10 @@ import { AnimatedIconSwap } from '@repo/design-system/components/common/animated
 import { Button } from '@repo/design-system/components/ui/button';
 import { useEffect, useRef, useState } from 'react';
 
-import type { OnboardingQuizResult, QuizQuestion } from '@/app/(full-layout)/ai/_types/onboarding';
+import type {
+  OnboardingQuizResult,
+  QuizQuestion,
+} from '@/app/(full-layout)/generate-roadmap/_types/onboarding';
 
 import { LoadingState } from '@/components/shared/loading-state';
 import { onboardingService } from '@/services/onboarding-service';

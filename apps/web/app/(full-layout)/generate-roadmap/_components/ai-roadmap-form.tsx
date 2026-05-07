@@ -1,16 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  Alert02Icon,
-  ArrowRight,
-  ArrowRight02FreeIcons,
-  Book02Icon,
-  Calendar01Icon,
-  Coffee02Icon,
-  FireIcon,
-  Rocket02Icon,
-} from '@hugeicons/core-free-icons';
+import { ArrowRight, ArrowRight02FreeIcons, Calendar01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { AnimatedIconSwap } from '@repo/design-system/components/common/animated-icon-swap';
 import { Badge } from '@repo/design-system/components/ui/badge';
@@ -28,57 +19,16 @@ import { useForm } from 'react-hook-form';
 import {
   stepOneSchema,
   type StepOneValues,
-} from '@/app/(full-layout)/ai/_validations/ai-roadmap.schema';
+} from '@/app/(full-layout)/generate-roadmap/_validations/ai-roadmap.schema';
 
 import { DEFAULT_HOURS_PER_DAY } from '../_hooks/use-onboarding-wizard';
+import { getIntensityConfig } from '../_utils/intensity';
 import { GoalSuggestionChips } from './goal-suggestion-chips';
 
 interface AiRoadmapFormProps {
   initialData: { goal: string; hours_per_day: number; deadline_date: string };
   onNext: (data: { goal: string; hours_per_day: number; deadline_date: string }) => void;
 }
-
-const getIntensityConfig = (hours: number) => {
-  if (hours <= 2)
-    return {
-      color: '#10b981',
-      indicatorColor: '#10b981',
-      label: 'Relaxed Pace',
-      description: 'Steady and easy. Great for balancing with a full-time job.',
-      icon: Coffee02Icon,
-    };
-  if (hours <= 4)
-    return {
-      color: '#3b82f6',
-      indicatorColor: '#3b82f6',
-      label: 'Focused',
-      description: 'Solid progress. Recommended for part-time learners.',
-      icon: Book02Icon,
-    };
-  if (hours <= 8)
-    return {
-      color: '#f97316',
-      indicatorColor: '#f97316',
-      label: 'Intensive',
-      description: 'Fast track. Suitable if you are studying full-time.',
-      icon: Rocket02Icon,
-    };
-  if (hours <= 12)
-    return {
-      color: '#ef4444',
-      indicatorColor: '#ef4444',
-      label: 'Extreme',
-      description: 'Very high commitment. Make sure to schedule breaks to avoid burnout.',
-      icon: FireIcon,
-    };
-  return {
-    color: '#a855f7',
-    indicatorColor: '#a855f7',
-    label: 'Unrealistic',
-    description: 'Warning: 12+ hours daily is generally unsustainable and leads to severe burnout.',
-    icon: Alert02Icon,
-  };
-};
 
 export function AiRoadmapForm({ initialData, onNext }: AiRoadmapFormProps) {
   const {

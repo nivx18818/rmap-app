@@ -22,6 +22,7 @@ export interface GenerateRoadmapPayload {
   deadlineDate: string;
   quizAnswers: Array<{ question: string; answer: string }>;
 }
+
 export interface TimelineWarning {
   isBehind: boolean;
   paceDeficitPct: number;

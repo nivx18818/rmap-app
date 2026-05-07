@@ -1,7 +1,7 @@
 import {
   type GoalSuggestion,
   type OnboardingQuizResult,
-} from '@/app/(full-layout)/ai/_types/onboarding';
+} from '@/app/(full-layout)/generate-roadmap/_types/onboarding';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { axiosInstance } from '@/lib/axios-instance';
 

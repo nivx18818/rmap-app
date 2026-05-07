@@ -50,7 +50,7 @@ export default function SignUpPage() {
     try {
       await signUp(values);
       toast.success('Account created successfully');
-      router.push('/ai');
+      router.push('/');
     } catch {
       toast.error('Sign up failed', {
         description: 'Email may already exist or request is invalid.',

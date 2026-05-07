@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { NodeType, type Prisma } from '@repo/db/prisma/client';
 
 import {
   DeadlineInPastException,
@@ -7,7 +8,9 @@ import {
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
 import type { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
+import type { RoadmapNodesFilterDto } from './dto/roadmap-nodes-filter.dto';
 import type { AiNode, AiRoadmapOutput, FlatNode } from './types/ai-roadmap.types';
+import type { RoadmapNodesListResponse } from './types/roadmap-nodes.types';
 
 import { AiService } from '../ai/ai.service';
 import { DagreLayoutService } from './dagre-layout.service';
@@ -18,6 +21,11 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 /** Timeline warning threshold: warn when total > available * (1 + THRESHOLD). */
 const FEASIBILITY_THRESHOLD = 0.15;
 
+const LEAF_NODE_TYPES: NodeType[] = [NodeType.REQUIRED, NodeType.OPTIONAL];
+
+const toNumberOrNull = (value: Prisma.Decimal | number | null) =>
+  value === null ? null : Number(value);
+
 @Injectable()
 export class RoadmapsService {
   private readonly logger = new Logger(RoadmapsService.name);
@@ -27,6 +35,100 @@ export class RoadmapsService {
     private readonly aiService: AiService,
     private readonly dagreLayout: DagreLayoutService,
   ) {}
+
+  async listNodes(userId: string, query: RoadmapNodesFilterDto): Promise<RoadmapNodesListResponse> {
+    const { node_type: nodeType, status, q } = query;
+    const trimmedQuery = q?.trim();
+
+    if (status && nodeType && !LEAF_NODE_TYPES.includes(nodeType)) {
+      return { nodes: [] };
+    }
+
+    const where: Prisma.RoadmapNodeWhereInput = {
+      roadmap: { userId },
+    };
+
+    if (nodeType) {
+      where.nodeType = nodeType;
+    }
+
+    if (status) {
+      where.userNodeProgress = {
+        some: {
+          userId,
+          status,
+        },
+      };
+
+      if (!nodeType) {
+        where.nodeType = { in: LEAF_NODE_TYPES };
+      }
+    }
+
+    if (trimmedQuery) {
+      where.name = { contains: trimmedQuery, mode: 'insensitive' };
+    }
+
+    const nodes = await this.prisma.roadmapNode.findMany({
+      where,
+      select: {
+        id: true,
+        roadmapId: true,
+        parentId: true,
+        skillId: true,
+        name: true,
+        description: true,
+        nodeType: true,
+        estimatedHours: true,
+        posX: true,
+        posY: true,
+        userNodeProgress: {
+          where: { userId },
+          select: {
+            id: true,
+            userId: true,
+            roadmapNodeId: true,
+            status: true,
+            startedAt: true,
+            completedAt: true,
+            quizScorePct: true,
+            quizPassed: true,
+          },
+        },
+      },
+    });
+
+    return {
+      nodes: nodes.map((node) => {
+        const progress = node.userNodeProgress[0] ?? null;
+
+        return {
+          id: node.id,
+          roadmap_id: node.roadmapId,
+          parent_id: node.parentId,
+          skill_id: node.skillId,
+          name: node.name,
+          description: node.description,
+          node_type: node.nodeType,
+          estimated_hours: toNumberOrNull(node.estimatedHours),
+          pos_x: Number(node.posX),
+          pos_y: Number(node.posY),
+          progress: progress
+            ? {
+                id: progress.id,
+                user_id: progress.userId,
+                roadmap_node_id: progress.roadmapNodeId,
+                status: progress.status,
+                started_at: progress.startedAt,
+                completed_at: progress.completedAt,
+                quiz_score_pct: toNumberOrNull(progress.quizScorePct),
+                quiz_passed: progress.quizPassed,
+              }
+            : null,
+        };
+      }),
+    };
+  }
 
   /**
    * Orchestrates roadmap generation end-to-end:

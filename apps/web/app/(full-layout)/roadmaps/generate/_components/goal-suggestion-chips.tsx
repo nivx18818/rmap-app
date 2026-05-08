@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { GoalSuggestion } from '@/app/(full-layout)/roadmaps/generate/_types/onboarding';
 
-import { onboardingService } from '@/services/onboarding-service';
+import { onboardingService } from '@/services/onboarding.service';
 
 interface GoalSuggestionChipsProps {
   onSelect: (goal: string) => void;

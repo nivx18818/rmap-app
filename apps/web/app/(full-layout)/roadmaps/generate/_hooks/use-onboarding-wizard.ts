@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
 
 import { type TimelineWarning } from '@/app/(full-layout)/roadmaps/generate/_types/onboarding';
-import { roadmapService } from '@/services/roadmap-service';
+import { roadmapService } from '@/services/roadmap.service';
 
 export type WizardStep = 1 | 2 | 'loading' | 'success' | 'error';
 

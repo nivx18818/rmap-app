@@ -2,19 +2,24 @@ import { NodeStatus, NodeType } from '@repo/db/prisma/client';
 import { Transform } from 'class-transformer';
 import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 
+const toUppercaseString = ({ value }): unknown =>
+  typeof value === 'string' ? value.toUpperCase() : value;
+
+const toTrimmedString = ({ value }): unknown => (typeof value === 'string' ? value.trim() : value);
+
 export class RoadmapNodesFilterDto {
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
+  @Transform(toUppercaseString)
   @IsEnum(NodeType)
   node_type?: NodeType;
 
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
+  @Transform(toUppercaseString)
   @IsEnum(NodeStatus)
   status?: NodeStatus;
 
   @IsOptional()
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(toTrimmedString)
   @IsString()
   @MaxLength(200)
   q?: string;

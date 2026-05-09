@@ -36,7 +36,11 @@ export class RoadmapsService {
     private readonly dagreLayout: DagreLayoutService,
   ) {}
 
-  async listNodes(userId: string, query: RoadmapNodesFilterDto): Promise<RoadmapNodesListResponse> {
+  async listNodes(
+    userId: string,
+    roadmapId: string,
+    query: RoadmapNodesFilterDto,
+  ): Promise<RoadmapNodesListResponse> {
     const { node_type: nodeType, status, q } = query;
     const trimmedQuery = q?.trim();
 
@@ -45,6 +49,7 @@ export class RoadmapsService {
     }
 
     const where: Prisma.RoadmapNodeWhereInput = {
+      roadmapId,
       roadmap: { userId },
     };
 
@@ -86,7 +91,6 @@ export class RoadmapsService {
           where: { userId },
           select: {
             id: true,
-            userId: true,
             roadmapNodeId: true,
             status: true,
             startedAt: true,
@@ -116,7 +120,6 @@ export class RoadmapsService {
           progress: progress
             ? {
                 id: progress.id,
-                user_id: progress.userId,
                 roadmap_node_id: progress.roadmapNodeId,
                 status: progress.status,
                 started_at: progress.startedAt,

@@ -2,7 +2,6 @@ import type { NodeStatus, NodeType } from '@repo/db/prisma/client';
 
 export interface UserNodeProgressResponse {
   id: string;
-  user_id: string;
   roadmap_node_id: string;
   status: NodeStatus;
   started_at: Date | null;

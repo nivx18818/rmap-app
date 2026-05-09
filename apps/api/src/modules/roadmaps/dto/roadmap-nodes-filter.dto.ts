@@ -11,7 +11,7 @@ export class RoadmapNodesFilterDto {
   @IsOptional()
   @Transform(toUppercaseString)
   @IsEnum(NodeType)
-  node_type?: NodeType;
+  nodeType?: NodeType;
 
   @IsOptional()
   @Transform(toUppercaseString)

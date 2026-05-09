@@ -41,7 +41,7 @@ export class RoadmapsService {
     roadmapId: string,
     query: RoadmapNodesFilterDto,
   ): Promise<RoadmapNodesListResponse> {
-    const { node_type: nodeType, status, q } = query;
+    const { nodeType, status, q } = query;
     const trimmedQuery = q?.trim();
 
     if (status && nodeType && !LEAF_NODE_TYPES.includes(nodeType)) {
@@ -108,24 +108,24 @@ export class RoadmapsService {
 
         return {
           id: node.id,
-          roadmap_id: node.roadmapId,
-          parent_id: node.parentId,
-          skill_id: node.skillId,
+          roadmapId: node.roadmapId,
+          parentId: node.parentId,
+          skillId: node.skillId,
           name: node.name,
           description: node.description,
-          node_type: node.nodeType,
-          estimated_hours: toNumberOrNull(node.estimatedHours),
-          pos_x: Number(node.posX),
-          pos_y: Number(node.posY),
+          nodeType: node.nodeType,
+          estimatedHours: toNumberOrNull(node.estimatedHours),
+          posX: Number(node.posX),
+          posY: Number(node.posY),
           progress: progress
             ? {
                 id: progress.id,
-                roadmap_node_id: progress.roadmapNodeId,
+                roadmapNodeId: progress.roadmapNodeId,
                 status: progress.status,
-                started_at: progress.startedAt,
-                completed_at: progress.completedAt,
-                quiz_score_pct: toNumberOrNull(progress.quizScorePct),
-                quiz_passed: progress.quizPassed,
+                startedAt: progress.startedAt,
+                completedAt: progress.completedAt,
+                quizScorePct: toNumberOrNull(progress.quizScorePct),
+                quizPassed: progress.quizPassed,
               }
             : null,
         };

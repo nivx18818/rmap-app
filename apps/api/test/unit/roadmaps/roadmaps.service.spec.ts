@@ -324,36 +324,36 @@ describe('RoadmapsService', () => {
         nodes: [
           {
             id: 'node-1',
-            roadmap_id: 'roadmap-1',
-            parent_id: null,
-            skill_id: null,
+            roadmapId: 'roadmap-1',
+            parentId: null,
+            skillId: null,
             name: 'Backend Foundations',
             description: null,
-            node_type: NodeType.GROUP,
-            estimated_hours: null,
-            pos_x: 120,
-            pos_y: 200,
+            nodeType: NodeType.GROUP,
+            estimatedHours: null,
+            posX: 120,
+            posY: 200,
             progress: null,
           },
           {
             id: 'node-2',
-            roadmap_id: 'roadmap-1',
-            parent_id: 'node-1',
-            skill_id: 'skill-1',
+            roadmapId: 'roadmap-1',
+            parentId: 'node-1',
+            skillId: 'skill-1',
             name: 'REST API',
             description: null,
-            node_type: NodeType.REQUIRED,
-            estimated_hours: 6,
-            pos_x: 140,
-            pos_y: 240,
+            nodeType: NodeType.REQUIRED,
+            estimatedHours: 6,
+            posX: 140,
+            posY: 240,
             progress: {
               id: 'progress-1',
-              roadmap_node_id: 'node-2',
+              roadmapNodeId: 'node-2',
               status: NodeStatus.COMPLETED,
-              started_at: new Date('2026-01-01T00:00:00Z'),
-              completed_at: new Date('2026-01-02T00:00:00Z'),
-              quiz_score_pct: 80,
-              quiz_passed: true,
+              startedAt: new Date('2026-01-01T00:00:00Z'),
+              completedAt: new Date('2026-01-02T00:00:00Z'),
+              quizScorePct: 80,
+              quizPassed: true,
             },
           },
         ],
@@ -396,9 +396,9 @@ describe('RoadmapsService', () => {
       );
     });
 
-    it('should return empty when status is set for non-leaf node_type', async () => {
+    it('should return empty when status is set for non-leaf nodeType', async () => {
       const result = await service.listNodes(MOCK_USER_ID, roadmapId, {
-        node_type: NodeType.GROUP,
+        nodeType: NodeType.GROUP,
         status: NodeStatus.COMPLETED,
       });
 

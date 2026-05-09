@@ -268,6 +268,8 @@ describe('RoadmapsService', () => {
   });
 
   describe('listNodes', () => {
+    const roadmapId = 'roadmap-1';
+
     it('should return nodes with embedded progress', async () => {
       const mockNodes = [
         {
@@ -311,11 +313,11 @@ describe('RoadmapsService', () => {
 
       prisma.roadmapNode.findMany.mockResolvedValue(mockNodes);
 
-      const result = await service.listNodes(MOCK_USER_ID, {});
+      const result = await service.listNodes(MOCK_USER_ID, roadmapId, {});
 
       expect(prisma.roadmapNode.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { roadmap: { userId: MOCK_USER_ID } },
+          where: { roadmapId, roadmap: { userId: MOCK_USER_ID } },
         }),
       );
       expect(result).toEqual({
@@ -346,7 +348,6 @@ describe('RoadmapsService', () => {
             pos_y: 240,
             progress: {
               id: 'progress-1',
-              user_id: MOCK_USER_ID,
               roadmap_node_id: 'node-2',
               status: NodeStatus.COMPLETED,
               started_at: new Date('2026-01-01T00:00:00Z'),
@@ -362,11 +363,12 @@ describe('RoadmapsService', () => {
     it('should filter by status on leaf nodes', async () => {
       prisma.roadmapNode.findMany.mockResolvedValue([]);
 
-      await service.listNodes(MOCK_USER_ID, { status: NodeStatus.COMPLETED });
+      await service.listNodes(MOCK_USER_ID, roadmapId, { status: NodeStatus.COMPLETED });
 
       expect(prisma.roadmapNode.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
+            roadmapId,
             nodeType: { in: [NodeType.REQUIRED, NodeType.OPTIONAL] },
             userNodeProgress: {
               some: {
@@ -382,11 +384,12 @@ describe('RoadmapsService', () => {
     it('should apply case-insensitive name filtering', async () => {
       prisma.roadmapNode.findMany.mockResolvedValue([]);
 
-      await service.listNodes(MOCK_USER_ID, { q: 'REST' });
+      await service.listNodes(MOCK_USER_ID, roadmapId, { q: 'REST' });
 
       expect(prisma.roadmapNode.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
+            roadmapId,
             name: { contains: 'REST', mode: 'insensitive' },
           }),
         }),
@@ -394,7 +397,7 @@ describe('RoadmapsService', () => {
     });
 
     it('should return empty when status is set for non-leaf node_type', async () => {
-      const result = await service.listNodes(MOCK_USER_ID, {
+      const result = await service.listNodes(MOCK_USER_ID, roadmapId, {
         node_type: NodeType.GROUP,
         status: NodeStatus.COMPLETED,
       });

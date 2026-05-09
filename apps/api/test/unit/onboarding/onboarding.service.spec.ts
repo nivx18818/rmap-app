@@ -1,10 +1,18 @@
 import type { TestingModule } from '@nestjs/testing';
 
 import { Test } from '@nestjs/testing';
+import { RoleCategory } from '@repo/db/prisma/client';
 
 import { ExternalServiceErrorException } from '@/common/exceptions/app.exceptions';
 import { AiService } from '@/modules/ai/ai.service';
 import { OnboardingService } from '@/modules/onboarding/onboarding.service';
+
+const toRoleSlug = (value: string): string =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '');
 
 describe('OnboardingService', () => {
   let service: OnboardingService;
@@ -71,6 +79,13 @@ describe('OnboardingService', () => {
         questions: [{ question: 'Goal?', possibleAnswers: ['Career', 'Project'] }],
       };
 
+      const allowedRoleSlugs = Object.values(RoleCategory).map(toRoleSlug);
+      const normalizedRole = toRoleSlug(quizResponse.roleCategory);
+      const fallbackRole = allowedRoleSlugs[0] ?? 'backend';
+      const expectedRole = allowedRoleSlugs.includes(normalizedRole)
+        ? normalizedRole
+        : fallbackRole;
+
       jest
         .spyOn(aiService, 'generateOnboardingQuiz')
         .mockResolvedValue(JSON.stringify(quizResponse));
@@ -79,7 +94,7 @@ describe('OnboardingService', () => {
 
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(aiService.generateOnboardingQuiz).toHaveBeenCalled();
-      expect(result).toEqual(quizResponse);
+      expect(result).toEqual({ ...quizResponse, roleCategory: expectedRole });
     });
 
     it('should throw ExternalServiceErrorException when JSON parse fails', async () => {

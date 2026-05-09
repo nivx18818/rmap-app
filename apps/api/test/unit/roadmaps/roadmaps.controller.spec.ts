@@ -43,9 +43,11 @@ describe('RoadmapsController', () => {
 
     mockRoadmapsService.listNodes.mockResolvedValue(mockResponse);
 
-    const result = await controller.listNodes(mockUser, { q: 'REST' });
+    const result = await controller.listNodes(mockUser, 'roadmap-1', { q: 'REST' });
 
-    expect(mockRoadmapsService.listNodes).toHaveBeenCalledWith('user-1', { q: 'REST' });
+    expect(mockRoadmapsService.listNodes).toHaveBeenCalledWith('user-1', 'roadmap-1', {
+      q: 'REST',
+    });
     expect(result).toEqual(mockResponse);
   });
 });

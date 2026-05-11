@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
 import { NodeType, type Prisma, type Roadmap } from '@repo/db/prisma/client';
 
 import {
+  AppNotFoundException,
   DeadlineInPastException,
   RoadmapGenerationUnavailableException,
   RoadmapNotFoundException,
@@ -13,6 +14,7 @@ import type { ListRoadmapsQueryDto } from './dto/list-roadmaps-query.dto';
 import type { RoadmapNodesFilterDto } from './dto/roadmap-nodes-filter.dto';
 import type { PaginatedRoadmapsResponseDto, RoadmapResponseDto } from './dto/roadmap-response.dto';
 import type { AiNode, AiRoadmapOutput, FlatNode } from './types/ai-roadmap.types';
+import type { RoadmapNodeQuizResponse } from './types/roadmap-node-quiz.types';
 import type { RoadmapNodesListResponse } from './types/roadmap-nodes.types';
 
 import { AiService } from '../ai/ai.service';
@@ -189,6 +191,56 @@ export class RoadmapsService {
             : null,
         };
       }),
+    };
+  }
+
+  async getNodeQuiz(
+    userId: string,
+    roadmapId: string,
+    nodeId: string,
+  ): Promise<RoadmapNodeQuizResponse> {
+    const node = await this.prisma.roadmapNode.findFirst({
+      where: {
+        id: nodeId,
+        roadmapId,
+        roadmap: { userId },
+      },
+      select: {
+        id: true,
+        nodeType: true,
+        skillId: true,
+      },
+    });
+
+    if (!node) {
+      throw new AppNotFoundException('Roadmap node not found');
+    }
+
+    if (!LEAF_NODE_TYPES.includes(node.nodeType) || !node.skillId) {
+      throw new UnprocessableEntityException({
+        code: 42200,
+        message: 'Quiz is only available for required or optional leaf nodes',
+      });
+    }
+
+    const questions = await this.prisma.quizQuestion.findMany({
+      where: { skillId: node.skillId },
+      select: {
+        id: true,
+        questionText: true,
+        optionA: true,
+        optionB: true,
+        optionC: true,
+        optionD: true,
+      },
+      orderBy: { createdAt: 'asc' },
+      take: 5,
+    });
+
+    return {
+      nodeId: node.id,
+      skillId: node.skillId,
+      questions,
     };
   }
 

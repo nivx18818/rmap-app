@@ -70,4 +70,18 @@ export class RoadmapsController {
   async remove(@CurrentUser() user: RequestUser, @Param('roadmapId') roadmapId: string) {
     await this.roadmapsService.deleteByIdForOwner(user.id, roadmapId);
   }
+
+  /**
+   * GET /roadmaps/:roadmapId/nodes/:nodeId/quiz
+   *
+   * Returns exactly 5 public quiz questions for a required/optional leaf node's skill.
+   */
+  @Get(':roadmapId/nodes/:nodeId/quiz')
+  async getNodeQuiz(
+    @CurrentUser() user: RequestUser,
+    @Param('roadmapId') roadmapId: string,
+    @Param('nodeId') nodeId: string,
+  ) {
+    return this.roadmapsService.getNodeQuiz(user.id, roadmapId, nodeId);
+  }
 }

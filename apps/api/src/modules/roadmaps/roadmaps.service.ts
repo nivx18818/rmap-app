@@ -1,4 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { NodeType, type Prisma } from '@repo/db/prisma/client';
 
 import {
@@ -9,8 +14,9 @@ import { PrismaService } from '@/modules/prisma/prisma.service';
 
 import type { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
 import type { RoadmapNodesFilterDto } from './dto/roadmap-nodes-filter.dto';
+import type { SubmitQuizDto } from './dto/submit-quiz.dto';
 import type { AiNode, AiRoadmapOutput, FlatNode } from './types/ai-roadmap.types';
-import type { RoadmapNodesListResponse } from './types/roadmap-nodes.types';
+import type { RoadmapNodesListResponse, SubmitQuizResponse } from './types/roadmap-nodes.types';
 
 import { AiService } from '../ai/ai.service';
 import { DagreLayoutService } from './dagre-layout.service';
@@ -130,6 +136,120 @@ export class RoadmapsService {
             : null,
         };
       }),
+    };
+  }
+
+  async submitQuiz(
+    userId: string,
+    roadmapId: string,
+    nodeId: string,
+    dto: SubmitQuizDto,
+  ): Promise<SubmitQuizResponse> {
+    const node = await this.prisma.roadmapNode.findFirst({
+      where: {
+        id: nodeId,
+        roadmapId,
+        roadmap: { userId },
+      },
+      select: {
+        id: true,
+        nodeType: true,
+        skillId: true,
+      },
+    });
+
+    if (!node) {
+      throw new NotFoundException('Roadmap node not found');
+    }
+
+    if (node.nodeType === NodeType.GROUP || node.nodeType === NodeType.MILESTONE) {
+      throw new UnprocessableEntityException(
+        'Quiz submissions are only supported for required or optional nodes',
+      );
+    }
+
+    if (!node.skillId) {
+      throw new UnprocessableEntityException('Leaf node must have an associated skill');
+    }
+
+    const questions = await this.prisma.quizQuestion.findMany({
+      where: { skillId: node.skillId },
+      select: {
+        id: true,
+        correctOption: true,
+      },
+    });
+
+    if (questions.length === 0) {
+      throw new NotFoundException('Quiz questions not found for this node');
+    }
+
+    const selectedByQuestion = new Map(
+      dto.answers.map((answer) => [answer.question_id, answer.selected_option]),
+    );
+
+    const results = questions.map((question) => {
+      const selectedOption = selectedByQuestion.get(question.id) ?? null;
+      const isCorrect = selectedOption === question.correctOption;
+      return {
+        question_id: question.id,
+        selected_option: selectedOption,
+        correct_option: question.correctOption,
+        is_correct: isCorrect,
+      };
+    });
+
+    const totalQuestions = questions.length;
+    const correctCount = results.filter((result) => result.is_correct).length;
+    const scorePct = Number(((correctCount / totalQuestions) * 100).toFixed(2));
+    const passed = scorePct >= 60;
+
+    const progress = await this.prisma.userNodeProgress.upsert({
+      where: {
+        userId_roadmapNodeId: {
+          userId,
+          roadmapNodeId: node.id,
+        },
+      },
+      update: {
+        quizScorePct: scorePct,
+        quizPassed: passed,
+      },
+      create: {
+        userId,
+        roadmapNodeId: node.id,
+        status: 'IN_PROGRESS',
+        startedAt: new Date(),
+        quizScorePct: scorePct,
+        quizPassed: passed,
+      },
+      select: {
+        id: true,
+        roadmapNodeId: true,
+        status: true,
+        startedAt: true,
+        completedAt: true,
+        quizScorePct: true,
+        quizPassed: true,
+      },
+    });
+
+    return {
+      score_pct: scorePct,
+      passed,
+      correct_count: correctCount,
+      total_questions: totalQuestions,
+      results,
+      suggestion: passed ? null : 'You should review this part before continuing.',
+      node_progress: {
+        id: progress.id,
+        roadmap_node_id: progress.roadmapNodeId,
+        status: progress.status,
+        started_at: progress.startedAt,
+        completed_at: progress.completedAt,
+        quiz_score_pct: toNumberOrNull(progress.quizScorePct),
+        quiz_passed: progress.quizPassed,
+      },
     };
   }
 

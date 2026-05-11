@@ -3,6 +3,7 @@ import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from 
 import { CurrentUser, type RequestUser } from '../auth/decorators/current-user.decorator';
 import { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
 import { RoadmapNodesFilterDto } from './dto/roadmap-nodes-filter.dto';
+import { SubmitQuizDto } from './dto/submit-quiz.dto';
 import { RoadmapsService } from './roadmaps.service';
 
 @Controller('roadmaps')
@@ -34,5 +35,15 @@ export class RoadmapsController {
     @Query() query: RoadmapNodesFilterDto,
   ) {
     return this.roadmapsService.listNodes(user.id, roadmapId, query);
+  }
+
+  @Post(':id/nodes/:nodeId/quiz/submit')
+  async submitQuiz(
+    @CurrentUser() user: RequestUser,
+    @Param('id') roadmapId: string,
+    @Param('nodeId') nodeId: string,
+    @Body() dto: SubmitQuizDto,
+  ) {
+    return this.roadmapsService.submitQuiz(user.id, roadmapId, nodeId, dto);
   }
 }

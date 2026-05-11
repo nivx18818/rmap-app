@@ -54,7 +54,9 @@ describe('RoadmapsService', () => {
             skillPrerequisite: {
               findMany: jest.fn().mockResolvedValue(MOCK_PRISMA_SKILL_PREREQUISITES),
             },
-            roadmapNode: { findMany: jest.fn() },
+            roadmapNode: { findMany: jest.fn(), findFirst: jest.fn() },
+            quizQuestion: { findMany: jest.fn() },
+            userNodeProgress: { upsert: jest.fn() },
             $transaction: jest
               .fn()
               .mockImplementation(async (fn: (tx: typeof txMock) => unknown) => await fn(txMock)),
@@ -404,6 +406,195 @@ describe('RoadmapsService', () => {
 
       expect(result).toEqual({ nodes: [] });
       expect(prisma.roadmapNode.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('submitQuiz', () => {
+    const roadmapId = 'roadmap-1';
+    const nodeId = 'node-1';
+    const skillId = 'skill-1';
+
+    beforeEach(() => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.REQUIRED,
+        skillId,
+      });
+      prisma.quizQuestion.findMany.mockResolvedValue([
+        { id: '11111111-1111-1111-1111-111111111111', correctOption: 'A' },
+        { id: '22222222-2222-2222-2222-222222222222', correctOption: 'B' },
+        { id: '33333333-3333-3333-3333-333333333333', correctOption: 'C' },
+        { id: '44444444-4444-4444-4444-444444444444', correctOption: 'D' },
+        { id: '55555555-5555-5555-5555-555555555555', correctOption: 'A' },
+      ]);
+      prisma.userNodeProgress.upsert.mockResolvedValue({
+        id: 'progress-1',
+        roadmapNodeId: nodeId,
+        status: NodeStatus.IN_PROGRESS,
+        startedAt: new Date('2026-01-01T00:00:00Z'),
+        completedAt: null,
+        quizScorePct: 80,
+        quizPassed: true,
+      });
+    });
+
+    it('should return score details, reveal correct options, and updated node progress', async () => {
+      const result = await service.submitQuiz(MOCK_USER_ID, roadmapId, nodeId, {
+        answers: [
+          { question_id: '11111111-1111-1111-1111-111111111111', selected_option: 'A' },
+          { question_id: '22222222-2222-2222-2222-222222222222', selected_option: 'B' },
+          { question_id: '33333333-3333-3333-3333-333333333333', selected_option: 'D' },
+          { question_id: '44444444-4444-4444-4444-444444444444', selected_option: 'D' },
+          { question_id: '55555555-5555-5555-5555-555555555555', selected_option: 'A' },
+        ],
+      });
+
+      expect(prisma.roadmapNode.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: nodeId,
+          roadmapId,
+          roadmap: { userId: MOCK_USER_ID },
+        },
+        select: {
+          id: true,
+          nodeType: true,
+          skillId: true,
+        },
+      });
+      expect(prisma.userNodeProgress.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userId_roadmapNodeId: {
+              userId: MOCK_USER_ID,
+              roadmapNodeId: nodeId,
+            },
+          },
+          update: {
+            quizScorePct: 80,
+            quizPassed: true,
+          },
+        }),
+      );
+      expect(result.score_pct).toBe(80);
+      expect(result.passed).toBe(true);
+      expect(result.correct_count).toBe(4);
+      expect(result.total_questions).toBe(5);
+      expect(result.results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            question_id: '33333333-3333-3333-3333-333333333333',
+            selected_option: 'D',
+            correct_option: 'C',
+            is_correct: false,
+          }),
+        ]),
+      );
+      expect(result.suggestion).toBeNull();
+      expect(result.node_progress).toEqual({
+        id: 'progress-1',
+        roadmap_node_id: nodeId,
+        status: NodeStatus.IN_PROGRESS,
+        started_at: new Date('2026-01-01T00:00:00Z'),
+        completed_at: null,
+        quiz_score_pct: 80,
+        quiz_passed: true,
+      });
+    });
+
+    it('should return suggestion when score is below passing threshold', async () => {
+      prisma.userNodeProgress.upsert.mockResolvedValue({
+        id: 'progress-1',
+        roadmapNodeId: nodeId,
+        status: NodeStatus.IN_PROGRESS,
+        startedAt: new Date('2026-01-01T00:00:00Z'),
+        completedAt: null,
+        quizScorePct: 40,
+        quizPassed: false,
+      });
+
+      const result = await service.submitQuiz(MOCK_USER_ID, roadmapId, nodeId, {
+        answers: [
+          { question_id: '11111111-1111-1111-1111-111111111111', selected_option: 'A' },
+          { question_id: '22222222-2222-2222-2222-222222222222', selected_option: 'A' },
+          { question_id: '33333333-3333-3333-3333-333333333333', selected_option: 'A' },
+          { question_id: '44444444-4444-4444-4444-444444444444', selected_option: 'D' },
+          { question_id: '55555555-5555-5555-5555-555555555555', selected_option: 'D' },
+        ],
+      });
+
+      expect(prisma.userNodeProgress.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: {
+            quizScorePct: 40,
+            quizPassed: false,
+          },
+        }),
+      );
+      expect(result.passed).toBe(false);
+      expect(result.suggestion).toBe('You should review this part before continuing.');
+    });
+
+    it('should overwrite previous quiz score on re-submission', async () => {
+      await service.submitQuiz(MOCK_USER_ID, roadmapId, nodeId, {
+        answers: [
+          { question_id: '11111111-1111-1111-1111-111111111111', selected_option: 'A' },
+          { question_id: '22222222-2222-2222-2222-222222222222', selected_option: 'A' },
+          { question_id: '33333333-3333-3333-3333-333333333333', selected_option: 'A' },
+          { question_id: '44444444-4444-4444-4444-444444444444', selected_option: 'A' },
+          { question_id: '55555555-5555-5555-5555-555555555555', selected_option: 'A' },
+        ],
+      });
+
+      await service.submitQuiz(MOCK_USER_ID, roadmapId, nodeId, {
+        answers: [
+          { question_id: '11111111-1111-1111-1111-111111111111', selected_option: 'A' },
+          { question_id: '22222222-2222-2222-2222-222222222222', selected_option: 'B' },
+          { question_id: '33333333-3333-3333-3333-333333333333', selected_option: 'C' },
+          { question_id: '44444444-4444-4444-4444-444444444444', selected_option: 'D' },
+          { question_id: '55555555-5555-5555-5555-555555555555', selected_option: 'A' },
+        ],
+      });
+
+      expect(prisma.userNodeProgress.upsert).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          update: { quizScorePct: 40, quizPassed: false },
+        }),
+      );
+      expect(prisma.userNodeProgress.upsert).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          update: { quizScorePct: 100, quizPassed: true },
+        }),
+      );
+    });
+
+    it('should throw 422 for group nodes', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.GROUP,
+        skillId: null,
+      });
+
+      await expect(
+        service.submitQuiz(MOCK_USER_ID, roadmapId, nodeId, {
+          answers: [{ question_id: '11111111-1111-1111-1111-111111111111', selected_option: 'A' }],
+        }),
+      ).rejects.toThrow('Quiz submissions are only supported for required or optional nodes');
+    });
+
+    it('should throw 422 for milestone nodes', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.MILESTONE,
+        skillId: null,
+      });
+
+      await expect(
+        service.submitQuiz(MOCK_USER_ID, roadmapId, nodeId, {
+          answers: [{ question_id: '11111111-1111-1111-1111-111111111111', selected_option: 'A' }],
+        }),
+      ).rejects.toThrow('Quiz submissions are only supported for required or optional nodes');
     });
   });
 });

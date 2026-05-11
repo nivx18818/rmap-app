@@ -1,10 +1,11 @@
-/* eslint-disable @typescript-eslint/unbound-method */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/unbound-method */
 import type { TestingModule } from '@nestjs/testing';
 
 import { Test } from '@nestjs/testing';
 import { NodeStatus, NodeType, RoleCategory } from '@repo/db/prisma/client';
 
 import {
+  AppNotFoundException,
   DeadlineInPastException,
   RoadmapGenerationUnavailableException,
   RoadmapNotFoundException,
@@ -110,7 +111,16 @@ describe('RoadmapsService', () => {
         RoadmapsService,
         {
           provide: PrismaService,
-          useValue: prismaMock,
+          useValue: {
+            skill: { findMany: jest.fn().mockResolvedValue(MOCK_SKILLS) },
+            skillPrerequisite: {
+              findMany: jest.fn().mockResolvedValue(MOCK_PRISMA_SKILL_PREREQUISITES),
+            },
+            roadmapNode: { findMany: jest.fn() },
+            $transaction: jest
+              .fn()
+              .mockImplementation(async (fn: (tx: typeof txMock) => unknown) => await fn(txMock)),
+          },
         },
         {
           provide: AiService,
@@ -706,6 +716,85 @@ describe('RoadmapsService', () => {
       await expect(service.deleteByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
         RoadmapNotFoundException,
       );
+    });
+  });
+
+  describe('getNodeQuiz', () => {
+    const nodeId = 'node-1';
+    const roadmapId = 'roadmap-1';
+    const skillId = 'skill-1';
+    const mockQuestions = Array.from({ length: 5 }, (_, index) => ({
+      id: `question-${index + 1}`,
+      questionText: 'Which HTTP method is idempotent but not safe?',
+      optionA: 'GET',
+      optionB: 'POST',
+      optionC: 'PUT',
+      optionD: 'PATCH',
+    }));
+
+    it('should return exactly 5 public quiz questions for a leaf node', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.REQUIRED,
+        skillId,
+      });
+      prisma.quizQuestion.findMany.mockResolvedValue(mockQuestions);
+
+      const result = await service.getNodeQuiz(MOCK_USER_ID, roadmapId, nodeId);
+
+      expect(prisma.roadmapNode.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: nodeId,
+          roadmapId,
+          roadmap: { userId: MOCK_USER_ID },
+        },
+        select: {
+          id: true,
+          nodeType: true,
+          skillId: true,
+        },
+      });
+      expect(prisma.quizQuestion.findMany).toHaveBeenCalledWith({
+        where: { skillId },
+        select: {
+          id: true,
+          questionText: true,
+          optionA: true,
+          optionB: true,
+          optionC: true,
+          optionD: true,
+        },
+        orderBy: { createdAt: 'asc' },
+        take: 5,
+      });
+      expect(JSON.stringify(result)).not.toContain('correctOption');
+      expect(result).toEqual({
+        nodeId,
+        skillId,
+        questions: mockQuestions,
+      });
+    });
+
+    it('should throw 404 when node is not found in the roadmap', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(null);
+
+      await expect(service.getNodeQuiz(MOCK_USER_ID, roadmapId, nodeId)).rejects.toThrow(
+        AppNotFoundException,
+      );
+      expect(prisma.quizQuestion.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should throw 422 for group or milestone nodes', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.GROUP,
+        skillId: null,
+      });
+
+      await expect(service.getNodeQuiz(MOCK_USER_ID, roadmapId, nodeId)).rejects.toMatchObject({
+        status: 422,
+      });
+      expect(prisma.quizQuestion.findMany).not.toHaveBeenCalled();
     });
   });
 });

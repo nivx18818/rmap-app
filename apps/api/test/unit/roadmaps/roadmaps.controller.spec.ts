@@ -11,7 +11,6 @@ describe('RoadmapsController', () => {
   const mockRoadmapsService = {
     deleteByIdForOwner: jest.fn(),
     generate: jest.fn(),
-    getByIdForOwner: jest.fn(),
     listNodes: jest.fn(),
     listUserRoadmaps: jest.fn(),
   };
@@ -134,5 +133,27 @@ describe('RoadmapsController', () => {
       expect(mockRoadmapsService.deleteByIdForOwner).toHaveBeenCalledWith('user-1', 'roadmap-1');
       expect(result).toBeUndefined();
     });
+  });
+
+  it('should call getNodeQuiz and return response', async () => {
+    const mockUser = {
+      id: 'user-1',
+      email: 'test@example.com',
+      fullName: 'Test User',
+      role: 'USER',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    };
+    const mockResponse = {
+      nodeId: 'node-1',
+      skillId: 'skill-1',
+      questions: [],
+    };
+
+    mockRoadmapsService.getNodeQuiz.mockResolvedValue(mockResponse);
+
+    const result = await controller.getNodeQuiz(mockUser, 'roadmap-1', 'node-1');
+
+    expect(mockRoadmapsService.getNodeQuiz).toHaveBeenCalledWith('user-1', 'roadmap-1', 'node-1');
+    expect(result).toEqual(mockResponse);
   });
 });

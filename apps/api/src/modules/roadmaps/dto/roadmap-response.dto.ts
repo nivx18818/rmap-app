@@ -1,3 +1,5 @@
+import type { RoleCategory } from '@repo/db/prisma/client';
+
 export interface PaginationMetaDto {
   page: number;
   perPage: number;
@@ -14,7 +16,7 @@ export interface RoadmapResponseDto {
   hoursPerDay: null | number;
   id: string;
   isTemplate: boolean;
-  roleCategory: string;
+  roleCategory: RoleCategory;
   title: string;
   updatedAt: string;
   userId: null | string;

@@ -40,19 +40,6 @@ const ROADMAP_SELECT = {
   userId: true,
 } satisfies Prisma.RoadmapSelect;
 
-const ROLE_CATEGORY_WORD_LABELS: Record<string, string> = {
-  AI: 'AI',
-  AND: 'and',
-  BI: 'BI',
-  DEVOPS: 'DevOps',
-  DEVSECOPS: 'DevSecOps',
-  IOS: 'iOS',
-  MLOPS: 'MLOps',
-  POSTGRESQL: 'PostgreSQL',
-  QA: 'QA',
-  UX: 'UX',
-};
-
 type SelectedRoadmap = Pick<Roadmap, keyof typeof ROADMAP_SELECT>;
 
 type DecimalLike = {
@@ -87,7 +74,7 @@ export class RoadmapsService {
 
     const [roadmaps, total] = await this.prisma.$transaction([
       this.prisma.roadmap.findMany({
-        orderBy: { updatedAt: 'desc' },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
         select: ROADMAP_SELECT,
         skip,
         take: perPage,
@@ -571,7 +558,7 @@ export class RoadmapsService {
       hoursPerDay: this.formatDecimal(roadmap.hoursPerDay),
       id: roadmap.id,
       isTemplate: roadmap.isTemplate,
-      roleCategory: this.formatRoleCategory(roadmap.roleCategory),
+      roleCategory: roadmap.roleCategory,
       title: roadmap.title,
       updatedAt: roadmap.updatedAt.toISOString(),
       userId: roadmap.userId,
@@ -588,21 +575,6 @@ export class RoadmapsService {
     }
 
     return typeof value.toNumber === 'function' ? value.toNumber() : Number(value.toString());
-  }
-
-  private formatRoleCategory(roleCategory: string): string {
-    return roleCategory
-      .split('_')
-      .map((word) => {
-        const override = ROLE_CATEGORY_WORD_LABELS[word];
-
-        if (override) {
-          return override;
-        }
-
-        return word.charAt(0) + word.slice(1).toLowerCase();
-      })
-      .join(' ');
   }
 
   private stripMarkdownFences(text: string): string {

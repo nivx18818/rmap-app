@@ -2,7 +2,7 @@
 import type { TestingModule } from '@nestjs/testing';
 
 import { Test } from '@nestjs/testing';
-import { NodeStatus, NodeType } from '@repo/db/prisma/client';
+import { NodeStatus, NodeType, RoleCategory } from '@repo/db/prisma/client';
 
 import {
   DeadlineInPastException,
@@ -465,7 +465,7 @@ describe('RoadmapsService', () => {
         hoursPerDay: createDecimal(2.5),
         id: 'roadmap-1',
         isTemplate: false,
-        roleCategory: 'BACKEND',
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
         title: 'Your Backend Intern Roadmap',
         updatedAt: new Date('2025-04-25T08:00:00.000Z'),
         userId: 'user-1',
@@ -477,7 +477,7 @@ describe('RoadmapsService', () => {
       const result = await service.listUserRoadmaps('user-1', { page: 2, perPage: 10 });
 
       expect(prisma.roadmap.findMany.mock.calls[0]?.[0]).toEqual({
-        orderBy: { updatedAt: 'desc' },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
         select: {
           deadlineDate: true,
           description: true,
@@ -516,7 +516,7 @@ describe('RoadmapsService', () => {
             hoursPerDay: 2.5,
             id: 'roadmap-1',
             isTemplate: false,
-            roleCategory: 'Backend',
+            roleCategory: RoleCategory.WEB_DEVELOPMENT,
             title: 'Your Backend Intern Roadmap',
             updatedAt: '2025-04-25T08:00:00.000Z',
             userId: 'user-1',

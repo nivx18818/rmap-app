@@ -11,6 +11,8 @@ describe('RoadmapsController', () => {
   const mockRoadmapsService = {
     deleteByIdForOwner: jest.fn(),
     generate: jest.fn(),
+    getByIdForOwner: jest.fn(),
+    getNodeQuiz: jest.fn(),
     listNodes: jest.fn(),
     listUserRoadmaps: jest.fn(),
   };

@@ -15,6 +15,7 @@ describe('RoadmapsController', () => {
     getNodeQuiz: jest.fn(),
     listNodes: jest.fn(),
     listUserRoadmaps: jest.fn(),
+    submitNodeQuiz: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -156,6 +157,54 @@ describe('RoadmapsController', () => {
     const result = await controller.getNodeQuiz(mockUser, 'roadmap-1', 'node-1');
 
     expect(mockRoadmapsService.getNodeQuiz).toHaveBeenCalledWith('user-1', 'roadmap-1', 'node-1');
+    expect(result).toEqual(mockResponse);
+  });
+
+  it('should call submitNodeQuiz and return response', async () => {
+    const mockUser = {
+      id: 'user-1',
+      email: 'test@example.com',
+      fullName: 'Test User',
+      role: 'USER',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    };
+    const dto = {
+      answers: [
+        { questionId: 'question-1', selectedOption: 'A' },
+        { questionId: 'question-2', selectedOption: 'B' },
+        { questionId: 'question-3', selectedOption: 'C' },
+        { questionId: 'question-4', selectedOption: 'D' },
+        { questionId: 'question-5', selectedOption: 'A' },
+      ],
+    };
+    const mockResponse = {
+      scorePct: 100,
+      passed: true,
+      correctCount: 5,
+      totalQuestions: 5,
+      results: [],
+      nodeProgress: {
+        id: 'progress-1',
+        roadmapNodeId: 'node-1',
+        status: 'IN_PROGRESS',
+        startedAt: null,
+        completedAt: null,
+        quizScorePct: 100,
+        quizPassed: true,
+      },
+      suggestion: null,
+    };
+
+    mockRoadmapsService.submitNodeQuiz.mockResolvedValue(mockResponse);
+
+    const result = await controller.submitNodeQuiz(mockUser, 'roadmap-1', 'node-1', dto);
+
+    expect(mockRoadmapsService.submitNodeQuiz).toHaveBeenCalledWith(
+      'user-1',
+      'roadmap-1',
+      'node-1',
+      dto,
+    );
     expect(result).toEqual(mockResponse);
   });
 });

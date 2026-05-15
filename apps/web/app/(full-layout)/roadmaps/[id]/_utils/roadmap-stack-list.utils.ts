@@ -1,13 +1,7 @@
 import type { ProgressStatus, RoadmapNode } from '../_types/roadmap-node.types';
 import type { RoadmapStackSection } from '../_types/roadmap-stack-section.types';
 
-export function sortRoadmapNodes(left: RoadmapNode, right: RoadmapNode) {
-  return left.posY - right.posY || left.posX - right.posX || left.name.localeCompare(right.name);
-}
-
-export function getNodeStatus(node: RoadmapNode): ProgressStatus {
-  return node.progress?.status ?? 'LOCKED';
-}
+import { getNodeStatus, isAxisNode, isSkillNode, sortRoadmapNodes } from './roadmap-node.utils';
 
 export function getSectionStatus(children: RoadmapNode[]): ProgressStatus {
   if (children.length === 0) return 'LOCKED';
@@ -21,7 +15,7 @@ export function getSectionStatus(children: RoadmapNode[]): ProgressStatus {
 
 export function getSectionDisplayStatus(section: RoadmapStackSection): ProgressStatus {
   if (section.node) {
-    return section.node.progress?.status ?? 'LOCKED';
+    return getNodeStatus(section.node);
   }
 
   return getSectionStatus(section.children);
@@ -49,15 +43,11 @@ export function buildStackSections(
 
   const groupedChildIds = new Set<string>();
   const sections = nodes
-    .filter(
-      (node) => !node.parentId && (node.nodeType === 'GROUP' || node.nodeType === 'MILESTONE'),
-    )
+    .filter((node) => !node.parentId && isAxisNode(node))
     .sort(sortRoadmapNodes)
     .map<RoadmapStackSection>((node) => {
       const children = (nodesByParentId.get(node.id) ?? [])
-        .filter(
-          (childNode) => childNode.nodeType === 'REQUIRED' || childNode.nodeType === 'OPTIONAL',
-        )
+        .filter(isSkillNode)
         .sort(sortRoadmapNodes);
 
       for (const child of children) {
@@ -74,11 +64,7 @@ export function buildStackSections(
     });
 
   const orphanSkills = nodes
-    .filter(
-      (node) =>
-        (node.nodeType === 'REQUIRED' || node.nodeType === 'OPTIONAL') &&
-        !groupedChildIds.has(node.id),
-    )
+    .filter((node) => isSkillNode(node) && !groupedChildIds.has(node.id))
     .sort(sortRoadmapNodes);
 
   if (orphanSkills.length > 0 && options.isFiltered && baseNodeById.size > 0) {
@@ -89,10 +75,7 @@ export function buildStackSections(
         if (!parentId) return sectionMap;
 
         const parentNode = baseNodeById.get(parentId);
-        if (
-          !parentNode ||
-          (parentNode.nodeType !== 'GROUP' && parentNode.nodeType !== 'MILESTONE')
-        ) {
+        if (!parentNode || !isAxisNode(parentNode)) {
           return sectionMap;
         }
 

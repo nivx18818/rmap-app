@@ -6,6 +6,9 @@ import { roadmapService } from '@/services/roadmap.service';
 
 import type { NodeType, ProgressStatus, RoadmapNode } from '../_types/roadmap-node.types';
 
+import { ROADMAP_NODES_ERROR_MESSAGE } from '../_constants/roadmap-filter.constants';
+import { buildRoadmapNodesFilter } from '../_utils/roadmap-filter.utils';
+
 interface UseRoadmapNodesOptions {
   enabled?: boolean;
   nodeType: NodeType | null;
@@ -37,15 +40,14 @@ export function useRoadmapNodes({
     setErrorMessage(null);
 
     try {
-      const response = await roadmapService.getRoadmapNodes(roadmapId, {
-        nodeType: nodeType ?? undefined,
-        q: searchQuery.trim() || undefined,
-        status: status ?? undefined,
-      });
+      const response = await roadmapService.getRoadmapNodes(
+        roadmapId,
+        buildRoadmapNodesFilter({ nodeType, searchQuery, status }),
+      );
 
       setRoadmapNodes(response.nodes);
     } catch {
-      setErrorMessage('Unable to load this roadmap graph.');
+      setErrorMessage(ROADMAP_NODES_ERROR_MESSAGE);
       setRoadmapNodes([]);
     } finally {
       setIsLoading(false);

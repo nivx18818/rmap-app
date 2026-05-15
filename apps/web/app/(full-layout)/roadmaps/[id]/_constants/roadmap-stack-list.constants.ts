@@ -16,7 +16,7 @@ export const sectionClasses = {
   orphan: 'border-border bg-background shadow-sm',
 } as const;
 
-export const mileStoneIconClasses: Record<ProgressStatus, string> = {
+export const milestoneIconClasses: Record<ProgressStatus, string> = {
   COMPLETED: 'bg-yellow-500 text-primary-foreground',
   IN_PROGRESS: 'bg-primary text-primary-foreground',
   LOCKED: 'bg-zinc-700 text-primary-foreground',

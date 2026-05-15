@@ -22,8 +22,8 @@ export default async function RootLayout({
   const initialUser = await authServerData.getInitialUser();
 
   return (
-    <html lang="en">
-      <body className={fonts}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={fonts} suppressHydrationWarning>
         <AuthProvider initialUser={initialUser}>
           <TooltipProvider>{children}</TooltipProvider>
           <Toaster position="top-right" richColors closeButton />

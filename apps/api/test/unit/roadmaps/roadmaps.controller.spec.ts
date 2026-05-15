@@ -9,7 +9,9 @@ describe('RoadmapsController', () => {
   let controller: RoadmapsController;
 
   const mockRoadmapsService = {
+    deleteByIdForOwner: jest.fn(),
     generate: jest.fn(),
+    getByIdForOwner: jest.fn(),
     listNodes: jest.fn(),
     listUserRoadmaps: jest.fn(),
   };
@@ -79,6 +81,58 @@ describe('RoadmapsController', () => {
 
       expect(mockRoadmapsService.listUserRoadmaps).toHaveBeenCalledWith('user-1', query);
       expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('get', () => {
+    it('should get a roadmap for the current user', async () => {
+      const user = {
+        id: 'user-1',
+        email: 'test@example.com',
+        fullName: 'Test User',
+        role: 'USER',
+        createdAt: new Date('2025-04-24T07:00:00Z'),
+      };
+      const response = {
+        deadlineDate: null,
+        description: 'A backend plan',
+        estimatedWeeks: null,
+        generatedAt: '2025-04-24T07:00:00.000Z',
+        goalName: null,
+        hoursPerDay: null,
+        id: 'roadmap-1',
+        isTemplate: false,
+        roleCategory: 'WEB_DEVELOPMENT',
+        title: 'Backend roadmap',
+        updatedAt: '2025-04-25T08:00:00.000Z',
+        userId: 'user-1',
+      };
+
+      mockRoadmapsService.getByIdForOwner.mockResolvedValue(response);
+
+      const result = await controller.get(user, 'roadmap-1');
+
+      expect(mockRoadmapsService.getByIdForOwner).toHaveBeenCalledWith('user-1', 'roadmap-1');
+      expect(result).toEqual(response);
+    });
+  });
+
+  describe('remove', () => {
+    it('should delete a roadmap for the current user and return no body', async () => {
+      const user = {
+        id: 'user-1',
+        email: 'test@example.com',
+        fullName: 'Test User',
+        role: 'USER',
+        createdAt: new Date('2025-04-24T07:00:00Z'),
+      };
+
+      mockRoadmapsService.deleteByIdForOwner.mockResolvedValue(undefined);
+
+      const result = await controller.remove(user, 'roadmap-1');
+
+      expect(mockRoadmapsService.deleteByIdForOwner).toHaveBeenCalledWith('user-1', 'roadmap-1');
+      expect(result).toBeUndefined();
     });
   });
 });

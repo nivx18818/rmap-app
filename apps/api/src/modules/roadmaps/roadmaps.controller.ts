@@ -1,6 +1,16 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 
-import type { PaginatedRoadmapsResponseDto } from './dto/roadmap-response.dto';
+import type { PaginatedRoadmapsResponseDto, RoadmapResponseDto } from './dto/roadmap-response.dto';
 
 import { CurrentUser, type RequestUser } from '../auth/decorators/current-user.decorator';
 import { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
@@ -47,14 +57,17 @@ export class RoadmapsController {
     return this.roadmapsService.listNodes(user.id, roadmapId, query);
   }
 
-  @Get(':id')
-  async get(@CurrentUser() user: RequestUser, @Param('id') id: string) {
-    return this.service.getByIdForOwner(user.id, id);
+  @Get(':roadmapId')
+  async get(
+    @CurrentUser() user: RequestUser,
+    @Param('roadmapId') roadmapId: string,
+  ): Promise<RoadmapResponseDto> {
+    return this.roadmapsService.getByIdForOwner(user.id, roadmapId);
   }
 
-  @Delete(':id')
-  @HttpCode(204)
-  async remove(@CurrentUser() user: RequestUser, @Param('id') id: string) {
-    await this.service.deleteByIdForOwner(user.id, id);
+  @Delete(':roadmapId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@CurrentUser() user: RequestUser, @Param('roadmapId') roadmapId: string) {
+    await this.roadmapsService.deleteByIdForOwner(user.id, roadmapId);
   }
 }

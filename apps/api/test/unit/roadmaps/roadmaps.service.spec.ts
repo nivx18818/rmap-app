@@ -7,6 +7,7 @@ import { NodeStatus, NodeType, RoleCategory } from '@repo/db/prisma/client';
 import {
   DeadlineInPastException,
   RoadmapGenerationUnavailableException,
+  RoadmapNotFoundException,
 } from '@/common/exceptions/app.exceptions';
 import { AiService } from '@/modules/ai/ai.service';
 import { PrismaService } from '@/modules/prisma/prisma.service';
@@ -46,6 +47,8 @@ interface RoadmapsPrismaMock {
   $transaction: AsyncMock<unknown, [unknown]>;
   roadmap: {
     count: AsyncMock<number>;
+    deleteMany: AsyncMock<{ count: number }>;
+    findFirst: AsyncMock<Record<string, unknown> | null>;
     findMany: AsyncMock<unknown[]>;
   };
   roadmapNode: {
@@ -77,6 +80,8 @@ const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
   }),
   roadmap: {
     count: jest.fn<Promise<number>, unknown[]>(),
+    deleteMany: jest.fn<Promise<{ count: number }>, unknown[]>(),
+    findFirst: jest.fn<Promise<Record<string, unknown> | null>, unknown[]>(),
     findMany: jest.fn<Promise<unknown[]>, unknown[]>(),
   },
   roadmapNode: { findMany: jest.fn<Promise<unknown[]>, unknown[]>() },
@@ -568,99 +573,84 @@ describe('RoadmapsService', () => {
       });
     });
   });
-});
-
-describe('RoadmapsService', () => {
-  let service: RoadmapsService;
-  let prismaService: {
-    roadmap: {
-      findUnique: jest.Mock;
-      delete: jest.Mock;
-    };
-    roadmapNode: {
-      deleteMany: jest.Mock;
-    };
-    userNodeProgress: {
-      deleteMany: jest.Mock;
-    };
-    $transaction: jest.Mock;
-  };
-
-  beforeEach(async () => {
-    prismaService = {
-      roadmap: {
-        findUnique: jest.fn(),
-        delete: jest.fn(),
-      },
-      roadmapNode: {
-        deleteMany: jest.fn(),
-      },
-      userNodeProgress: {
-        deleteMany: jest.fn(),
-      },
-      $transaction: jest.fn(),
-    };
-
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        RoadmapsService,
-        {
-          provide: PrismaService,
-          useValue: prismaService,
-        },
-      ],
-    }).compile();
-
-    service = module.get<RoadmapsService>(RoadmapsService);
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
 
   describe('getByIdForOwner', () => {
-    it('returns roadmap when owned by user', async () => {
+    it('should return a formatted roadmap when owned by the user', async () => {
       const roadmapId = 'roadmap-1';
       const userId = 'user-1';
       const roadmap = {
+        deadlineDate: new Date('2025-10-01T00:00:00.000Z'),
+        description: 'A backend plan',
+        estimatedWeeks: null,
+        generatedAt: new Date('2025-04-24T07:00:00.000Z'),
+        goalName: 'Backend Intern at a product company',
+        hoursPerDay: createDecimal(2.5),
         id: roadmapId,
-        userId,
+        isTemplate: false,
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
         title: 'Backend roadmap',
+        updatedAt: new Date('2025-04-25T08:00:00.000Z'),
+        userId,
       };
 
-      prismaService.roadmap.findUnique.mockResolvedValue(roadmap);
+      prisma.roadmap.findFirst.mockResolvedValue(roadmap);
 
-      await expect(service.getByIdForOwner(userId, roadmapId)).resolves.toEqual(roadmap);
+      await expect(service.getByIdForOwner(userId, roadmapId)).resolves.toEqual({
+        deadlineDate: '2025-10-01',
+        description: 'A backend plan',
+        estimatedWeeks: null,
+        generatedAt: '2025-04-24T07:00:00.000Z',
+        goalName: 'Backend Intern at a product company',
+        hoursPerDay: 2.5,
+        id: roadmapId,
+        isTemplate: false,
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+        title: 'Backend roadmap',
+        updatedAt: '2025-04-25T08:00:00.000Z',
+        userId,
+      });
 
-      expect(prismaService.roadmap.findUnique).toHaveBeenCalledWith({
-        where: { id: roadmapId },
+      expect(prisma.roadmap.findFirst).toHaveBeenCalledWith({
+        select: {
+          deadlineDate: true,
+          description: true,
+          estimatedWeeks: true,
+          generatedAt: true,
+          goalName: true,
+          hoursPerDay: true,
+          id: true,
+          isTemplate: true,
+          roleCategory: true,
+          title: true,
+          updatedAt: true,
+          userId: true,
+        },
+        where: {
+          id: roadmapId,
+          isTemplate: false,
+          userId,
+        },
       });
     });
 
-    it('throws 404 when roadmap does not belong to user', async () => {
-      prismaService.roadmap.findUnique.mockResolvedValue({
-        id: 'roadmap-1',
-        userId: 'other-user',
-      });
+    it('should throw 404 when roadmap does not belong to user', async () => {
+      prisma.roadmap.findFirst.mockResolvedValue(null);
 
       await expect(service.getByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
         RoadmapNotFoundException,
       );
     });
 
-    it('throws 404 when roadmap not found', async () => {
-      prismaService.roadmap.findUnique.mockResolvedValue(null);
+    it('should throw 404 when roadmap is not found', async () => {
+      prisma.roadmap.findFirst.mockResolvedValue(null);
 
       await expect(service.getByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
         RoadmapNotFoundException,
       );
     });
 
-    it('throws 404 when roadmap is template (userId null)', async () => {
-      prismaService.roadmap.findUnique.mockResolvedValue({
-        id: 'roadmap-1',
-        userId: null,
-      });
+    it('should throw 404 when roadmap is a template', async () => {
+      prisma.roadmap.findFirst.mockResolvedValue(null);
 
       await expect(service.getByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
         RoadmapNotFoundException,
@@ -669,41 +659,53 @@ describe('RoadmapsService', () => {
   });
 
   describe('deleteByIdForOwner', () => {
-    it('deletes roadmap', async () => {
+    it('should permanently delete an owned roadmap', async () => {
       const roadmapId = 'roadmap-1';
       const userId = 'user-1';
 
-      prismaService.roadmap.findUnique.mockResolvedValue({ id: roadmapId, userId });
-      prismaService.roadmap.delete.mockResolvedValue({ id: roadmapId });
+      prisma.roadmap.deleteMany.mockResolvedValue({ count: 1 });
 
       await service.deleteByIdForOwner(userId, roadmapId);
 
-      expect(prismaService.roadmap.delete).toHaveBeenCalledWith({
-        where: { id: roadmapId },
+      expect(prisma.roadmap.deleteMany).toHaveBeenCalledWith({
+        where: {
+          id: roadmapId,
+          isTemplate: false,
+          userId,
+        },
       });
-      expect(prismaService.$transaction).toHaveBeenCalledTimes(1);
     });
 
-    it('throws 404 and does not delete when roadmap belongs to another user', async () => {
-      prismaService.roadmap.findUnique.mockResolvedValue({ id: 'roadmap-1', userId: 'other-user' });
+    it('should throw 404 when roadmap belongs to another user', async () => {
+      prisma.roadmap.deleteMany.mockResolvedValue({ count: 0 });
 
       await expect(service.deleteByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
         RoadmapNotFoundException,
       );
 
-      expect(prismaService.$transaction).not.toHaveBeenCalled();
-      expect(prismaService.roadmap.delete).not.toHaveBeenCalled();
+      expect(prisma.roadmap.deleteMany).toHaveBeenCalledWith({
+        where: {
+          id: 'roadmap-1',
+          isTemplate: false,
+          userId: 'user-1',
+        },
+      });
     });
 
-    it('throws 404 and does not delete when roadmap not found', async () => {
-      prismaService.roadmap.findUnique.mockResolvedValue(null);
+    it('should throw 404 when roadmap is not found', async () => {
+      prisma.roadmap.deleteMany.mockResolvedValue({ count: 0 });
 
       await expect(service.deleteByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
         RoadmapNotFoundException,
       );
+    });
 
-      expect(prismaService.$transaction).not.toHaveBeenCalled();
-      expect(prismaService.roadmap.delete).not.toHaveBeenCalled();
+    it('should throw 404 when roadmap is a template', async () => {
+      prisma.roadmap.deleteMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.deleteByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
+        RoadmapNotFoundException,
+      );
     });
   });
 });

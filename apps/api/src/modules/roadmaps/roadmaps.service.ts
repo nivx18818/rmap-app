@@ -4,6 +4,7 @@ import { NodeType, type Prisma, type Roadmap } from '@repo/db/prisma/client';
 import {
   DeadlineInPastException,
   RoadmapGenerationUnavailableException,
+  RoadmapNotFoundException,
 } from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
@@ -588,28 +589,34 @@ export class RoadmapsService {
     return trimmed;
   }
 
-  async getByIdForOwner(userId: string, roadmapId: string) {
-    const roadmap = await this.prisma.roadmap.findUnique({
-      where: { id: roadmapId },
+  async getByIdForOwner(userId: string, roadmapId: string): Promise<RoadmapResponseDto> {
+    const roadmap = await this.prisma.roadmap.findFirst({
+      select: ROADMAP_SELECT,
+      where: {
+        id: roadmapId,
+        isTemplate: false,
+        userId,
+      },
     });
 
-    if (!roadmap || roadmap.userId !== userId) {
+    if (!roadmap) {
       throw new RoadmapNotFoundException(roadmapId);
     }
 
-    return roadmap;
+    return this.formatRoadmap(roadmap);
   }
 
-  async deleteByIdForOwner(userId: string, roadmapId: string) {
-    const roadmap = await this.prisma.roadmap.findUnique({
-      where: { id: roadmapId },
-      select: { id: true, userId: true },
+  async deleteByIdForOwner(userId: string, roadmapId: string): Promise<void> {
+    const result = await this.prisma.roadmap.deleteMany({
+      where: {
+        id: roadmapId,
+        isTemplate: false,
+        userId,
+      },
     });
 
-    if (!roadmap || roadmap.userId !== userId) {
+    if (result.count === 0) {
       throw new RoadmapNotFoundException(roadmapId);
     }
-
-    await this.prisma.$transaction([this.prisma.roadmap.delete({ where: { id: roadmapId } })]);
   }
 }

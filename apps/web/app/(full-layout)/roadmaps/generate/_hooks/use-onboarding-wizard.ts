@@ -58,7 +58,7 @@ export function useOnboardingWizard() {
 
       const result = await roadmapService.generate({
         goal: stepOneData.goal,
-        roleCategory: roleCategory.toUpperCase(),
+        roleCategory: roleCategory.toUpperCase().replace(/-/g, '_'),
         hoursPerDay: stepOneData.hours_per_day,
         deadlineDate: stepOneData.deadline_date,
         quizAnswers: formattedQuizAnswers,

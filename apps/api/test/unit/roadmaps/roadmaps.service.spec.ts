@@ -33,6 +33,7 @@ function makeTxMock() {
     roadmapNode: { createMany: jest.fn().mockResolvedValue({ count: 19 }) },
     userNodeProgress: {
       createMany: jest.fn().mockResolvedValue({ count: 19 }),
+      update: jest.fn(),
       updateMany: jest.fn().mockResolvedValue({ count: 4 }),
     },
   };
@@ -51,19 +52,20 @@ interface RoadmapNodeQuizSelection {
   skillId: string | null;
 }
 
-interface QuizQuestionPublicRecord {
+interface QuizQuestionRecord {
   id: string;
   questionText: string;
   optionA: string;
   optionB: string;
   optionC: string;
   optionD: string;
+  correctOption: string;
 }
 
 interface RoadmapsPrismaMock {
   $transaction: AsyncMock<unknown, [unknown]>;
   quizQuestion: {
-    findMany: AsyncMock<QuizQuestionPublicRecord[]>;
+    findMany: AsyncMock<QuizQuestionRecord[]>;
   };
   roadmap: {
     count: AsyncMock<number>;
@@ -100,7 +102,7 @@ const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
     return transactionCallback(txMock);
   }),
   quizQuestion: {
-    findMany: jest.fn<Promise<QuizQuestionPublicRecord[]>, unknown[]>(),
+    findMany: jest.fn<Promise<QuizQuestionRecord[]>, unknown[]>(),
   },
   roadmap: {
     count: jest.fn<Promise<number>, unknown[]>(),
@@ -125,11 +127,12 @@ const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
 describe('RoadmapsService', () => {
   let service: RoadmapsService;
   let prisma: RoadmapsPrismaMock;
+  let txMock: TransactionMock;
   let aiService: jest.Mocked<AiService>;
   let dagreLayout: jest.Mocked<DagreLayoutService>;
 
   beforeEach(async () => {
-    const txMock = makeTxMock();
+    txMock = makeTxMock();
     const prismaMock = createPrismaMock(txMock);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -860,6 +863,318 @@ describe('RoadmapsService', () => {
       await expect(service.getNodeQuiz(MOCK_USER_ID, roadmapId, nodeId)).rejects.toThrow(
         InternalServerErrorException,
       );
+    });
+  });
+
+  describe('submitNodeQuiz', () => {
+    const nodeId = 'node-1';
+    const roadmapId = 'roadmap-1';
+    const skillId = 'skill-1';
+    const mockQuestions = [
+      { id: 'question-1', correctOption: 'A' },
+      { id: 'question-2', correctOption: 'B' },
+      { id: 'question-3', correctOption: 'C' },
+      { id: 'question-4', correctOption: 'D' },
+      { id: 'question-5', correctOption: 'A' },
+    ].map((question) => ({
+      ...question,
+      questionText: 'Question text',
+      optionA: 'A',
+      optionB: 'B',
+      optionC: 'C',
+      optionD: 'D',
+    }));
+    const submitDto = {
+      answers: [
+        { questionId: 'question-1', selectedOption: 'a' },
+        { questionId: 'question-2', selectedOption: 'B' },
+        { questionId: 'question-3', selectedOption: 'C' },
+        { questionId: 'question-4', selectedOption: 'D' },
+        { questionId: 'question-5', selectedOption: 'B' },
+      ],
+    };
+    const updatedProgress = {
+      id: 'progress-1',
+      roadmapNodeId: nodeId,
+      status: NodeStatus.IN_PROGRESS,
+      startedAt: new Date('2026-01-01T00:00:00Z'),
+      completedAt: null,
+      quizScorePct: createDecimal(80),
+      quizPassed: true,
+    };
+
+    beforeEach(() => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.REQUIRED,
+        skillId,
+      });
+      prisma.quizQuestion.findMany.mockResolvedValue(mockQuestions);
+      txMock.userNodeProgress.update.mockResolvedValue(updatedProgress);
+    });
+
+    it('should score answers, reveal correct options, and return updated node progress', async () => {
+      const result = await service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, submitDto);
+
+      expect(prisma.roadmapNode.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: nodeId,
+          roadmapId,
+          roadmap: { userId: MOCK_USER_ID },
+        },
+        select: {
+          id: true,
+          nodeType: true,
+          skillId: true,
+        },
+      });
+      expect(prisma.quizQuestion.findMany).toHaveBeenCalledWith({
+        where: { skillId },
+        select: {
+          id: true,
+          correctOption: true,
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        take: 5,
+      });
+      expect(txMock.userNodeProgress.update).toHaveBeenCalledWith({
+        where: {
+          userId_roadmapNodeId: {
+            userId: MOCK_USER_ID,
+            roadmapNodeId: nodeId,
+          },
+        },
+        data: {
+          quizScorePct: 80,
+          quizPassed: true,
+        },
+        select: {
+          id: true,
+          roadmapNodeId: true,
+          status: true,
+          startedAt: true,
+          completedAt: true,
+          quizScorePct: true,
+          quizPassed: true,
+        },
+      });
+      expect(result).toEqual({
+        scorePct: 80,
+        passed: true,
+        correctCount: 4,
+        totalQuestions: 5,
+        results: [
+          { questionId: 'question-1', selectedOption: 'a', correctOption: 'a', isCorrect: true },
+          { questionId: 'question-2', selectedOption: 'b', correctOption: 'b', isCorrect: true },
+          { questionId: 'question-3', selectedOption: 'c', correctOption: 'c', isCorrect: true },
+          { questionId: 'question-4', selectedOption: 'd', correctOption: 'd', isCorrect: true },
+          { questionId: 'question-5', selectedOption: 'b', correctOption: 'a', isCorrect: false },
+        ],
+        nodeProgress: {
+          id: 'progress-1',
+          roadmapNodeId: nodeId,
+          status: NodeStatus.IN_PROGRESS,
+          startedAt: new Date('2026-01-01T00:00:00Z'),
+          completedAt: null,
+          quizScorePct: 80,
+          quizPassed: true,
+        },
+        suggestion: null,
+      });
+    });
+
+    it('should pass at exactly 60 percent', async () => {
+      txMock.userNodeProgress.update.mockResolvedValue({
+        ...updatedProgress,
+        quizScorePct: createDecimal(60),
+        quizPassed: true,
+      });
+
+      const result = await service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, {
+        answers: [
+          { questionId: 'question-1', selectedOption: 'A' },
+          { questionId: 'question-2', selectedOption: 'B' },
+          { questionId: 'question-3', selectedOption: 'C' },
+          { questionId: 'question-4', selectedOption: 'A' },
+          { questionId: 'question-5', selectedOption: 'B' },
+        ],
+      });
+
+      expect(result.scorePct).toBe(60);
+      expect(result.passed).toBe(true);
+      expect(txMock.userNodeProgress.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: {
+            quizScorePct: 60,
+            quizPassed: true,
+          },
+        }),
+      );
+    });
+
+    it('should return a suggestion and quizPassed=false when score is below 60', async () => {
+      txMock.userNodeProgress.update.mockResolvedValue({
+        ...updatedProgress,
+        quizScorePct: createDecimal(40),
+        quizPassed: false,
+      });
+
+      const result = await service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, {
+        answers: [
+          { questionId: 'question-1', selectedOption: 'A' },
+          { questionId: 'question-2', selectedOption: 'B' },
+          { questionId: 'question-3', selectedOption: 'A' },
+          { questionId: 'question-4', selectedOption: 'A' },
+          { questionId: 'question-5', selectedOption: 'B' },
+        ],
+      });
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          scorePct: 40,
+          passed: false,
+          correctCount: 2,
+          suggestion: 'You should review this part before continuing.',
+        }),
+      );
+      expect(result.nodeProgress.quizPassed).toBe(false);
+    });
+
+    it('should overwrite the previous quiz score on re-submission', async () => {
+      txMock.userNodeProgress.update
+        .mockResolvedValueOnce({
+          ...updatedProgress,
+          quizScorePct: createDecimal(100),
+          quizPassed: true,
+        })
+        .mockResolvedValueOnce({
+          ...updatedProgress,
+          quizScorePct: createDecimal(40),
+          quizPassed: false,
+        });
+
+      await service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, {
+        answers: [
+          { questionId: 'question-1', selectedOption: 'A' },
+          { questionId: 'question-2', selectedOption: 'B' },
+          { questionId: 'question-3', selectedOption: 'C' },
+          { questionId: 'question-4', selectedOption: 'D' },
+          { questionId: 'question-5', selectedOption: 'A' },
+        ],
+      });
+      const secondResult = await service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, {
+        answers: [
+          { questionId: 'question-1', selectedOption: 'A' },
+          { questionId: 'question-2', selectedOption: 'B' },
+          { questionId: 'question-3', selectedOption: 'A' },
+          { questionId: 'question-4', selectedOption: 'A' },
+          { questionId: 'question-5', selectedOption: 'B' },
+        ],
+      });
+
+      expect(txMock.userNodeProgress.update).toHaveBeenCalledTimes(2);
+      expect(txMock.userNodeProgress.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          data: {
+            quizScorePct: 40,
+            quizPassed: false,
+          },
+        }),
+      );
+      expect(secondResult.nodeProgress.quizScorePct).toBe(40);
+    });
+
+    it('should throw 404 when node is not found in the roadmap', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, submitDto),
+      ).rejects.toThrow(AppNotFoundException);
+      expect(prisma.quizQuestion.findMany).not.toHaveBeenCalled();
+      expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw 422 for group nodes', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.GROUP,
+        skillId: null,
+      });
+
+      await expect(
+        service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, submitDto),
+      ).rejects.toMatchObject({ status: 422 });
+      expect(prisma.quizQuestion.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should throw 422 for milestone nodes', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.MILESTONE,
+        skillId: null,
+      });
+
+      await expect(
+        service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, submitDto),
+      ).rejects.toMatchObject({ status: 422 });
+      expect(prisma.quizQuestion.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should throw 500 when the seeded quiz catalog has fewer than 5 questions', async () => {
+      prisma.quizQuestion.findMany.mockResolvedValue(mockQuestions.slice(0, 4));
+
+      await expect(
+        service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, submitDto),
+      ).rejects.toThrow(InternalServerErrorException);
+      expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw 400 for duplicate question ids', async () => {
+      await expect(
+        service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, {
+          answers: [
+            { questionId: 'question-1', selectedOption: 'A' },
+            { questionId: 'question-1', selectedOption: 'B' },
+            { questionId: 'question-3', selectedOption: 'C' },
+            { questionId: 'question-4', selectedOption: 'D' },
+            { questionId: 'question-5', selectedOption: 'A' },
+          ],
+        }),
+      ).rejects.toMatchObject({ status: 400 });
+      expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw 400 for missing question ids', async () => {
+      await expect(
+        service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, {
+          answers: submitDto.answers.slice(0, 4),
+        }),
+      ).rejects.toMatchObject({ status: 400 });
+      expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw 400 for extra question ids', async () => {
+      await expect(
+        service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, {
+          answers: [...submitDto.answers, { questionId: 'question-6', selectedOption: 'A' }],
+        }),
+      ).rejects.toMatchObject({ status: 400 });
+      expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw 400 for unknown question ids', async () => {
+      await expect(
+        service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, {
+          answers: [
+            { questionId: 'question-1', selectedOption: 'A' },
+            { questionId: 'question-2', selectedOption: 'B' },
+            { questionId: 'question-3', selectedOption: 'C' },
+            { questionId: 'question-4', selectedOption: 'D' },
+            { questionId: 'unknown-question', selectedOption: 'A' },
+          ],
+        }),
+      ).rejects.toMatchObject({ status: 400 });
+      expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
     });
   });
 });

@@ -15,6 +15,7 @@
     "@hugeicons/core-free-icons": "^4.0.0",
     "@hugeicons/react": "^1.1.6",
     "@repo/design-system": "workspace:*",
+    "@xyflow/react": "^12.10.2",
     "axios": "^1.15.0",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.38.0",

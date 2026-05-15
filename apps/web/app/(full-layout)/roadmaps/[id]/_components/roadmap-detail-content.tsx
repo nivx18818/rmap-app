@@ -7,6 +7,7 @@ import { RainbowBar } from '@/components/shared/rainbow-bar';
 import { useRoadmapDetail } from '../_hooks/use-roadmap-detail';
 import { RoadmapGraph } from './roadmap-graph';
 import { RoadmapHero } from './roadmap-hero';
+import { RoadmapPersonalizedCtaSection } from './roadmap-personalized-cta-section';
 
 interface RoadmapDetailContentProps {
   roadmapId: string;
@@ -29,6 +30,7 @@ export function RoadmapDetailContent({ roadmapId }: RoadmapDetailContentProps) {
         loadErrorMessage={errorMessage}
       />
       <RoadmapGraph roadmapId={roadmapId} roadmapTitle={title} />
+      <RoadmapPersonalizedCtaSection />
     </main>
   );
 }

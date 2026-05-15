@@ -15,9 +15,11 @@ export const onboardingService = {
   },
 
   getQuiz: async (topic: string) => {
-    const response = await axiosInstance.post<OnboardingQuizResult>(ENDPOINTS.onboarding.quiz, {
-      topic,
-    });
+    const response = await axiosInstance.post<OnboardingQuizResult>(
+      ENDPOINTS.onboarding.quiz,
+      { topic },
+      { timeout: 30000 },
+    );
     return response.data;
   },
 };

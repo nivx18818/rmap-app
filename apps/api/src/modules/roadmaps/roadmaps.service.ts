@@ -2,6 +2,7 @@ import { Injectable, Logger, UnprocessableEntityException } from '@nestjs/common
 import { NodeType, type Prisma, type Roadmap } from '@repo/db/prisma/client';
 
 import {
+  AppBadRequestException,
   AppNotFoundException,
   DeadlineInPastException,
   InternalServerErrorException,
@@ -14,8 +15,13 @@ import type { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
 import type { ListRoadmapsQueryDto } from './dto/list-roadmaps-query.dto';
 import type { RoadmapNodesFilterDto } from './dto/roadmap-nodes-filter.dto';
 import type { PaginatedRoadmapsResponseDto, RoadmapResponseDto } from './dto/roadmap-response.dto';
+import type { SubmitQuizDto } from './dto/submit-quiz.dto';
 import type { AiNode, AiRoadmapOutput, FlatNode } from './types/ai-roadmap.types';
-import type { RoadmapNodeQuizResponse } from './types/roadmap-node-quiz.types';
+import type {
+  QuizOption,
+  RoadmapNodeQuizResponse,
+  SubmitQuizResponse,
+} from './types/roadmap-node-quiz.types';
 import type { RoadmapNodesListResponse } from './types/roadmap-nodes.types';
 
 import { AiService } from '../ai/ai.service';
@@ -29,6 +35,8 @@ const FEASIBILITY_THRESHOLD = 0.15;
 
 const LEAF_NODE_TYPES: NodeType[] = [NodeType.REQUIRED, NodeType.OPTIONAL];
 const NODE_QUIZ_QUESTION_COUNT = 5;
+const QUIZ_PASSING_SCORE_PCT = 60;
+const QUIZ_REVIEW_SUGGESTION = 'You should review this part before continuing.';
 
 const ROADMAP_SELECT = {
   deadlineDate: true,
@@ -54,6 +62,8 @@ type DecimalLike = {
 
 const toNumberOrNull = (value: Prisma.Decimal | number | null) =>
   value === null ? null : Number(value);
+
+const toQuizOption = (value: string): QuizOption => value.toLowerCase() as QuizOption;
 
 @Injectable()
 export class RoadmapsService {
@@ -258,6 +268,121 @@ export class RoadmapsService {
         optionC: question.optionC,
         optionD: question.optionD,
       })),
+    };
+  }
+
+  async submitNodeQuiz(
+    userId: string,
+    roadmapId: string,
+    nodeId: string,
+    dto: SubmitQuizDto,
+  ): Promise<SubmitQuizResponse> {
+    const node = await this.prisma.roadmapNode.findFirst({
+      where: {
+        id: nodeId,
+        roadmapId,
+        roadmap: { userId },
+      },
+      select: {
+        id: true,
+        nodeType: true,
+        skillId: true,
+      },
+    });
+
+    if (!node) {
+      throw new AppNotFoundException('Roadmap node not found');
+    }
+
+    if (!LEAF_NODE_TYPES.includes(node.nodeType) || !node.skillId) {
+      throw new UnprocessableEntityException({
+        code: 42200,
+        message: 'Quiz is only available for required or optional leaf nodes',
+      });
+    }
+
+    const questions = await this.prisma.quizQuestion.findMany({
+      where: { skillId: node.skillId },
+      select: {
+        id: true,
+        correctOption: true,
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: NODE_QUIZ_QUESTION_COUNT,
+    });
+
+    if (questions.length !== NODE_QUIZ_QUESTION_COUNT) {
+      this.logger.error(
+        `Expected ${NODE_QUIZ_QUESTION_COUNT} quiz questions for skill ` +
+          `${node.skillId}, got ${questions.length}`,
+      );
+      throw new InternalServerErrorException('Quiz question catalog is incomplete for this skill');
+    }
+
+    this.assertStrictQuizSubmission(
+      dto.answers,
+      questions.map((question) => question.id),
+    );
+
+    const answerByQuestionId = new Map(
+      dto.answers.map((answer) => [answer.questionId, answer.selectedOption.toUpperCase()]),
+    );
+    const results = questions.map((question) => {
+      const selectedOption = answerByQuestionId.get(question.id)!;
+      const correctOption = question.correctOption.toUpperCase();
+
+      return {
+        questionId: question.id,
+        selectedOption: toQuizOption(selectedOption),
+        correctOption: toQuizOption(correctOption),
+        isCorrect: selectedOption === correctOption,
+      };
+    });
+    const correctCount = results.filter((result) => result.isCorrect).length;
+    const totalQuestions = questions.length;
+    const scorePct = (correctCount / totalQuestions) * 100;
+    const passed = scorePct >= QUIZ_PASSING_SCORE_PCT;
+
+    const updatedProgress = await this.prisma.$transaction(async (tx) =>
+      tx.userNodeProgress.update({
+        where: {
+          userId_roadmapNodeId: {
+            userId,
+            roadmapNodeId: node.id,
+          },
+        },
+        data: {
+          quizScorePct: scorePct,
+          quizPassed: passed,
+        },
+        select: {
+          id: true,
+          roadmapNodeId: true,
+          status: true,
+          startedAt: true,
+          completedAt: true,
+          quizScorePct: true,
+          quizPassed: true,
+        },
+      }),
+    );
+
+    return {
+      scorePct,
+      passed,
+      correctCount,
+      totalQuestions,
+      results,
+      nodeProgress: {
+        id: updatedProgress.id,
+        roadmapNodeId: updatedProgress.roadmapNodeId,
+        status: updatedProgress.status,
+        startedAt: updatedProgress.startedAt,
+        completedAt: updatedProgress.completedAt,
+        quizScorePct: toNumberOrNull(updatedProgress.quizScorePct),
+        quizPassed: updatedProgress.quizPassed,
+      },
+      suggestion: passed ? null : QUIZ_REVIEW_SUGGESTION,
     };
   }
 
@@ -656,6 +781,31 @@ export class RoadmapsService {
         .trim();
     }
     return trimmed;
+  }
+
+  private assertStrictQuizSubmission(
+    answers: SubmitQuizDto['answers'],
+    expectedQuestionIds: string[],
+  ): void {
+    if (answers.length !== NODE_QUIZ_QUESTION_COUNT) {
+      throw new AppBadRequestException('Quiz submission must include exactly 5 answers');
+    }
+
+    const submittedQuestionIds = answers.map((answer) => answer.questionId);
+    const uniqueSubmittedQuestionIds = new Set(submittedQuestionIds);
+
+    if (uniqueSubmittedQuestionIds.size !== submittedQuestionIds.length) {
+      throw new AppBadRequestException('Quiz submission contains duplicate question answers');
+    }
+
+    const expectedQuestionIdSet = new Set(expectedQuestionIds);
+    const hasOnlyExpectedQuestions = submittedQuestionIds.every((questionId) =>
+      expectedQuestionIdSet.has(questionId),
+    );
+
+    if (!hasOnlyExpectedQuestions) {
+      throw new AppBadRequestException('Quiz submission contains unknown question answers');
+    }
   }
 
   async getByIdForOwner(userId: string, roadmapId: string): Promise<RoadmapResponseDto> {

@@ -16,6 +16,7 @@ import { CurrentUser, type RequestUser } from '../auth/decorators/current-user.d
 import { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
 import { ListRoadmapsQueryDto } from './dto/list-roadmaps-query.dto';
 import { RoadmapNodesFilterDto } from './dto/roadmap-nodes-filter.dto';
+import { SubmitQuizDto } from './dto/submit-quiz.dto';
 import { RoadmapsService } from './roadmaps.service';
 
 @Controller('roadmaps')
@@ -83,5 +84,21 @@ export class RoadmapsController {
     @Param('nodeId') nodeId: string,
   ) {
     return this.roadmapsService.getNodeQuiz(user.id, roadmapId, nodeId);
+  }
+
+  /**
+   * POST /roadmaps/:roadmapId/nodes/:nodeId/quiz/submit
+   *
+   * Scores a required/optional leaf node quiz and updates the user's node progress.
+   */
+  @Post(':roadmapId/nodes/:nodeId/quiz/submit')
+  @HttpCode(HttpStatus.OK)
+  async submitNodeQuiz(
+    @CurrentUser() user: RequestUser,
+    @Param('roadmapId') roadmapId: string,
+    @Param('nodeId') nodeId: string,
+    @Body() dto: SubmitQuizDto,
+  ) {
+    return this.roadmapsService.submitNodeQuiz(user.id, roadmapId, nodeId, dto);
   }
 }

@@ -1,3 +1,4 @@
+import type { RoadmapDetail } from '@/app/(full-layout)/roadmaps/[id]/_types/roadmap-detail.types';
 import type {
   RoadmapNodesFilter,
   RoadmapNodesResponse,
@@ -17,6 +18,11 @@ export const roadmapService = {
       payload,
       { timeout: 180000 },
     );
+    return response.data;
+  },
+
+  getById: async (roadmapId: string) => {
+    const response = await axiosInstance.get<RoadmapDetail>(ENDPOINTS.roadmaps.getById(roadmapId));
     return response.data;
   },
 

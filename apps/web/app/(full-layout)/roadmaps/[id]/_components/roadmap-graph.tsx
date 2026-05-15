@@ -11,9 +11,10 @@ import { RoadmapStackList } from './roadmap-stack-list';
 
 interface RoadmapGraphProps {
   roadmapId: string;
+  roadmapTitle: string;
 }
 
-export function RoadmapGraph({ roadmapId }: RoadmapGraphProps) {
+export function RoadmapGraph({ roadmapId, roadmapTitle }: RoadmapGraphProps) {
   const {
     baseRoadmapNodes,
     debouncedQuery,
@@ -41,7 +42,7 @@ export function RoadmapGraph({ roadmapId }: RoadmapGraphProps) {
       roadmapNodes: baseRoadmapNodes,
       searchQuery: debouncedQuery,
       shouldCompactAxis: false,
-      title: 'Roadmap',
+      title: roadmapTitle,
     });
 
   return (

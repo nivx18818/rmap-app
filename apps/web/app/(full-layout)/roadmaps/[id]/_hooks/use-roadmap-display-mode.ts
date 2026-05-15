@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 
-import type { RoadmapDisplayMode } from '../_components/roadmap-filter-bar';
+import type { RoadmapDisplayMode } from '../_types/roadmap-display-mode.types';
 
-const ROADMAP_DISPLAY_MODE_STORAGE_KEY = 'rmap-roadmap-display-mode';
+import { ROADMAP_DISPLAY_MODE_STORAGE_KEY } from '../_constants/roadmap-filter.constants';
 
 function parseDisplayMode(value: string | null): RoadmapDisplayMode | null {
   if (value === 'stack-list' || value === 'skill-tree') return value;

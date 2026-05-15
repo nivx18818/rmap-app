@@ -17,25 +17,25 @@ import Link from 'next/link';
 
 import { useIsMobile } from '@/hooks/use-mobile';
 
-export function RoadmapHero() {
-  const containerVariants: Variants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.6,
-        staggerChildren: 0.1,
-        ease: [0.21, 0.47, 0.32, 0.98],
-      },
+const containerVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.6,
+      staggerChildren: 0.1,
+      ease: [0.21, 0.47, 0.32, 0.98],
     },
-  };
+  },
+};
 
-  const itemVariants: Variants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0 },
-  };
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0 },
+};
 
+export function RoadmapHero() {
   const isMobile = useIsMobile();
 
   return (

@@ -67,6 +67,15 @@
   --color-gradient-cta-pill: var(--gradient-cta-pill);
   --color-gradient-search-bar: var(--gradient-search-bar);
   --color-gradient-category-pill: var(--gradient-category-pill);
+
+  --color-border-node: var(--border-node);
+  --color-background-node-completed: var(--background-node-completed);
+  --color-background-node-in-progress: var(--background-node-in-progress);
+  --color-background-require-node-locked: var(--background-require-node-locked);
+  --color-background-optional-node-locked: var(--background-optional-node-locked);
+  --color-background-group-node-locked: var(--background-group-node-locked);
+  --color-skillmarker-optional: var(--skillmarker-optional);
+  --color-skillmarker-required: var(--skillmarker-required);
 }
 
 :root {
@@ -157,6 +166,16 @@
       hsla(228, 96%, 89%, 0.3) 100%
     ),
     linear-gradient(90deg, hsla(0, 0%, 100%, 0.75) 0%, hsla(0, 0%, 100%, 0.75) 100%);
+
+  /* Roadmap */
+  --border-node: #1b1b20;
+  --background-node-completed: #d8d8d8;
+  --background-node-in-progress: #f7d190;
+  --background-require-node-locked: #f3beb9;
+  --background-optional-node-locked: #f3d8e8;
+  --background-group-node-locked: #b7def7;
+  --skillmarker-optional: #e019bd;
+  --skillmarker-required: #8b5cf6;
 }
 
 .dark {
@@ -259,15 +278,15 @@
   }
 
   .text-hero {
-    @apply font-heading text-foreground text-[64px] leading-[115%] font-medium tracking-[-2.5px];
+    @apply font-heading text-foreground text-4xl leading-[115%] font-medium tracking-[-1px] sm:text-5xl lg:text-[64px] lg:tracking-[-2.5px];
   }
 
   .text-title {
-    @apply font-heading text-foreground text-4xl leading-[120%] font-medium tracking-[-1px];
+    @apply font-heading text-foreground text-3xl leading-[120%] font-medium tracking-[-0.5px] sm:text-4xl sm:tracking-[-1px];
   }
 
   .text-subtitle {
-    @apply text-muted-foreground text-lg leading-[170%];
+    @apply text-muted-foreground text-base leading-[170%] sm:text-lg;
   }
 
   .blur-wrapper-form {

@@ -16,7 +16,7 @@ export function RoadmapItem({
   const isCreate = variant === 'create';
 
   const baseClass = cn(
-    'group flex h-12 items-center rounded-md border px-4 text-sm font-medium transition-all duration-200',
+    'group flex h-12 min-w-0 items-center rounded-md border px-4 text-sm font-medium transition-all duration-200',
     isCreate
       ? 'text-primary justify-center border-dashed border-violet-500/20 bg-violet-500/5 hover:border-violet-500/40 hover:bg-violet-500/10 hover:shadow-xs focus-visible:ring-primary/30 focus-visible:ring-2 focus-visible:outline-hidden'
       : isComingSoon
@@ -27,14 +27,14 @@ export function RoadmapItem({
   if (isComingSoon) {
     return (
       <span className={baseClass} aria-disabled="true">
-        <span className="whitespace-nowrap">{label}</span>
+        <span className="truncate">{label}</span>
       </span>
     );
   }
 
   return (
     <Link className={baseClass} href={href as never}>
-      <span className="whitespace-nowrap">{label}</span>
+      <span className="truncate">{label}</span>
       {!isCreate && (
         <HugeiconsIcon
           className="text-muted-foreground group-hover:text-foreground size-3.5 shrink-0 opacity-60 transition-all duration-200 group-hover:opacity-100"

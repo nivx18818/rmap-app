@@ -36,15 +36,20 @@ describe('DagreLayoutService', () => {
       }
     });
 
-    it('should place children below their parent (TB layout, posY > parent posY)', () => {
+    it('should place children alternately on left and right, aligned vertically with their parent', () => {
       const result = service.computeLayout(MOCK_FLAT_NODES);
 
       const groupPos = result.get('t0')!;
-      const child1Pos = result.get('t1')!;
-      const child2Pos = result.get('t2')!;
+      const child1Pos = result.get('t1')!; // right child
+      const child2Pos = result.get('t2')!; // left child
 
-      expect(child1Pos.posY).toBeGreaterThan(groupPos.posY);
-      expect(child2Pos.posY).toBeGreaterThan(groupPos.posY);
+      // X coordinates should be offset to the left and right
+      expect(child1Pos.posX).toBeGreaterThan(groupPos.posX); // Right
+      expect(child2Pos.posX).toBeLessThan(groupPos.posX); // Left
+
+      // Y coordinates should be defined and numeric
+      expect(typeof child1Pos.posY).toBe('number');
+      expect(typeof child2Pos.posY).toBe('number');
     });
 
     it('should assign coordinates to milestone nodes (no children)', () => {

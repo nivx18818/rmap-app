@@ -13,6 +13,7 @@ export const ENDPOINTS = {
   },
   roadmaps: {
     generate: '/roadmaps/generate',
+    getById: (roadmapId: string) => `/roadmaps/${roadmapId}`,
     nodes: (roadmapId: string) => `/roadmaps/${roadmapId}/nodes`,
   },
   users: {

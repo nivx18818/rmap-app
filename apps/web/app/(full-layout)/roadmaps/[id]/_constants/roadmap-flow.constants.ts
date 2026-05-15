@@ -4,7 +4,7 @@ export const ROADMAP_TITLE_NODE_ID = 'roadmap-title-node';
 
 export const ROADMAP_FLOW_NODE_SIZES = {
   node: { height: 45, width: 260 },
-  title: { height: 60, width: 360 },
+  title: { height: 60, width: 1024 },
 } as const;
 
 export const TITLE_NODE_GAP = 150;

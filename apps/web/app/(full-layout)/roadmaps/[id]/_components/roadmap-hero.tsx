@@ -35,8 +35,39 @@ const itemVariants: Variants = {
   visible: { opacity: 1, y: 0 },
 };
 
-export function RoadmapHero() {
+interface RoadmapHeroProps {
+  description?: null | string;
+  isLoading?: boolean;
+  loadErrorMessage?: null | string;
+  title: string;
+}
+
+export function RoadmapHero({
+  description,
+  isLoading = false,
+  loadErrorMessage,
+  title,
+}: RoadmapHeroProps) {
   const isMobile = useIsMobile();
+  const heroDescription =
+    description ??
+    (loadErrorMessage
+      ? 'Roadmap details are unavailable right now, but you can still inspect the roadmap nodes below.'
+      : 'Loading roadmap details...');
+  const heroActions = (
+    <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-center">
+      <Button variant="outline" size="icon" className="h-10 w-full shadow-sm sm:w-10">
+        <HugeiconsIcon className="size-4" icon={SaveIcon} />
+      </Button>
+      <Button variant="outline" className="h-10 shadow-sm">
+        {!isMobile && 'Download'}
+        <HugeiconsIcon className="ml-2 size-4" icon={Download01Icon} />
+      </Button>
+      <Button variant="outline" size="icon" className="h-10 w-full shadow-sm sm:w-10">
+        <HugeiconsIcon className="size-4" icon={Share01Icon} />
+      </Button>
+    </div>
+  );
 
   return (
     <SectionContainer className="relative flex w-full flex-col justify-start pt-20 pb-6 sm:pt-24 sm:pb-8 lg:pt-32">
@@ -60,35 +91,24 @@ export function RoadmapHero() {
             </div>
             <span>All Roadmaps</span>
           </Link>
-          <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-center">
-            <Button variant="outline" size="icon" className="h-10 w-full shadow-sm sm:w-10">
-              <HugeiconsIcon className="size-4" icon={SaveIcon} />
-            </Button>
-            <Button variant="outline" className="h-10 shadow-sm">
-              {!isMobile && 'Download'}
-              <HugeiconsIcon className="ml-2 size-4" icon={Download01Icon} />
-            </Button>
-            <Button variant="outline" size="icon" className="h-10 w-full shadow-sm sm:w-10">
-              <HugeiconsIcon className="size-4" icon={Share01Icon} />
-            </Button>
-          </div>
+          <div className="hidden sm:block">{heroActions}</div>
         </motion.div>
 
         {/* Main Content */}
         <div className="flex flex-col gap-3 sm:gap-4">
           <motion.h1
-            className="text-heading text-3xl sm:text-4xl lg:text-5xl"
+            className="text-heading text-2xl sm:text-4xl lg:text-[42px]"
             variants={itemVariants}
           >
-            Frontend
+            {isLoading ? 'Loading roadmap...' : title}
           </motion.h1>
           <motion.p
             className="text-subtitle max-w-full text-sm sm:text-base"
             variants={itemVariants}
           >
-            Step by step guide to becoming a modern frontend developer in 2026. Master the essential
-            skills from HTML/CSS to advanced frameworks.
+            {heroDescription}
           </motion.p>
+          <div className="sm:hidden">{heroActions}</div>
         </div>
 
         {/* Progress Row */}

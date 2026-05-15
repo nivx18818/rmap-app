@@ -4,6 +4,7 @@ import { NodeType, type Prisma, type Roadmap } from '@repo/db/prisma/client';
 import {
   AppNotFoundException,
   DeadlineInPastException,
+  InternalServerErrorException,
   RoadmapGenerationUnavailableException,
   RoadmapNotFoundException,
 } from '@/common/exceptions/app.exceptions';
@@ -27,6 +28,7 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const FEASIBILITY_THRESHOLD = 0.15;
 
 const LEAF_NODE_TYPES: NodeType[] = [NodeType.REQUIRED, NodeType.OPTIONAL];
+const NODE_QUIZ_QUESTION_COUNT = 5;
 
 const ROADMAP_SELECT = {
   deadlineDate: true,
@@ -233,14 +235,29 @@ export class RoadmapsService {
         optionC: true,
         optionD: true,
       },
-      orderBy: { createdAt: 'asc' },
-      take: 5,
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: NODE_QUIZ_QUESTION_COUNT,
     });
+
+    if (questions.length !== NODE_QUIZ_QUESTION_COUNT) {
+      this.logger.error(
+        `Expected ${NODE_QUIZ_QUESTION_COUNT} quiz questions for skill ` +
+          `${node.skillId}, got ${questions.length}`,
+      );
+      throw new InternalServerErrorException('Quiz question catalog is incomplete for this skill');
+    }
 
     return {
       nodeId: node.id,
       skillId: node.skillId,
-      questions,
+      questions: questions.map((question) => ({
+        id: question.id,
+        questionText: question.questionText,
+        optionA: question.optionA,
+        optionB: question.optionB,
+        optionC: question.optionC,
+        optionD: question.optionD,
+      })),
     };
   }
 

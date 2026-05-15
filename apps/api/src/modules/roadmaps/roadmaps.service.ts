@@ -117,10 +117,6 @@ export class RoadmapsService {
     const { nodeType, status, q } = query;
     const trimmedQuery = q?.trim();
 
-    if (status && nodeType && !LEAF_NODE_TYPES.includes(nodeType)) {
-      return { nodes: [] };
-    }
-
     const where: Prisma.RoadmapNodeWhereInput = {
       roadmapId,
       roadmap: { userId },
@@ -137,10 +133,6 @@ export class RoadmapsService {
           status,
         },
       };
-
-      if (!nodeType) {
-        where.nodeType = { in: LEAF_NODE_TYPES };
-      }
     }
 
     if (trimmedQuery) {
@@ -545,23 +537,22 @@ export class RoadmapsService {
         })),
       });
 
-      // First group's leaf nodes → IN_PROGRESS
+      // First group + first required node → IN_PROGRESS
       const firstGroup = flatNodes.find((n) => n.nodeType === 'GROUP');
-      if (firstGroup) {
-        const firstLeafIds = flatNodes
-          .filter(
-            (n) =>
-              n.tempParentId === firstGroup.tempId &&
-              (n.nodeType === 'REQUIRED' || n.nodeType === 'OPTIONAL'),
-          )
-          .map((n) => n.realId);
+      const firstRequiredInGroup = firstGroup
+        ? flatNodes.find((n) => n.tempParentId === firstGroup.tempId && n.nodeType === 'REQUIRED')
+        : undefined;
+      const firstRequired =
+        firstRequiredInGroup ?? flatNodes.find((n) => n.nodeType === 'REQUIRED');
+      const inProgressIds = [firstGroup?.realId, firstRequired?.realId].filter(
+        (id): id is string => !!id,
+      );
 
-        if (firstLeafIds.length > 0) {
-          await tx.userNodeProgress.updateMany({
-            where: { roadmapNodeId: { in: firstLeafIds } },
-            data: { status: 'IN_PROGRESS', startedAt: new Date() },
-          });
-        }
+      if (inProgressIds.length > 0) {
+        await tx.userNodeProgress.updateMany({
+          where: { roadmapNodeId: { in: inProgressIds } },
+          data: { status: 'IN_PROGRESS', startedAt: new Date() },
+        });
       }
 
       return created;
@@ -625,11 +616,16 @@ export class RoadmapsService {
     }
 
     if (!this.isValidAiRoadmapOutput(parsed)) {
-      this.logger.error('Gemini response failed schema validation', { parsed });
       throw new RoadmapGenerationUnavailableException();
     }
 
-    return this.normalizeRoadmapOutput(parsed, skillMap);
+    const normalized = this.normalizeRoadmapOutput(parsed, skillMap);
+    if (normalized.nodes.length === 0) {
+      this.logger.error('All nodes were filtered out during normalization');
+      throw new RoadmapGenerationUnavailableException();
+    }
+
+    return normalized;
   }
 
   private normalizeRoadmapOutput(
@@ -700,33 +696,67 @@ export class RoadmapsService {
   }
 
   private isValidAiNode(node: unknown, depth = 0): node is AiNode {
-    if (!node || typeof node !== 'object') return false;
+    if (!node || typeof node !== 'object') {
+      this.logger.warn(`Validation failed: node is not an object at depth ${depth}`);
+      return false;
+    }
     const n = node as AiNode;
 
-    if (typeof n.name !== 'string') return false;
-    if (!['group', 'milestone', 'required', 'optional'].includes(n.nodeType)) return false;
+    if (typeof n.name !== 'string') {
+      this.logger.warn(`Validation failed: node name is not a string at depth ${depth}`, { node });
+      return false;
+    }
+    if (!['group', 'milestone', 'required', 'optional'].includes(n.nodeType)) {
+      this.logger.warn(`Validation failed: invalid nodeType "${n.nodeType}" at depth ${depth}`, {
+        node,
+      });
+      return false;
+    }
 
-    // Leaf nodes (required/optional) must not have children
+    // Leaf nodes (required/optional)
     if (n.nodeType === 'required' || n.nodeType === 'optional') {
-      if (typeof n.skillId !== 'string') return false;
-      if (typeof n.estimatedHours !== 'number') return false;
-      if (n.children && n.children.length > 0) return false;
+      // More permissive: allow null/missing skillId or estimatedHours here,
+      // as normalization/recovery happens later. Just ensure they aren't totally wrong types.
+      if (n.skillId !== undefined && n.skillId !== null && typeof n.skillId !== 'string') {
+        this.logger.warn(`Validation failed: leaf node skillId must be string or null`, { node });
+        return false;
+      }
+      if (
+        n.estimatedHours !== undefined &&
+        n.estimatedHours !== null &&
+        typeof n.estimatedHours !== 'number'
+      ) {
+        this.logger.warn(`Validation failed: leaf node estimatedHours must be number or null`, {
+          node,
+        });
+        return false;
+      }
+      if (n.children && Array.isArray(n.children) && n.children.length > 0) {
+        this.logger.warn(`Validation failed: leaf nodes cannot have children`, { node });
+        return false;
+      }
       return true;
     }
 
-    // Milestone nodes must not have children
+    // Milestone nodes
     if (n.nodeType === 'milestone') {
-      if (n.children && n.children.length > 0) return false;
+      if (n.children && Array.isArray(n.children) && n.children.length > 0) {
+        this.logger.warn(`Validation failed: milestone nodes cannot have children`, { node });
+        return false;
+      }
       return true;
     }
 
-    // Group nodes:
-    // - Must not have skillId
-    // - Must have children
-    // - Max depth for groups is 1 (Parent Group at depth 0, Child Group at depth 1)
+    // Group nodes
     if (n.nodeType === 'group') {
-      if (n.skillId !== undefined) return false;
-      if (!Array.isArray(n.children) || n.children.length === 0) return false;
+      if (n.skillId !== undefined && n.skillId !== null) {
+        this.logger.warn(`Validation failed: group nodes should not have skillId`, { node });
+        return false;
+      }
+      if (!Array.isArray(n.children) || n.children.length === 0) {
+        this.logger.warn(`Validation failed: group nodes must have children`, { node });
+        return false;
+      }
 
       // If this is a nested group (depth >= 1), its children MUST be leaf nodes only
       if (depth >= 1) {
@@ -734,7 +764,15 @@ export class RoadmapsService {
           const c = child;
           return c && (c.nodeType === 'required' || c.nodeType === 'optional');
         });
-        if (!allChildrenAreLeaves) return false;
+        if (!allChildrenAreLeaves) {
+          this.logger.warn(
+            `Validation failed: nested group (depth ${depth}) must only have leaves`,
+            {
+              node,
+            },
+          );
+          return false;
+        }
       }
 
       return n.children.every((child) => this.isValidAiNode(child, depth + 1));

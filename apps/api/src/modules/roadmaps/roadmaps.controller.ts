@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -17,6 +18,7 @@ import { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
 import { ListRoadmapsQueryDto } from './dto/list-roadmaps-query.dto';
 import { RoadmapNodesFilterDto } from './dto/roadmap-nodes-filter.dto';
 import { SubmitQuizDto } from './dto/submit-quiz.dto';
+import { UpdateNodeProgressDto } from './dto/update-node-progress.dto';
 import { RoadmapsService } from './roadmaps.service';
 
 @Controller('roadmaps')
@@ -100,5 +102,22 @@ export class RoadmapsController {
     @Body() dto: SubmitQuizDto,
   ) {
     return this.roadmapsService.submitNodeQuiz(user.id, roadmapId, nodeId, dto);
+  }
+
+  /**
+   * PATCH /roadmaps/:roadmapId/nodes/:nodeId/progress
+   *
+   * Updates a node's status with side effects: daily_activity upsert,
+   * parent group auto-complete, milestone auto-complete, and next group unlock.
+   */
+  @Patch(':roadmapId/nodes/:nodeId/progress')
+  @HttpCode(HttpStatus.OK)
+  async updateNodeProgress(
+    @CurrentUser() user: RequestUser,
+    @Param('roadmapId') roadmapId: string,
+    @Param('nodeId') nodeId: string,
+    @Body() dto: UpdateNodeProgressDto,
+  ) {
+    return this.roadmapsService.updateNodeProgress(user.id, roadmapId, nodeId, dto);
   }
 }

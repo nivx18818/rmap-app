@@ -12,6 +12,7 @@ export enum ErrorCode {
   INVALID_FULLNAME = 40004,
   MISSING_REQUIRED_FIELD = 40005,
   DEADLINE_IN_PAST = 40006,
+  INVALID_STATUS_TRANSITION = 40007,
   // 401 - Unauthorized
   UNAUTHORIZED = 40100,
   INVALID_ACCESS_TOKEN = 40101,
@@ -36,6 +37,8 @@ export enum ErrorCode {
   RATE_LIMIT_EXCEEDED = 42900,
   TOO_MANY_MESSAGES = 42901,
   TOO_MANY_REQUESTS = 42902,
+  // 422 - Unprocessable Entity
+  QUIZ_NOT_PASSED = 42200,
   // 500 - Internal Server Error
   INTERNAL_SERVER_ERROR = 50000,
   DATABASE_ERROR = 50001,
@@ -53,6 +56,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.INVALID_FULLNAME]: 'Invalid username format',
   [ErrorCode.MISSING_REQUIRED_FIELD]: 'Required field is missing',
   [ErrorCode.DEADLINE_IN_PAST]: 'deadline_date must be in the future',
+  [ErrorCode.INVALID_STATUS_TRANSITION]: 'Invalid status transition',
   // 401 - Unauthorized
   [ErrorCode.UNAUTHORIZED]: 'Authentication required',
   [ErrorCode.INVALID_ACCESS_TOKEN]: 'Invalid authentication token',
@@ -77,6 +81,8 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.RATE_LIMIT_EXCEEDED]: 'Rate limit exceeded',
   [ErrorCode.TOO_MANY_MESSAGES]: 'Too many messages sent',
   [ErrorCode.TOO_MANY_REQUESTS]: 'Too many requests',
+  // 422 - Unprocessable Entity
+  [ErrorCode.QUIZ_NOT_PASSED]: 'Quiz must be passed before completing this node',
   // 500 - Internal Server Error
   [ErrorCode.INTERNAL_SERVER_ERROR]: 'An unexpected error occurred',
   [ErrorCode.DATABASE_ERROR]: 'Database operation failed',

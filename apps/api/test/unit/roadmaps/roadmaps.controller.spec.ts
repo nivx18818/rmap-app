@@ -1,6 +1,7 @@
 import type { TestingModule } from '@nestjs/testing';
 
 import { Test } from '@nestjs/testing';
+import { NodeStatus } from '@repo/db/prisma/client';
 
 import { RoadmapsController } from '@/modules/roadmaps/roadmaps.controller';
 import { RoadmapsService } from '@/modules/roadmaps/roadmaps.service';
@@ -16,6 +17,7 @@ describe('RoadmapsController', () => {
     listNodes: jest.fn(),
     listUserRoadmaps: jest.fn(),
     submitNodeQuiz: jest.fn(),
+    updateNodeProgress: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -158,6 +160,43 @@ describe('RoadmapsController', () => {
 
     expect(mockRoadmapsService.getNodeQuiz).toHaveBeenCalledWith('user-1', 'roadmap-1', 'node-1');
     expect(result).toEqual(mockResponse);
+  });
+
+  describe('updateNodeProgress', () => {
+    it('should call updateNodeProgress and return response', async () => {
+      const mockUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        fullName: 'Test User',
+        role: 'USER',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      };
+      const dto = { status: NodeStatus.COMPLETED };
+      const mockResponse = {
+        progress: {
+          id: 'progress-1',
+          roadmapNodeId: 'node-1',
+          status: NodeStatus.COMPLETED,
+          startedAt: new Date('2026-01-01T00:00:00Z'),
+          completedAt: new Date('2026-01-02T00:00:00Z'),
+          quizScorePct: null,
+          quizPassed: true,
+        },
+        unlockedNodes: ['leaf-2', 'leaf-3'],
+      };
+
+      mockRoadmapsService.updateNodeProgress.mockResolvedValue(mockResponse);
+
+      const result = await controller.updateNodeProgress(mockUser, 'roadmap-1', 'node-1', dto);
+
+      expect(mockRoadmapsService.updateNodeProgress).toHaveBeenCalledWith(
+        'user-1',
+        'roadmap-1',
+        'node-1',
+        dto,
+      );
+      expect(result).toEqual(mockResponse);
+    });
   });
 
   it('should call submitNodeQuiz and return response', async () => {

@@ -8,6 +8,8 @@ import {
   AppNotFoundException,
   DeadlineInPastException,
   InternalServerErrorException,
+  InvalidStatusTransitionException,
+  QuizNotPassedException,
   RoadmapGenerationUnavailableException,
   RoadmapNotFoundException,
 } from '@/common/exceptions/app.exceptions';
@@ -29,10 +31,20 @@ import {
 
 function makeTxMock() {
   return {
+    dailyActivity: {
+      upsert: jest.fn().mockResolvedValue({}),
+    },
     roadmap: { create: jest.fn().mockResolvedValue(MOCK_ROADMAP) },
-    roadmapNode: { createMany: jest.fn().mockResolvedValue({ count: 19 }) },
-    userNodeProgress: {
+    roadmapNode: {
       createMany: jest.fn().mockResolvedValue({ count: 19 }),
+      findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    userNodeProgress: {
+      count: jest.fn().mockResolvedValue(0),
+      createMany: jest.fn().mockResolvedValue({ count: 19 }),
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
       update: jest.fn(),
       updateMany: jest.fn().mockResolvedValue({ count: 4 }),
     },
@@ -49,6 +61,7 @@ type AsyncMock<TResult = unknown, TArgs extends unknown[] = unknown[]> = jest.Mo
 interface RoadmapNodeQuizSelection {
   id: string;
   nodeType: NodeType;
+  parentId?: string | null;
   skillId: string | null;
 }
 
@@ -82,6 +95,9 @@ interface RoadmapsPrismaMock {
   };
   skillPrerequisite: {
     findMany: AsyncMock<typeof MOCK_PRISMA_SKILL_PREREQUISITES>;
+  };
+  userNodeProgress: {
+    findUnique: AsyncMock<{ status: NodeStatus; quizPassed: boolean | null } | null>;
   };
 }
 
@@ -121,6 +137,12 @@ const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
     findMany: jest
       .fn<Promise<typeof MOCK_PRISMA_SKILL_PREREQUISITES>, unknown[]>()
       .mockResolvedValue(MOCK_PRISMA_SKILL_PREREQUISITES),
+  },
+  userNodeProgress: {
+    findUnique: jest.fn<
+      Promise<{ status: NodeStatus; quizPassed: boolean | null } | null>,
+      unknown[]
+    >(),
   },
 });
 
@@ -1239,6 +1261,232 @@ describe('RoadmapsService', () => {
         }),
       ).rejects.toMatchObject({ status: 400 });
       expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateNodeProgress', () => {
+    const nodeId = 'node-1';
+    const roadmapId = 'roadmap-1';
+    const groupId = 'group-1';
+
+    const mockNode: RoadmapNodeQuizSelection = {
+      id: nodeId,
+      nodeType: NodeType.REQUIRED,
+      skillId: null,
+      parentId: groupId,
+    };
+    const mockUpdatedProgress = {
+      id: 'progress-1',
+      roadmapNodeId: nodeId,
+      status: NodeStatus.COMPLETED,
+      startedAt: new Date('2026-01-01T00:00:00Z'),
+      completedAt: new Date('2026-01-02T00:00:00Z'),
+      quizScorePct: null,
+      quizPassed: true,
+    };
+
+    beforeEach(() => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(mockNode);
+      prisma.userNodeProgress.findUnique.mockResolvedValue({
+        status: NodeStatus.IN_PROGRESS,
+        quizPassed: true,
+      });
+      txMock.userNodeProgress.update.mockResolvedValue(mockUpdatedProgress);
+      // Default: 2 required children, 1 completed → no cascade
+      txMock.roadmapNode.findMany.mockResolvedValue([{ id: nodeId }, { id: 'other-leaf' }]);
+      txMock.userNodeProgress.count.mockResolvedValue(1);
+    });
+
+    it('should throw AppNotFoundException when the node is not found', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+          status: NodeStatus.COMPLETED,
+        }),
+      ).rejects.toThrow(AppNotFoundException);
+      expect(prisma.userNodeProgress.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('should throw AppNotFoundException when the progress record is not found', async () => {
+      prisma.userNodeProgress.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+          status: NodeStatus.COMPLETED,
+        }),
+      ).rejects.toThrow(AppNotFoundException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should throw InvalidStatusTransitionException for an invalid transition (COMPLETED → IN_PROGRESS)', async () => {
+      prisma.userNodeProgress.findUnique.mockResolvedValue({
+        status: NodeStatus.COMPLETED,
+        quizPassed: true,
+      });
+
+      await expect(
+        service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+          status: NodeStatus.IN_PROGRESS,
+        }),
+      ).rejects.toThrow(InvalidStatusTransitionException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should throw QuizNotPassedException when completing a leaf without quiz passed', async () => {
+      prisma.userNodeProgress.findUnique.mockResolvedValue({
+        status: NodeStatus.IN_PROGRESS,
+        quizPassed: false,
+      });
+
+      await expect(
+        service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+          status: NodeStatus.COMPLETED,
+        }),
+      ).rejects.toThrow(QuizNotPassedException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should allow completing a GROUP node without quiz', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.GROUP,
+        skillId: null,
+        parentId: null,
+      });
+      prisma.userNodeProgress.findUnique.mockResolvedValue({
+        status: NodeStatus.IN_PROGRESS,
+        quizPassed: null,
+      });
+      txMock.userNodeProgress.update.mockResolvedValue({
+        ...mockUpdatedProgress,
+        status: NodeStatus.COMPLETED,
+      });
+
+      const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+        status: NodeStatus.COMPLETED,
+      });
+
+      expect(result.progress.status).toBe(NodeStatus.COMPLETED);
+      expect(result.unlockedNodes).toEqual([]);
+      expect(txMock.dailyActivity.upsert).not.toHaveBeenCalled();
+    });
+
+    it('should set startedAt when transitioning LOCKED → IN_PROGRESS', async () => {
+      prisma.userNodeProgress.findUnique.mockResolvedValue({
+        status: NodeStatus.LOCKED,
+        quizPassed: null,
+      });
+      txMock.userNodeProgress.update.mockResolvedValue({
+        ...mockUpdatedProgress,
+        status: NodeStatus.IN_PROGRESS,
+        startedAt: new Date(),
+        completedAt: null,
+      });
+
+      const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+        status: NodeStatus.IN_PROGRESS,
+      });
+
+      expect(txMock.userNodeProgress.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: NodeStatus.IN_PROGRESS,
+            startedAt: expect.any(Date),
+          }),
+        }),
+      );
+      expect(result.progress.status).toBe(NodeStatus.IN_PROGRESS);
+      expect(result.unlockedNodes).toEqual([]);
+      expect(txMock.dailyActivity.upsert).not.toHaveBeenCalled();
+    });
+
+    it('should upsert daily_activity when a leaf node completes', async () => {
+      await service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+        status: NodeStatus.COMPLETED,
+      });
+
+      expect(txMock.dailyActivity.upsert).toHaveBeenCalledTimes(1);
+      expect(txMock.dailyActivity.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userId_activityDate: { userId: MOCK_USER_ID, activityDate: expect.any(Date) },
+          },
+          create: expect.objectContaining({ nodesCompleted: 1 }),
+          update: { nodesCompleted: { increment: 1 } },
+        }),
+      );
+    });
+
+    it('should return empty unlockedNodes when not all required leaves are done', async () => {
+      // Default beforeEach: 2 required children, count=1 → cascade aborts early
+      const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+        status: NodeStatus.COMPLETED,
+      });
+
+      expect(result.unlockedNodes).toEqual([]);
+      expect(txMock.userNodeProgress.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('should auto-complete the group and unlock next GROUP leaves when all required leaves complete', async () => {
+      txMock.roadmapNode.findMany
+        .mockResolvedValueOnce([{ id: nodeId }]) // required children of group-1 (only 1)
+        .mockResolvedValueOnce([{ id: 'group-2', nodeType: NodeType.GROUP, posY: 200 }]); // next siblings
+
+      txMock.userNodeProgress.count.mockResolvedValue(1); // 1 of 1 done → cascade triggers
+      txMock.roadmapNode.findFirst.mockResolvedValue({ parentId: null, posY: 100 }); // group-1 info
+      txMock.userNodeProgress.findUnique.mockResolvedValueOnce({ status: NodeStatus.IN_PROGRESS }); // group not yet completed
+      txMock.userNodeProgress.findMany.mockResolvedValueOnce([
+        { roadmapNodeId: 'leaf-2' },
+        { roadmapNodeId: 'leaf-3' },
+      ]); // LOCKED leaves of group-2
+
+      const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+        status: NodeStatus.COMPLETED,
+      });
+
+      expect(txMock.userNodeProgress.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId_roadmapNodeId: { userId: MOCK_USER_ID, roadmapNodeId: groupId } },
+          data: expect.objectContaining({ status: NodeStatus.COMPLETED }),
+        }),
+      );
+      expect(txMock.userNodeProgress.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: MOCK_USER_ID, roadmapNodeId: { in: ['leaf-2', 'leaf-3'] } },
+          data: expect.objectContaining({ status: NodeStatus.IN_PROGRESS }),
+        }),
+      );
+      expect(result.unlockedNodes).toEqual(['leaf-2', 'leaf-3']);
+    });
+
+    it('should auto-complete milestone and unlock next GROUP when milestone follows the completed group', async () => {
+      const milestoneId = 'milestone-1';
+      const nextGroupId = 'group-2';
+
+      txMock.roadmapNode.findMany
+        .mockResolvedValueOnce([{ id: nodeId }]) // required children of group-1
+        .mockResolvedValueOnce([
+          { id: milestoneId, nodeType: NodeType.MILESTONE, posY: 150 },
+          { id: nextGroupId, nodeType: NodeType.GROUP, posY: 200 },
+        ]); // next siblings: milestone first, then group
+
+      txMock.userNodeProgress.count.mockResolvedValue(1);
+      txMock.roadmapNode.findFirst.mockResolvedValue({ parentId: null, posY: 100 });
+      txMock.userNodeProgress.findUnique.mockResolvedValueOnce({ status: NodeStatus.IN_PROGRESS }); // group not yet completed
+      txMock.userNodeProgress.findMany.mockResolvedValueOnce([{ roadmapNodeId: 'leaf-4' }]); // LOCKED leaves of group-2
+
+      const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+        status: NodeStatus.COMPLETED,
+      });
+
+      expect(txMock.userNodeProgress.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId_roadmapNodeId: { userId: MOCK_USER_ID, roadmapNodeId: milestoneId } },
+          data: expect.objectContaining({ status: NodeStatus.COMPLETED }),
+        }),
+      );
+      expect(result.unlockedNodes).toEqual(['leaf-4']);
     });
   });
 });

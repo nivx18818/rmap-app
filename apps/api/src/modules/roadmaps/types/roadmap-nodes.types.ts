@@ -27,3 +27,8 @@ export interface RoadmapNodeWithUserProgressResponse {
 export interface RoadmapNodesListResponse {
   nodes: RoadmapNodeWithUserProgressResponse[];
 }
+
+export interface UpdateNodeProgressResponse {
+  progress: UserNodeProgressResponse;
+  unlockedNodes: string[];
+}

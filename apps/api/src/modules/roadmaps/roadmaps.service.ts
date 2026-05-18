@@ -1,11 +1,13 @@
 import { Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
-import { NodeType, type Prisma, type Roadmap } from '@repo/db/prisma/client';
+import { NodeStatus, NodeType, type Prisma, type Roadmap } from '@repo/db/prisma/client';
 
 import {
   AppBadRequestException,
   AppNotFoundException,
   DeadlineInPastException,
   InternalServerErrorException,
+  InvalidStatusTransitionException,
+  QuizNotPassedException,
   RoadmapGenerationUnavailableException,
   RoadmapNotFoundException,
 } from '@/common/exceptions/app.exceptions';
@@ -16,6 +18,7 @@ import type { ListRoadmapsQueryDto } from './dto/list-roadmaps-query.dto';
 import type { RoadmapNodesFilterDto } from './dto/roadmap-nodes-filter.dto';
 import type { PaginatedRoadmapsResponseDto, RoadmapResponseDto } from './dto/roadmap-response.dto';
 import type { SubmitQuizDto } from './dto/submit-quiz.dto';
+import type { UpdateNodeProgressDto } from './dto/update-node-progress.dto';
 import type { AiNode, AiRoadmapOutput, FlatNode } from './types/ai-roadmap.types';
 import type {
   QuizOption,
@@ -23,6 +26,7 @@ import type {
   SubmitQuizResponse,
 } from './types/roadmap-node-quiz.types';
 import type { RoadmapNodesListResponse } from './types/roadmap-nodes.types';
+import type { UpdateNodeProgressResponse } from './types/roadmap-nodes.types';
 
 import { AiService } from '../ai/ai.service';
 import { DagreLayoutService } from './dagre-layout.service';
@@ -37,6 +41,12 @@ const LEAF_NODE_TYPES: NodeType[] = [NodeType.REQUIRED, NodeType.OPTIONAL];
 const NODE_QUIZ_QUESTION_COUNT = 5;
 const QUIZ_PASSING_SCORE_PCT = 60;
 const QUIZ_REVIEW_SUGGESTION = 'You should review this part before continuing.';
+
+const VALID_TRANSITIONS: Record<NodeStatus, NodeStatus[]> = {
+  [NodeStatus.LOCKED]: [NodeStatus.IN_PROGRESS],
+  [NodeStatus.IN_PROGRESS]: [NodeStatus.COMPLETED],
+  [NodeStatus.COMPLETED]: [],
+};
 
 const ROADMAP_SELECT = {
   deadlineDate: true,
@@ -844,6 +854,202 @@ export class RoadmapsService {
     if (!hasOnlyExpectedQuestions) {
       throw new AppBadRequestException('Quiz submission contains unknown question answers');
     }
+  }
+
+  async updateNodeProgress(
+    userId: string,
+    roadmapId: string,
+    nodeId: string,
+    dto: UpdateNodeProgressDto,
+  ): Promise<UpdateNodeProgressResponse> {
+    const node = await this.prisma.roadmapNode.findFirst({
+      where: { id: nodeId, roadmapId, roadmap: { userId } },
+      select: { id: true, nodeType: true, parentId: true },
+    });
+
+    if (!node) {
+      throw new AppNotFoundException('Roadmap node not found');
+    }
+
+    const currentProgress = await this.prisma.userNodeProgress.findUnique({
+      where: { userId_roadmapNodeId: { userId, roadmapNodeId: nodeId } },
+      select: { status: true, quizPassed: true },
+    });
+
+    if (!currentProgress) {
+      throw new AppNotFoundException('Progress record not found');
+    }
+
+    const allowed = VALID_TRANSITIONS[currentProgress.status] ?? [];
+    if (!allowed.includes(dto.status)) {
+      throw new InvalidStatusTransitionException(currentProgress.status, dto.status);
+    }
+
+    if (LEAF_NODE_TYPES.includes(node.nodeType) && dto.status === NodeStatus.COMPLETED) {
+      if (!currentProgress.quizPassed) {
+        throw new QuizNotPassedException();
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+
+      const updatedProgress = await tx.userNodeProgress.update({
+        where: { userId_roadmapNodeId: { userId, roadmapNodeId: nodeId } },
+        data: {
+          status: dto.status,
+          ...(dto.status === NodeStatus.IN_PROGRESS ? { startedAt: now } : {}),
+          ...(dto.status === NodeStatus.COMPLETED ? { completedAt: now } : {}),
+        },
+        select: {
+          id: true,
+          roadmapNodeId: true,
+          status: true,
+          startedAt: true,
+          completedAt: true,
+          quizScorePct: true,
+          quizPassed: true,
+        },
+      });
+
+      const unlockedNodes: string[] = [];
+
+      if (dto.status === NodeStatus.COMPLETED && LEAF_NODE_TYPES.includes(node.nodeType)) {
+        const today = new Date(now);
+        today.setUTCHours(0, 0, 0, 0);
+
+        await tx.dailyActivity.upsert({
+          where: { userId_activityDate: { userId, activityDate: today } },
+          create: { userId, activityDate: today, nodesCompleted: 1 },
+          update: { nodesCompleted: { increment: 1 } },
+        });
+
+        if (node.parentId) {
+          await this.cascadeGroupCompletion(
+            tx,
+            userId,
+            roadmapId,
+            node.parentId,
+            now,
+            unlockedNodes,
+          );
+        }
+      }
+
+      return {
+        progress: {
+          id: updatedProgress.id,
+          roadmapNodeId: updatedProgress.roadmapNodeId,
+          status: updatedProgress.status,
+          startedAt: updatedProgress.startedAt,
+          completedAt: updatedProgress.completedAt,
+          quizScorePct: toNumberOrNull(updatedProgress.quizScorePct),
+          quizPassed: updatedProgress.quizPassed,
+        },
+        unlockedNodes,
+      };
+    });
+  }
+
+  private async cascadeGroupCompletion(
+    tx: Awaited<Parameters<Parameters<typeof this.prisma.$transaction>[0]>[0]>,
+    userId: string,
+    roadmapId: string,
+    groupId: string,
+    now: Date,
+    unlockedNodes: string[],
+  ): Promise<void> {
+    const requiredChildren = await tx.roadmapNode.findMany({
+      where: { parentId: groupId, nodeType: NodeType.REQUIRED },
+      select: { id: true },
+    });
+
+    if (requiredChildren.length === 0) return;
+
+    const completedCount = await tx.userNodeProgress.count({
+      where: {
+        userId,
+        roadmapNodeId: { in: requiredChildren.map((c) => c.id) },
+        status: NodeStatus.COMPLETED,
+      },
+    });
+
+    if (completedCount < requiredChildren.length) return;
+
+    const group = await tx.roadmapNode.findFirst({
+      where: { id: groupId },
+      select: { parentId: true, posY: true },
+    });
+
+    if (!group) return;
+
+    const groupProgress = await tx.userNodeProgress.findUnique({
+      where: { userId_roadmapNodeId: { userId, roadmapNodeId: groupId } },
+      select: { status: true },
+    });
+
+    if (groupProgress?.status === NodeStatus.COMPLETED) return;
+
+    await tx.userNodeProgress.update({
+      where: { userId_roadmapNodeId: { userId, roadmapNodeId: groupId } },
+      data: { status: NodeStatus.COMPLETED, completedAt: now },
+    });
+
+    const nextSiblings = await tx.roadmapNode.findMany({
+      where: {
+        roadmapId,
+        parentId: group.parentId,
+        posY: { gt: group.posY },
+      },
+      orderBy: [{ posY: 'asc' }, { id: 'asc' }],
+      select: { id: true, nodeType: true, posY: true },
+      take: 5,
+    });
+
+    const firstNext = nextSiblings[0];
+    if (!firstNext) return;
+
+    if (firstNext.nodeType === NodeType.MILESTONE) {
+      await tx.userNodeProgress.update({
+        where: { userId_roadmapNodeId: { userId, roadmapNodeId: firstNext.id } },
+        data: { status: NodeStatus.COMPLETED, completedAt: now },
+      });
+
+      const nextGroup = nextSiblings.find((n) => n.nodeType === NodeType.GROUP);
+      if (nextGroup) {
+        await this.unlockGroupLeaves(tx, userId, nextGroup.id, now, unlockedNodes);
+      }
+    } else if (firstNext.nodeType === NodeType.GROUP) {
+      await this.unlockGroupLeaves(tx, userId, firstNext.id, now, unlockedNodes);
+    }
+  }
+
+  private async unlockGroupLeaves(
+    tx: Awaited<Parameters<Parameters<typeof this.prisma.$transaction>[0]>[0]>,
+    userId: string,
+    groupId: string,
+    now: Date,
+    unlockedNodes: string[],
+  ): Promise<void> {
+    const lockedProgress = await tx.userNodeProgress.findMany({
+      where: {
+        userId,
+        status: NodeStatus.LOCKED,
+        roadmapNode: { parentId: groupId, nodeType: { in: LEAF_NODE_TYPES } },
+      },
+      select: { roadmapNodeId: true },
+    });
+
+    if (lockedProgress.length === 0) return;
+
+    const leafIds = lockedProgress.map((p) => p.roadmapNodeId);
+
+    await tx.userNodeProgress.updateMany({
+      where: { userId, roadmapNodeId: { in: leafIds } },
+      data: { status: NodeStatus.IN_PROGRESS, startedAt: now },
+    });
+
+    unlockedNodes.push(...leafIds);
   }
 
   async getByIdForOwner(userId: string, roadmapId: string): Promise<RoadmapResponseDto> {

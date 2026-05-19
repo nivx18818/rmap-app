@@ -45,7 +45,6 @@ export function RoadmapStackGroupSection({
         aria-disabled={!canOpenSection}
         onClick={() => {
           if (!canOpenSection) return;
-
           onToggle();
         }}
       >

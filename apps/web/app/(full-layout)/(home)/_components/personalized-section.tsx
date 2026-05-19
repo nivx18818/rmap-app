@@ -36,7 +36,7 @@ export function PersonalizedSection() {
       <SectionContainer className="relative z-10 flex flex-col items-center justify-center gap-16 lg:gap-32">
         {/* Top Banner Box */}
         <div
-          className="relative flex w-full max-w-300 flex-col-reverse items-center justify-between gap-8 overflow-hidden rounded-2xl px-5 py-8 shadow-xs sm:rounded-[24px] sm:px-12 md:py-16 lg:flex-row lg:p-12"
+          className="relative flex w-full max-w-300 flex-col-reverse items-center justify-between gap-8 overflow-hidden rounded-2xl px-5 py-8 shadow-xs sm:rounded-3xl sm:px-12 md:py-16 lg:flex-row lg:p-12"
           style={{
             backgroundImage:
               'linear-gradient(161.932deg, rgb(255, 251, 235) 0%, rgb(255, 247, 237) 50%, rgb(251, 207, 232) 100%), linear-gradient(90deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0.75) 100%)',
@@ -44,7 +44,7 @@ export function PersonalizedSection() {
         >
           {/* Inner borders via inset shadow */}
           <div
-            className="pointer-events-none absolute inset-0 rounded-2xl shadow-[inset_0px_0px_0px_1px_rgba(76,29,149,0.1),inset_0px_0px_0px_0px_white] sm:rounded-[24px]"
+            className="pointer-events-none absolute inset-0 rounded-2xl shadow-[inset_0px_0px_0px_1px_rgba(76,29,149,0.1),inset_0px_0px_0px_0px_white] sm:rounded-3xl"
             aria-hidden="true"
           />
 
@@ -68,7 +68,7 @@ export function PersonalizedSection() {
           </div>
 
           {/* Banner Graphic Right */}
-          <div className="relative aspect-[436/322] w-full max-w-109 shrink-0">
+          <div className="relative aspect-436/322 w-full max-w-109 shrink-0">
             <Image
               className="object-contain"
               fill

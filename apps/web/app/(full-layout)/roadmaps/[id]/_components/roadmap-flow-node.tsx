@@ -46,7 +46,7 @@ function RoadmapStateNode({
   return (
     <div
       className={cn(
-        'relative flex items-center justify-center overflow-visible rounded-[6px] border-2 px-3 py-0 transition-colors',
+        'relative flex items-center justify-center overflow-visible rounded-md border-2 px-3 py-0 transition-colors',
         containerClasses,
         matchState === 'dimmed' && 'opacity-35 grayscale-[0.35]',
         selected && 'ring-ring ring-2',

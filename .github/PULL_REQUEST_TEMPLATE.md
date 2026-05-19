@@ -30,6 +30,15 @@ Steps to verify:
 
 (Add UI screenshots if applicable)
 
+<details>
+<summary><strong>Expand</strong></summary>
+
+<!-- START - Add images here -->
+
+<!-- END -->
+
+</details>
+
 ## Checklist
 
 - [ ] Code compiles and runs

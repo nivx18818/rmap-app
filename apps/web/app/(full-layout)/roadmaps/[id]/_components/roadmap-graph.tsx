@@ -1,0 +1,109 @@
+'use client';
+
+import { SectionContainer } from '@repo/design-system/components/common/section-container';
+
+import { useRoadmapFlowState } from '../_hooks/use-roadmap-flow-state';
+import { useRoadmapGraphData } from '../_hooks/use-roadmap-graph-data';
+import { RoadmapFilterBar } from './roadmap-filter-bar';
+import { RoadmapGraphState } from './roadmap-graph-state';
+import { RoadmapSkillTree } from './roadmap-skill-tree';
+import { RoadmapStackList } from './roadmap-stack-list';
+
+interface RoadmapGraphProps {
+  roadmapId: string;
+  roadmapTitle: string;
+}
+
+export function RoadmapGraph({ roadmapId, roadmapTitle }: RoadmapGraphProps) {
+  const {
+    baseRoadmapNodes,
+    debouncedQuery,
+    displayMode,
+    effectiveMatchedRoadmapNodes,
+    errorMessage,
+    isLoading,
+    isMatchedLoading,
+    isSearchFilterActive,
+    matchedNodeIds,
+    nodeType,
+    query,
+    refreshRoadmapNodes,
+    setDisplayMode,
+    setQuery,
+    shouldFetchMatchedNodes,
+    stackListNodes,
+    status,
+    updateUrlFilters,
+  } = useRoadmapGraphData({ roadmapId });
+  const { desktopFlowLayout, edges, layoutRoadmapNodes, nodes, onEdgesChange, onNodesChange } =
+    useRoadmapFlowState({
+      hasActiveFilters: isSearchFilterActive,
+      matchedNodeIds,
+      roadmapNodes: baseRoadmapNodes,
+      searchQuery: debouncedQuery,
+      shouldCompactAxis: false,
+      title: roadmapTitle,
+    });
+
+  return (
+    <>
+      <SectionContainer className="relative z-10 flex flex-col gap-5 pb-8">
+        <RoadmapFilterBar
+          displayMode={displayMode}
+          isMatchingLoading={shouldFetchMatchedNodes && isMatchedLoading}
+          isSearchActive={isSearchFilterActive}
+          matchedCount={effectiveMatchedRoadmapNodes.length}
+          nodeType={nodeType}
+          onDisplayModeChange={setDisplayMode}
+          onNodeTypeChange={(nextNodeType) => updateUrlFilters({ nodeType: nextNodeType })}
+          onQueryChange={setQuery}
+          onStatusChange={(nextStatus) => updateUrlFilters({ status: nextStatus })}
+          query={query}
+          resultCount={baseRoadmapNodes.length}
+          status={status}
+        />
+
+        {isLoading ? (
+          <RoadmapGraphState kind="loading" />
+        ) : errorMessage ? (
+          <RoadmapGraphState
+            errorMessage={errorMessage}
+            kind="error"
+            onRetry={refreshRoadmapNodes}
+          />
+        ) : baseRoadmapNodes.length === 0 ? (
+          <RoadmapGraphState kind="empty" />
+        ) : displayMode === 'skill-tree' ? (
+          <RoadmapSkillTree
+            desktopFlowLayout={desktopFlowLayout}
+            edgeChanges={onEdgesChange}
+            edges={edges}
+            nodeChanges={onNodesChange}
+            nodes={nodes}
+            treeKey={`${baseRoadmapNodes.length}-${desktopFlowLayout.width}-${desktopFlowLayout.height}`}
+          />
+        ) : null}
+      </SectionContainer>
+
+      {!isLoading &&
+      !errorMessage &&
+      baseRoadmapNodes.length > 0 &&
+      displayMode === 'stack-list' ? (
+        <SectionContainer className="relative z-10 flex flex-col gap-5 pb-20">
+          {isSearchFilterActive && stackListNodes.length === 0 ? (
+            <RoadmapGraphState kind="no-matches" />
+          ) : (
+            <RoadmapStackList
+              baseNodes={baseRoadmapNodes}
+              isFiltered={isSearchFilterActive}
+              nodes={isSearchFilterActive ? stackListNodes : layoutRoadmapNodes}
+              nodeType={nodeType}
+              searchQuery={debouncedQuery}
+              status={status}
+            />
+          )}
+        </SectionContainer>
+      ) : null}
+    </>
+  );
+}

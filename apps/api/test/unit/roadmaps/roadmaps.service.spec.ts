@@ -467,7 +467,7 @@ describe('RoadmapsService', () => {
       });
     });
 
-    it('should filter by status on leaf nodes', async () => {
+    it('should filter by status across node types when nodeType is omitted', async () => {
       prisma.roadmapNode.findMany.mockResolvedValue([]);
 
       await service.listNodes(MOCK_USER_ID, roadmapId, { status: NodeStatus.COMPLETED });
@@ -476,7 +476,6 @@ describe('RoadmapsService', () => {
         expect.objectContaining({
           where: expect.objectContaining({
             roadmapId,
-            nodeType: { in: [NodeType.REQUIRED, NodeType.OPTIONAL] },
             userNodeProgress: {
               some: {
                 status: NodeStatus.COMPLETED,
@@ -503,14 +502,79 @@ describe('RoadmapsService', () => {
       );
     });
 
-    it('should return empty when status is set for non-leaf nodeType', async () => {
+    it('should filter by status for non-leaf nodeType', async () => {
+      prisma.roadmapNode.findMany.mockResolvedValueOnce([
+        {
+          id: 'group-1',
+          roadmapId,
+          parentId: null,
+          skillId: null,
+          name: 'Backend Foundations',
+          description: null,
+          nodeType: NodeType.GROUP,
+          estimatedHours: null,
+          posX: 120,
+          posY: 200,
+          userNodeProgress: [
+            {
+              id: 'progress-group-1',
+              userId: MOCK_USER_ID,
+              roadmapNodeId: 'group-1',
+              status: NodeStatus.COMPLETED,
+              startedAt: new Date('2026-01-01T00:00:00Z'),
+              completedAt: new Date('2026-01-02T00:00:00Z'),
+              quizScorePct: null,
+              quizPassed: null,
+            },
+          ],
+        },
+      ]);
+
       const result = await service.listNodes(MOCK_USER_ID, roadmapId, {
         nodeType: NodeType.GROUP,
         status: NodeStatus.COMPLETED,
       });
 
-      expect(result).toEqual({ nodes: [] });
-      expect(prisma.roadmapNode.findMany).not.toHaveBeenCalled();
+      expect(prisma.roadmapNode.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            roadmapId,
+            nodeType: NodeType.GROUP,
+            userNodeProgress: {
+              some: {
+                status: NodeStatus.COMPLETED,
+                userId: MOCK_USER_ID,
+              },
+            },
+          }),
+        }),
+      );
+
+      expect(result).toEqual({
+        nodes: [
+          {
+            id: 'group-1',
+            roadmapId,
+            parentId: null,
+            skillId: null,
+            name: 'Backend Foundations',
+            description: null,
+            nodeType: NodeType.GROUP,
+            estimatedHours: null,
+            posX: 120,
+            posY: 200,
+            progress: {
+              id: 'progress-group-1',
+              roadmapNodeId: 'group-1',
+              status: NodeStatus.COMPLETED,
+              startedAt: new Date('2026-01-01T00:00:00Z'),
+              completedAt: new Date('2026-01-02T00:00:00Z'),
+              quizScorePct: null,
+              quizPassed: null,
+            },
+          },
+        ],
+      });
     });
   });
 

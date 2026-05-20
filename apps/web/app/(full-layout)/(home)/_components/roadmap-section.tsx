@@ -31,19 +31,19 @@ export function RoadmapSection() {
   });
 
   return (
-    <section className="bg-background relative flex flex-col items-center overflow-hidden pt-24 pb-32 lg:pt-32">
+    <section className="bg-background relative flex flex-col items-center overflow-hidden pt-20 pb-24 sm:pt-24 sm:pb-32 lg:pt-32">
       <RainbowBar />
 
       <MaskBackground />
 
       <SectionContainer className="relative z-10 flex flex-col items-center justify-center gap-16">
         {/* Intro Layout: Text + Globe */}
-        <div className="flex w-full flex-col-reverse items-center justify-between gap-12 lg:flex-row lg:items-end lg:gap-8">
+        <div className="flex w-full flex-col-reverse items-center justify-between gap-10 lg:flex-row lg:items-end lg:gap-8">
           {/* Left Text */}
-          <div className="flex w-full max-w-134 flex-col gap-6">
+          <div className="flex w-full max-w-134 flex-col gap-6 text-center lg:text-left">
             <h2 className="text-title">
               Discover Learning Roadmaps,
-              <br /> Master Any Technology.
+              <br className="hidden sm:block" /> Master Any Technology.
             </h2>
             <p className="text-subtitle">
               RMap helps you turn career goals into clear learning steps. Explore role-based and
@@ -62,7 +62,7 @@ export function RoadmapSection() {
           </div>
 
           {/* Right Image (Globe) */}
-          <div className="relative h-62.5 w-62.5 shrink-0 sm:h-87.75 sm:w-[384px]">
+          <div className="relative aspect-square w-full max-w-62.5 shrink-0 sm:max-w-96">
             <Image
               className="object-contain"
               src="/roadmap-globe.png"
@@ -77,7 +77,7 @@ export function RoadmapSection() {
         {/* Roadmap List & Search Bar layout */}
         <div className="flex w-full flex-col items-center gap-12">
           {/* Search Bar Container */}
-          <div className="flex w-full items-center justify-center px-4 sm:px-25 md:px-50 lg:px-72">
+          <div className="flex w-full items-center justify-center px-0 sm:px-12 md:px-32 lg:px-72">
             <div
               className="group/search border-border relative h-12 w-full max-w-140 shrink-0 rounded-full border p-px shadow-sm transition-all duration-300 focus-within:border-violet-500/50 focus-within:ring-4 focus-within:ring-violet-500/10 hover:border-violet-500/30"
               style={{

@@ -17,12 +17,12 @@ export function HeroSection() {
   }
 
   return (
-    <section className="relative h-screen overflow-hidden">
+    <section className="relative min-h-svh overflow-hidden">
       <HeroGradient />
       <RainbowBar />
 
       {/* Hero illustration (bottom) */}
-      <div className="pointer-events-none absolute bottom-0 h-2/3 w-full">
+      <div className="pointer-events-none absolute bottom-0 h-1/2 w-full sm:h-2/3">
         <Image
           className="object-cover"
           src="/hero-illustration.png"
@@ -34,11 +34,11 @@ export function HeroSection() {
       </div>
 
       {/* Hero content */}
-      <div className="relative z-10 mx-auto flex size-full max-w-300 flex-col items-center justify-center px-8">
+      <div className="relative z-10 mx-auto flex min-h-svh w-full max-w-300 flex-col items-center justify-center px-4 py-28 sm:px-8">
         {/* H1 Heading Block */}
         <h1 className="mb-6 text-center">
           <span className="text-hero block">Learn Effectively.</span>
-          <span className="flex items-center justify-center gap-2.5">
+          <span className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1">
             <span className="text-hero">Run any subject </span>
             <span className="relative">
               <span className="text-hero">fearlessly</span>
@@ -75,7 +75,7 @@ export function HeroSection() {
         </p>
 
         {/* CTA Buttons */}
-        <div className="flex items-center justify-center gap-4">
+        <div className="flex w-full flex-col items-stretch justify-center gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-4">
           <Button size="lg" className="group/btn rounded-full" onClick={handleScrollDown}>
             Explore available roadmaps
             <AnimatedIconSwap icon={ArrowRight} hoverIcon={ArrowRight02FreeIcons} />

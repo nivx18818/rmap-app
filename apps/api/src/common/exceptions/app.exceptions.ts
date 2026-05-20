@@ -217,6 +217,24 @@ export class RoadmapNotFoundException extends NotFoundException {
   }
 }
 
+export class RoadmapNodeNotFoundException extends NotFoundException {
+  constructor(identifier: number | string) {
+    super({
+      code: ErrorCode.ROADMAP_NODE_NOT_FOUND,
+      message: `${getErrorMessage(ErrorCode.ROADMAP_NODE_NOT_FOUND)}: ${identifier}`,
+    });
+  }
+}
+
+export class UserNodeProgressNotFoundException extends NotFoundException {
+  constructor(roadmapNodeId: number | string) {
+    super({
+      code: ErrorCode.USER_NODE_PROGRESS_NOT_FOUND,
+      message: `${getErrorMessage(ErrorCode.USER_NODE_PROGRESS_NOT_FOUND)}: ${roadmapNodeId}`,
+    });
+  }
+}
+
 export class SkillNotFoundException extends NotFoundException {
   constructor(identifier: number | string) {
     super({
@@ -403,6 +421,8 @@ export const ErrorCodeToException = {
   [ErrorCode.NOT_FOUND]: AppNotFoundException,
   [ErrorCode.USER_NOT_FOUND]: UserNotFoundException,
   [ErrorCode.ROADMAP_NOT_FOUND]: RoadmapNotFoundException,
+  [ErrorCode.ROADMAP_NODE_NOT_FOUND]: RoadmapNodeNotFoundException,
+  [ErrorCode.USER_NODE_PROGRESS_NOT_FOUND]: UserNodeProgressNotFoundException,
   [ErrorCode.SKILL_NOT_FOUND]: SkillNotFoundException,
   [ErrorCode.ROLE_NOT_FOUND]: RoleNotFoundException,
   [ErrorCode.RESOURCE_NOT_FOUND]: ResourceNotFoundException,

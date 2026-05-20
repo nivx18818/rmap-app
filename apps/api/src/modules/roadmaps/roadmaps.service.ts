@@ -2,14 +2,16 @@ import { Injectable, Logger, UnprocessableEntityException } from '@nestjs/common
 import { NodeStatus, NodeType, type Prisma, type Roadmap } from '@repo/db/prisma/client';
 
 import {
-  AppBadRequestException,
   AppNotFoundException,
+  AppBadRequestException,
   DeadlineInPastException,
   InternalServerErrorException,
   InvalidStatusTransitionException,
   QuizNotPassedException,
   RoadmapGenerationUnavailableException,
+  RoadmapNodeNotFoundException,
   RoadmapNotFoundException,
+  UserNodeProgressNotFoundException,
 } from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
@@ -43,7 +45,7 @@ const QUIZ_PASSING_SCORE_PCT = 60;
 const QUIZ_REVIEW_SUGGESTION = 'You should review this part before continuing.';
 
 const VALID_TRANSITIONS: Record<NodeStatus, NodeStatus[]> = {
-  [NodeStatus.LOCKED]: [NodeStatus.IN_PROGRESS],
+  [NodeStatus.LOCKED]: [],
   [NodeStatus.IN_PROGRESS]: [NodeStatus.COMPLETED],
   [NodeStatus.COMPLETED]: [],
 };
@@ -864,11 +866,11 @@ export class RoadmapsService {
   ): Promise<UpdateNodeProgressResponse> {
     const node = await this.prisma.roadmapNode.findFirst({
       where: { id: nodeId, roadmapId, roadmap: { userId } },
-      select: { id: true, nodeType: true, parentId: true },
+      select: { id: true, nodeType: true, parentId: true, posY: true },
     });
 
     if (!node) {
-      throw new AppNotFoundException('Roadmap node not found');
+      throw new RoadmapNodeNotFoundException(nodeId);
     }
 
     const currentProgress = await this.prisma.userNodeProgress.findUnique({
@@ -877,7 +879,7 @@ export class RoadmapsService {
     });
 
     if (!currentProgress) {
-      throw new AppNotFoundException('Progress record not found');
+      throw new UserNodeProgressNotFoundException(nodeId);
     }
 
     const allowed = VALID_TRANSITIONS[currentProgress.status] ?? [];
@@ -914,22 +916,34 @@ export class RoadmapsService {
 
       const unlockedNodes: string[] = [];
 
-      if (dto.status === NodeStatus.COMPLETED && LEAF_NODE_TYPES.includes(node.nodeType)) {
-        const today = new Date(now);
-        today.setUTCHours(0, 0, 0, 0);
+      if (dto.status === NodeStatus.COMPLETED) {
+        if (LEAF_NODE_TYPES.includes(node.nodeType)) {
+          const today = new Date(now);
+          today.setUTCHours(0, 0, 0, 0);
 
-        await tx.dailyActivity.upsert({
-          where: { userId_activityDate: { userId, activityDate: today } },
-          create: { userId, activityDate: today, nodesCompleted: 1 },
-          update: { nodesCompleted: { increment: 1 } },
-        });
+          await tx.dailyActivity.upsert({
+            where: { userId_activityDate: { userId, activityDate: today } },
+            create: { userId, activityDate: today, nodesCompleted: 1 },
+            update: { nodesCompleted: { increment: 1 } },
+          });
 
-        if (node.parentId) {
-          await this.cascadeGroupCompletion(
+          if (node.parentId) {
+            await this.cascadeGroupCompletion(
+              tx,
+              userId,
+              roadmapId,
+              node.parentId,
+              now,
+              unlockedNodes,
+            );
+          }
+        } else if (node.nodeType === NodeType.MILESTONE) {
+          await this.unlockNextGroupAfterMilestone(
             tx,
             userId,
             roadmapId,
             node.parentId,
+            node.posY,
             now,
             unlockedNodes,
           );
@@ -1010,17 +1024,51 @@ export class RoadmapsService {
     if (!firstNext) return;
 
     if (firstNext.nodeType === NodeType.MILESTONE) {
-      await tx.userNodeProgress.update({
-        where: { userId_roadmapNodeId: { userId, roadmapNodeId: firstNext.id } },
-        data: { status: NodeStatus.COMPLETED, completedAt: now },
-      });
-
-      const nextGroup = nextSiblings.find((n) => n.nodeType === NodeType.GROUP);
-      if (nextGroup) {
-        await this.unlockGroupLeaves(tx, userId, nextGroup.id, now, unlockedNodes);
-      }
+      await this.unlockProgressNode(tx, userId, firstNext.id, now, unlockedNodes);
     } else if (firstNext.nodeType === NodeType.GROUP) {
       await this.unlockGroupLeaves(tx, userId, firstNext.id, now, unlockedNodes);
+    }
+  }
+
+  private async unlockNextGroupAfterMilestone(
+    tx: Awaited<Parameters<Parameters<typeof this.prisma.$transaction>[0]>[0]>,
+    userId: string,
+    roadmapId: string,
+    milestoneParentId: string | null,
+    milestonePosY: Prisma.Decimal | number,
+    now: Date,
+    unlockedNodes: string[],
+  ): Promise<void> {
+    const nextGroup = await tx.roadmapNode.findFirst({
+      where: {
+        roadmapId,
+        parentId: milestoneParentId,
+        nodeType: NodeType.GROUP,
+        posY: { gt: milestonePosY },
+      },
+      orderBy: [{ posY: 'asc' }, { id: 'asc' }],
+      select: { id: true },
+    });
+
+    if (!nextGroup) return;
+
+    await this.unlockGroupLeaves(tx, userId, nextGroup.id, now, unlockedNodes);
+  }
+
+  private async unlockProgressNode(
+    tx: Awaited<Parameters<Parameters<typeof this.prisma.$transaction>[0]>[0]>,
+    userId: string,
+    roadmapNodeId: string,
+    now: Date,
+    unlockedNodes: string[],
+  ): Promise<void> {
+    const result = await tx.userNodeProgress.updateMany({
+      where: { userId, roadmapNodeId, status: NodeStatus.LOCKED },
+      data: { status: NodeStatus.IN_PROGRESS, startedAt: now },
+    });
+
+    if (result.count > 0) {
+      unlockedNodes.push(roadmapNodeId);
     }
   }
 

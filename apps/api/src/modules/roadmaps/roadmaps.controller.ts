@@ -108,7 +108,7 @@ export class RoadmapsController {
    * PATCH /roadmaps/:roadmapId/nodes/:nodeId/progress
    *
    * Updates a node's status with side effects: daily_activity upsert,
-   * parent group auto-complete, milestone auto-complete, and next group unlock.
+   * parent group auto-complete, milestone unlock, and next group unlock.
    */
   @Patch(':roadmapId/nodes/:nodeId/progress')
   @HttpCode(HttpStatus.OK)

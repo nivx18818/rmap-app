@@ -11,7 +11,9 @@ import {
   InvalidStatusTransitionException,
   QuizNotPassedException,
   RoadmapGenerationUnavailableException,
+  RoadmapNodeNotFoundException,
   RoadmapNotFoundException,
+  UserNodeProgressNotFoundException,
 } from '@/common/exceptions/app.exceptions';
 import { AiService } from '@/modules/ai/ai.service';
 import { PrismaService } from '@/modules/prisma/prisma.service';
@@ -62,6 +64,7 @@ interface RoadmapNodeQuizSelection {
   id: string;
   nodeType: NodeType;
   parentId?: string | null;
+  posY?: number;
   skillId: string | null;
 }
 
@@ -1297,25 +1300,25 @@ describe('RoadmapsService', () => {
       txMock.userNodeProgress.count.mockResolvedValue(1);
     });
 
-    it('should throw AppNotFoundException when the node is not found', async () => {
+    it('should throw RoadmapNodeNotFoundException when the node is not found', async () => {
       prisma.roadmapNode.findFirst.mockResolvedValue(null);
 
       await expect(
         service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
           status: NodeStatus.COMPLETED,
         }),
-      ).rejects.toThrow(AppNotFoundException);
+      ).rejects.toThrow(RoadmapNodeNotFoundException);
       expect(prisma.userNodeProgress.findUnique).not.toHaveBeenCalled();
     });
 
-    it('should throw AppNotFoundException when the progress record is not found', async () => {
+    it('should throw UserNodeProgressNotFoundException when the progress record is not found', async () => {
       prisma.userNodeProgress.findUnique.mockResolvedValue(null);
 
       await expect(
         service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
           status: NodeStatus.COMPLETED,
         }),
-      ).rejects.toThrow(AppNotFoundException);
+      ).rejects.toThrow(UserNodeProgressNotFoundException);
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
@@ -1372,32 +1375,18 @@ describe('RoadmapsService', () => {
       expect(txMock.dailyActivity.upsert).not.toHaveBeenCalled();
     });
 
-    it('should set startedAt when transitioning LOCKED → IN_PROGRESS', async () => {
+    it('should reject client-driven LOCKED → IN_PROGRESS transitions', async () => {
       prisma.userNodeProgress.findUnique.mockResolvedValue({
         status: NodeStatus.LOCKED,
         quizPassed: null,
       });
-      txMock.userNodeProgress.update.mockResolvedValue({
-        ...mockUpdatedProgress,
-        status: NodeStatus.IN_PROGRESS,
-        startedAt: new Date(),
-        completedAt: null,
-      });
 
-      const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
-        status: NodeStatus.IN_PROGRESS,
-      });
-
-      expect(txMock.userNodeProgress.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            status: NodeStatus.IN_PROGRESS,
-            startedAt: expect.any(Date),
-          }),
+      await expect(
+        service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+          status: NodeStatus.IN_PROGRESS,
         }),
-      );
-      expect(result.progress.status).toBe(NodeStatus.IN_PROGRESS);
-      expect(result.unlockedNodes).toEqual([]);
+      ).rejects.toThrow(InvalidStatusTransitionException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(txMock.dailyActivity.upsert).not.toHaveBeenCalled();
     });
 
@@ -1460,7 +1449,7 @@ describe('RoadmapsService', () => {
       expect(result.unlockedNodes).toEqual(['leaf-2', 'leaf-3']);
     });
 
-    it('should auto-complete milestone and unlock next GROUP when milestone follows the completed group', async () => {
+    it('should unlock milestone without unlocking next GROUP when milestone follows the completed group', async () => {
       const milestoneId = 'milestone-1';
       const nextGroupId = 'group-2';
 
@@ -1474,16 +1463,69 @@ describe('RoadmapsService', () => {
       txMock.userNodeProgress.count.mockResolvedValue(1);
       txMock.roadmapNode.findFirst.mockResolvedValue({ parentId: null, posY: 100 });
       txMock.userNodeProgress.findUnique.mockResolvedValueOnce({ status: NodeStatus.IN_PROGRESS }); // group not yet completed
-      txMock.userNodeProgress.findMany.mockResolvedValueOnce([{ roadmapNodeId: 'leaf-4' }]); // LOCKED leaves of group-2
+      txMock.userNodeProgress.updateMany.mockResolvedValueOnce({ count: 1 });
 
       const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
         status: NodeStatus.COMPLETED,
       });
 
-      expect(txMock.userNodeProgress.update).toHaveBeenCalledWith(
+      expect(txMock.userNodeProgress.update).not.toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId_roadmapNodeId: { userId: MOCK_USER_ID, roadmapNodeId: milestoneId } },
           data: expect.objectContaining({ status: NodeStatus.COMPLETED }),
+        }),
+      );
+      expect(txMock.userNodeProgress.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userId: MOCK_USER_ID,
+            roadmapNodeId: milestoneId,
+            status: NodeStatus.LOCKED,
+          },
+          data: expect.objectContaining({ status: NodeStatus.IN_PROGRESS }),
+        }),
+      );
+      expect(txMock.userNodeProgress.findMany).not.toHaveBeenCalled();
+      expect(result.unlockedNodes).toEqual([milestoneId]);
+    });
+
+    it('should unlock next GROUP leaves after completing a milestone', async () => {
+      const milestoneId = 'milestone-1';
+      const nextGroupId = 'group-2';
+
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: milestoneId,
+        nodeType: NodeType.MILESTONE,
+        parentId: null,
+        posY: 150,
+        skillId: null,
+      });
+      txMock.userNodeProgress.update.mockResolvedValue({
+        ...mockUpdatedProgress,
+        roadmapNodeId: milestoneId,
+        status: NodeStatus.COMPLETED,
+      });
+      txMock.roadmapNode.findFirst.mockResolvedValueOnce({ id: nextGroupId });
+      txMock.userNodeProgress.findMany.mockResolvedValueOnce([{ roadmapNodeId: 'leaf-4' }]);
+
+      const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, milestoneId, {
+        status: NodeStatus.COMPLETED,
+      });
+
+      expect(txMock.roadmapNode.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            roadmapId,
+            parentId: null,
+            nodeType: NodeType.GROUP,
+            posY: { gt: 150 },
+          }),
+        }),
+      );
+      expect(txMock.userNodeProgress.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: MOCK_USER_ID, roadmapNodeId: { in: ['leaf-4'] } },
+          data: expect.objectContaining({ status: NodeStatus.IN_PROGRESS }),
         }),
       );
       expect(result.unlockedNodes).toEqual(['leaf-4']);

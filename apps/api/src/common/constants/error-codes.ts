@@ -29,6 +29,8 @@ export enum ErrorCode {
   SKILL_NOT_FOUND = 40403,
   ROLE_NOT_FOUND = 40404,
   RESOURCE_NOT_FOUND = 40405,
+  ROADMAP_NODE_NOT_FOUND = 40406,
+  USER_NODE_PROGRESS_NOT_FOUND = 40407,
   // 409 - Conflict
   CONFLICT = 40900,
   EMAIL_ALREADY_EXISTS = 40901,
@@ -73,6 +75,8 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.SKILL_NOT_FOUND]: 'Skill not found',
   [ErrorCode.ROLE_NOT_FOUND]: 'Role not found',
   [ErrorCode.RESOURCE_NOT_FOUND]: 'Learning resource not found',
+  [ErrorCode.ROADMAP_NODE_NOT_FOUND]: 'Roadmap node not found',
+  [ErrorCode.USER_NODE_PROGRESS_NOT_FOUND]: 'User node progress not found',
   // 409 - Conflict
   [ErrorCode.CONFLICT]: 'The resource is in a conflicting state',
   [ErrorCode.EMAIL_ALREADY_EXISTS]: 'Email already registered',

@@ -78,6 +78,50 @@ interface QuizQuestionRecord {
   correctOption: string;
 }
 
+interface RoadmapNodeDetailSelection {
+  id: string;
+  roadmapId: string;
+  parentId: string | null;
+  skillId: string | null;
+  name: string;
+  description: string | null;
+  nodeType: NodeType;
+  estimatedHours: number | null;
+  posX: number;
+  posY: number;
+  userNodeProgress: Array<{
+    id: string;
+    roadmapNodeId: string;
+    status: NodeStatus;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    quizScorePct: number | null;
+    quizPassed: boolean | null;
+  }>;
+  skill: {
+    id: string;
+    name: string;
+    description: string | null;
+    defaultEstimatedHours: number | null;
+    roleCategory: RoleCategory | null;
+    resources: Array<{
+      id: number;
+      createdAt: Date;
+      title: string;
+      url: string;
+      resourceType: string;
+      isFree: boolean;
+      isPrimary: boolean;
+    }>;
+    prerequisites: Array<{
+      prerequisiteSkillId: string;
+      prerequisiteSkill: { name: string };
+    }>;
+  } | null;
+}
+
+type RoadmapNodeFindFirstSelection = RoadmapNodeQuizSelection | RoadmapNodeDetailSelection;
+
 interface RoadmapsPrismaMock {
   $transaction: AsyncMock<unknown, [unknown]>;
   quizQuestion: {
@@ -90,7 +134,7 @@ interface RoadmapsPrismaMock {
     findMany: AsyncMock<unknown[]>;
   };
   roadmapNode: {
-    findFirst: AsyncMock<RoadmapNodeQuizSelection | null>;
+    findFirst: AsyncMock<RoadmapNodeFindFirstSelection | null>;
     findMany: AsyncMock<unknown[]>;
   };
   skill: {
@@ -108,6 +152,11 @@ const createDecimal = (value: number) => ({
   toNumber: () => value,
   toString: () => value.toString(),
 });
+
+const expectAnyDate = (): Date => expect.any(Date) as Date;
+
+const expectObjectContaining = <T extends object>(value: T): T =>
+  expect.objectContaining(value) as T;
 
 const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
   $transaction: jest.fn<Promise<unknown>, [unknown]>().mockImplementation(async (input) => {
@@ -130,7 +179,7 @@ const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
     findMany: jest.fn<Promise<unknown[]>, unknown[]>(),
   },
   roadmapNode: {
-    findFirst: jest.fn<Promise<RoadmapNodeQuizSelection | null>, unknown[]>(),
+    findFirst: jest.fn<Promise<RoadmapNodeFindFirstSelection | null>, unknown[]>(),
     findMany: jest.fn<Promise<unknown[]>, unknown[]>(),
   },
   skill: {
@@ -537,7 +586,7 @@ describe('RoadmapsService', () => {
 
       expect(prisma.roadmapNode.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({
+          where: expectObjectContaining({
             roadmapId,
             nodeType: NodeType.GROUP,
             userNodeProgress: {
@@ -575,6 +624,345 @@ describe('RoadmapsService', () => {
           },
         ],
       });
+    });
+  });
+
+  describe('getNodeDetail', () => {
+    const nodeId = 'node-1';
+    const roadmapId = 'roadmap-1';
+    const skillId = 'skill-1';
+    const startedAt = new Date('2026-01-01T00:00:00Z');
+
+    const makeNodeDetail = (
+      overrides: Partial<RoadmapNodeDetailSelection> = {},
+    ): RoadmapNodeDetailSelection => ({
+      id: nodeId,
+      roadmapId,
+      parentId: 'group-1',
+      skillId,
+      name: 'REST API',
+      description: 'Build production REST APIs',
+      nodeType: NodeType.REQUIRED,
+      estimatedHours: 6,
+      posX: 140,
+      posY: 240,
+      userNodeProgress: [
+        {
+          id: 'progress-1',
+          roadmapNodeId: nodeId,
+          status: NodeStatus.IN_PROGRESS,
+          startedAt,
+          completedAt: null,
+          quizScorePct: 80,
+          quizPassed: true,
+        },
+      ],
+      skill: {
+        id: skillId,
+        name: 'REST APIs',
+        description: 'Design and build RESTful HTTP APIs.',
+        defaultEstimatedHours: 8,
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+        resources: [
+          {
+            id: 1,
+            createdAt: new Date('2026-01-03T00:00:00Z'),
+            title: 'Primary late',
+            url: 'https://example.com/primary-late',
+            resourceType: 'DOCS',
+            isFree: true,
+            isPrimary: true,
+          },
+          {
+            id: 2,
+            createdAt: new Date('2026-01-01T00:00:00Z'),
+            title: 'Primary early',
+            url: 'https://example.com/primary-early',
+            resourceType: 'COURSE',
+            isFree: false,
+            isPrimary: true,
+          },
+          {
+            id: 3,
+            createdAt: new Date('2026-01-02T00:00:00Z'),
+            title: 'Article',
+            url: 'https://example.com/article',
+            resourceType: 'ARTICLE',
+            isFree: true,
+            isPrimary: false,
+          },
+        ],
+        prerequisites: [
+          {
+            prerequisiteSkillId: 'skill-prereq-1',
+            prerequisiteSkill: { name: 'HTTP Basics' },
+          },
+        ],
+      },
+      ...overrides,
+    });
+
+    it('should return full detail for a leaf node', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(makeNodeDetail());
+
+      const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
+      const findFirstArgs = prisma.roadmapNode.findFirst.mock.calls[0]?.[0] as {
+        where: unknown;
+        select: {
+          skill?: {
+            select?: {
+              resources?: {
+                orderBy?: unknown;
+              };
+            };
+          };
+        };
+      };
+
+      expect(findFirstArgs.where).toEqual({
+        id: nodeId,
+        roadmapId,
+        roadmap: { userId: MOCK_USER_ID },
+      });
+      expect(findFirstArgs.select.skill?.select?.resources?.orderBy).toEqual([
+        { isPrimary: 'desc' },
+        { createdAt: 'asc' },
+        { id: 'asc' },
+      ]);
+      expect(result).toEqual({
+        node: {
+          id: nodeId,
+          roadmapId,
+          parentId: 'group-1',
+          skillId,
+          name: 'REST API',
+          description: 'Build production REST APIs',
+          nodeType: NodeType.REQUIRED,
+          estimatedHours: 6,
+          posX: 140,
+          posY: 240,
+          progress: {
+            id: 'progress-1',
+            roadmapNodeId: nodeId,
+            status: NodeStatus.IN_PROGRESS,
+            startedAt,
+            completedAt: null,
+            quizScorePct: 80,
+            quizPassed: true,
+          },
+        },
+        skill: {
+          id: skillId,
+          name: 'REST APIs',
+          description: 'Design and build RESTful HTTP APIs.',
+          defaultEstimatedHours: 8,
+          roleCategory: RoleCategory.WEB_DEVELOPMENT,
+        },
+        resources: [
+          {
+            id: 2,
+            title: 'Primary early',
+            url: 'https://example.com/primary-early',
+            resourceType: 'COURSE',
+            isFree: false,
+            isPrimary: true,
+          },
+          {
+            id: 1,
+            title: 'Primary late',
+            url: 'https://example.com/primary-late',
+            resourceType: 'DOCS',
+            isFree: true,
+            isPrimary: true,
+          },
+          {
+            id: 3,
+            title: 'Article',
+            url: 'https://example.com/article',
+            resourceType: 'ARTICLE',
+            isFree: true,
+            isPrimary: false,
+          },
+        ],
+        prerequisites: [{ skillId: 'skill-prereq-1', skillName: 'HTTP Basics' }],
+      });
+    });
+
+    it('should order resources with primaries first and createdAt ascending within groups', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(
+        makeNodeDetail({
+          skill: {
+            id: skillId,
+            name: 'REST APIs',
+            description: null,
+            defaultEstimatedHours: null,
+            roleCategory: null,
+            resources: [
+              {
+                id: 4,
+                createdAt: new Date('2026-01-04T00:00:00Z'),
+                title: 'Non-primary late',
+                url: 'https://example.com/non-primary-late',
+                resourceType: 'ARTICLE',
+                isFree: true,
+                isPrimary: false,
+              },
+              {
+                id: 2,
+                createdAt: new Date('2026-01-02T00:00:00Z'),
+                title: 'Primary late',
+                url: 'https://example.com/primary-late',
+                resourceType: 'DOCS',
+                isFree: true,
+                isPrimary: true,
+              },
+              {
+                id: 1,
+                createdAt: new Date('2026-01-01T00:00:00Z'),
+                title: 'Primary early',
+                url: 'https://example.com/primary-early',
+                resourceType: 'COURSE',
+                isFree: false,
+                isPrimary: true,
+              },
+              {
+                id: 3,
+                createdAt: new Date('2026-01-03T00:00:00Z'),
+                title: 'Non-primary early',
+                url: 'https://example.com/non-primary-early',
+                resourceType: 'YOUTUBE',
+                isFree: true,
+                isPrimary: false,
+              },
+            ],
+            prerequisites: [],
+          },
+        }),
+      );
+
+      const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
+
+      expect(result.resources?.map((resource) => resource.id)).toEqual([1, 2, 3, 4]);
+    });
+
+    it('should return at most two primary resources', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(
+        makeNodeDetail({
+          skill: {
+            id: skillId,
+            name: 'REST APIs',
+            description: null,
+            defaultEstimatedHours: null,
+            roleCategory: null,
+            resources: [
+              {
+                id: 1,
+                createdAt: new Date('2026-01-01T00:00:00Z'),
+                title: 'Primary one',
+                url: 'https://example.com/primary-one',
+                resourceType: 'DOCS',
+                isFree: true,
+                isPrimary: true,
+              },
+              {
+                id: 2,
+                createdAt: new Date('2026-01-02T00:00:00Z'),
+                title: 'Primary two',
+                url: 'https://example.com/primary-two',
+                resourceType: 'COURSE',
+                isFree: true,
+                isPrimary: true,
+              },
+              {
+                id: 3,
+                createdAt: new Date('2026-01-03T00:00:00Z'),
+                title: 'Primary three',
+                url: 'https://example.com/primary-three',
+                resourceType: 'YOUTUBE',
+                isFree: true,
+                isPrimary: true,
+              },
+              {
+                id: 4,
+                createdAt: new Date('2026-01-04T00:00:00Z'),
+                title: 'Article',
+                url: 'https://example.com/article',
+                resourceType: 'ARTICLE',
+                isFree: true,
+                isPrimary: false,
+              },
+            ],
+            prerequisites: [],
+          },
+        }),
+      );
+
+      const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
+
+      expect(result.resources?.map((resource) => resource.id)).toEqual([1, 2, 4]);
+      expect(result.resources?.filter((resource) => resource.isPrimary)).toHaveLength(2);
+    });
+
+    it('should return null skill and resources for a group node', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(
+        makeNodeDetail({
+          parentId: null,
+          skillId: null,
+          nodeType: NodeType.GROUP,
+          estimatedHours: null,
+          skill: null,
+          userNodeProgress: [],
+        }),
+      );
+
+      const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
+
+      expect(result.skill).toBeNull();
+      expect(result.resources).toBeNull();
+      expect(result.prerequisites).toEqual([]);
+      expect(result.node.progress).toBeNull();
+    });
+
+    it('should return null skill and resources for a milestone node', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(
+        makeNodeDetail({
+          skillId: null,
+          nodeType: NodeType.MILESTONE,
+          estimatedHours: null,
+          skill: null,
+        }),
+      );
+
+      const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
+
+      expect(result.skill).toBeNull();
+      expect(result.resources).toBeNull();
+      expect(result.prerequisites).toEqual([]);
+    });
+
+    it('should throw RoadmapNodeNotFoundException when the node is not found', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(null);
+
+      await expect(service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId)).rejects.toThrow(
+        RoadmapNodeNotFoundException,
+      );
+    });
+
+    it('should throw RoadmapNodeNotFoundException when the node belongs to another user', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(null);
+
+      await expect(service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId)).rejects.toThrow(
+        RoadmapNodeNotFoundException,
+      );
+      expect(prisma.roadmapNode.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: nodeId,
+            roadmapId,
+            roadmap: { userId: MOCK_USER_ID },
+          },
+        }),
+      );
     });
   });
 
@@ -1399,9 +1787,9 @@ describe('RoadmapsService', () => {
       expect(txMock.dailyActivity.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           where: {
-            userId_activityDate: { userId: MOCK_USER_ID, activityDate: expect.any(Date) },
+            userId_activityDate: { userId: MOCK_USER_ID, activityDate: expectAnyDate() },
           },
-          create: expect.objectContaining({ nodesCompleted: 1 }),
+          create: expectObjectContaining({ nodesCompleted: 1 }),
           update: { nodesCompleted: { increment: 1 } },
         }),
       );
@@ -1437,13 +1825,13 @@ describe('RoadmapsService', () => {
       expect(txMock.userNodeProgress.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId_roadmapNodeId: { userId: MOCK_USER_ID, roadmapNodeId: groupId } },
-          data: expect.objectContaining({ status: NodeStatus.COMPLETED }),
+          data: expectObjectContaining({ status: NodeStatus.COMPLETED }),
         }),
       );
       expect(txMock.userNodeProgress.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId: MOCK_USER_ID, roadmapNodeId: { in: ['leaf-2', 'leaf-3'] } },
-          data: expect.objectContaining({ status: NodeStatus.IN_PROGRESS }),
+          data: expectObjectContaining({ status: NodeStatus.IN_PROGRESS }),
         }),
       );
       expect(result.unlockedNodes).toEqual(['leaf-2', 'leaf-3']);
@@ -1472,7 +1860,7 @@ describe('RoadmapsService', () => {
       expect(txMock.userNodeProgress.update).not.toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId_roadmapNodeId: { userId: MOCK_USER_ID, roadmapNodeId: milestoneId } },
-          data: expect.objectContaining({ status: NodeStatus.COMPLETED }),
+          data: expectObjectContaining({ status: NodeStatus.COMPLETED }),
         }),
       );
       expect(txMock.userNodeProgress.updateMany).toHaveBeenCalledWith(
@@ -1482,7 +1870,7 @@ describe('RoadmapsService', () => {
             roadmapNodeId: milestoneId,
             status: NodeStatus.LOCKED,
           },
-          data: expect.objectContaining({ status: NodeStatus.IN_PROGRESS }),
+          data: expectObjectContaining({ status: NodeStatus.IN_PROGRESS }),
         }),
       );
       expect(txMock.userNodeProgress.findMany).not.toHaveBeenCalled();
@@ -1514,7 +1902,7 @@ describe('RoadmapsService', () => {
 
       expect(txMock.roadmapNode.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({
+          where: expectObjectContaining({
             roadmapId,
             parentId: null,
             nodeType: NodeType.GROUP,
@@ -1525,7 +1913,7 @@ describe('RoadmapsService', () => {
       expect(txMock.userNodeProgress.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { userId: MOCK_USER_ID, roadmapNodeId: { in: ['leaf-4'] } },
-          data: expect.objectContaining({ status: NodeStatus.IN_PROGRESS }),
+          data: expectObjectContaining({ status: NodeStatus.IN_PROGRESS }),
         }),
       );
       expect(result.unlockedNodes).toEqual(['leaf-4']);

@@ -13,6 +13,7 @@ import {
 
 import type { PaginatedRoadmapsResponseDto, RoadmapResponseDto } from './dto/roadmap-response.dto';
 import type { NodeDetailResponse } from './types/roadmap-nodes.types';
+import type { RoadmapProgressSummaryResponse } from './types/roadmap-progress.types';
 
 import { CurrentUser, type RequestUser } from '../auth/decorators/current-user.decorator';
 import { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
@@ -74,6 +75,19 @@ export class RoadmapsController {
     @Param('nodeId') nodeId: string,
   ): Promise<NodeDetailResponse> {
     return this.roadmapsService.getNodeDetail(user.id, roadmapId, nodeId);
+  }
+
+  /**
+   * GET /roadmaps/:roadmapId/progress
+   *
+   * Returns completion %, streak, skill readiness, and timeline warning.
+   */
+  @Get(':roadmapId/progress')
+  async getProgressSummary(
+    @CurrentUser() user: RequestUser,
+    @Param('roadmapId') roadmapId: string,
+  ): Promise<RoadmapProgressSummaryResponse> {
+    return this.roadmapsService.getProgressSummary(user.id, roadmapId);
   }
 
   @Get(':roadmapId')

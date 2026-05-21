@@ -33,6 +33,10 @@ import type {
   RoadmapNodesListResponse,
   UpdateNodeProgressResponse,
 } from './types/roadmap-nodes.types';
+import type {
+  RoadmapProgressSummaryResponse,
+  TimelineWarningResponse,
+} from './types/roadmap-progress.types';
 
 import { AiService } from '../ai/ai.service';
 import { DagreLayoutService } from './dagre-layout.service';
@@ -43,6 +47,7 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 /** Timeline warning threshold: warn when total > available * (1 + THRESHOLD). */
 const FEASIBILITY_THRESHOLD = 0.15;
 
+const PACE_WARNING_THRESHOLD_PCT = 15;
 const LEAF_NODE_TYPES: NodeType[] = [NodeType.REQUIRED, NodeType.OPTIONAL];
 const NODE_QUIZ_QUESTION_COUNT = 5;
 const QUIZ_PASSING_SCORE_PCT = 60;
@@ -96,6 +101,20 @@ type RoadmapNodeWithProgressRecord = {
     quizScorePct: Prisma.Decimal | number | null;
     quizPassed: boolean | null;
   }>;
+};
+
+type RoadmapProgressNodeRecord = {
+  id: string;
+  nodeType: NodeType;
+  estimatedHours: Prisma.Decimal | number | null;
+  userNodeProgress: Array<{
+    status: NodeStatus;
+  }>;
+};
+
+type DailyActivityRecord = {
+  activityDate: Date;
+  nodesCompleted: number;
 };
 
 const toNumberOrNull = (value: Prisma.Decimal | number | null) =>
@@ -207,6 +226,81 @@ export class RoadmapsService {
 
     return {
       nodes: nodes.map((node) => this.formatNodeWithProgress(node)),
+    };
+  }
+
+  async getProgressSummary(
+    userId: string,
+    roadmapId: string,
+  ): Promise<RoadmapProgressSummaryResponse> {
+    const roadmap = await this.prisma.roadmap.findFirst({
+      where: {
+        id: roadmapId,
+        isTemplate: false,
+        userId,
+      },
+      select: {
+        generatedAt: true,
+        hoursPerDay: true,
+        id: true,
+      },
+    });
+
+    if (!roadmap) {
+      throw new RoadmapNotFoundException(roadmapId);
+    }
+
+    const [nodes, dailyActivities] = await this.prisma.$transaction([
+      this.prisma.roadmapNode.findMany({
+        where: { roadmapId },
+        select: {
+          id: true,
+          nodeType: true,
+          estimatedHours: true,
+          userNodeProgress: {
+            where: { userId },
+            select: { status: true },
+          },
+        },
+      }),
+      this.prisma.dailyActivity.findMany({
+        where: { userId },
+        orderBy: [{ activityDate: 'desc' }, { id: 'asc' }],
+        select: {
+          activityDate: true,
+          nodesCompleted: true,
+        },
+      }),
+    ]);
+
+    const nodesTotal = nodes.length;
+    const completedNodes = nodes.filter((node) => this.isNodeCompleted(node));
+    const nodesCompleted = completedNodes.length;
+    const requiredLeafNodes = nodes.filter((node) => node.nodeType === NodeType.REQUIRED);
+    const requiredLeafNodesCompleted = requiredLeafNodes.filter((node) =>
+      this.isNodeCompleted(node),
+    ).length;
+    const completedHours = completedNodes.reduce(
+      (total, node) => total + (toNumberOrNull(node.estimatedHours) ?? 0),
+      0,
+    );
+    const hoursPerDay = toNumberOrNull(roadmap.hoursPerDay);
+
+    return {
+      roadmapId: roadmap.id,
+      completionPct: this.calculatePercent(nodesCompleted, nodesTotal),
+      streakDays: this.calculateStreakDays(dailyActivities),
+      skillReadinessPct: this.calculatePercent(
+        requiredLeafNodesCompleted,
+        requiredLeafNodes.length,
+      ),
+      nodesTotal,
+      nodesCompleted,
+      timelineWarning: this.calculateTimelineWarning(
+        roadmap.generatedAt,
+        hoursPerDay,
+        completedHours,
+      ),
     };
   }
 
@@ -937,6 +1031,95 @@ export class RoadmapsService {
           }
         : null,
     };
+  }
+
+  private isNodeCompleted(node: RoadmapProgressNodeRecord): boolean {
+    return node.userNodeProgress[0]?.status === NodeStatus.COMPLETED;
+  }
+
+  private calculatePercent(completed: number, total: number): number {
+    if (total === 0) {
+      return 0;
+    }
+
+    return this.roundToOne((completed / total) * 100);
+  }
+
+  private calculateStreakDays(dailyActivities: DailyActivityRecord[], now = new Date()): number {
+    const activeDateKeys = new Set(
+      dailyActivities
+        .filter((activity) => activity.nodesCompleted > 0)
+        .map((activity) => this.toUtcDateKey(activity.activityDate)),
+    );
+    const todayKey = this.toUtcDateKey(now);
+    const startDate = new Date(this.toUtcMidnightMs(now));
+
+    if (!activeDateKeys.has(todayKey)) {
+      startDate.setUTCDate(startDate.getUTCDate() - 1);
+    }
+
+    let streakDays = 0;
+    const cursor = new Date(startDate);
+
+    while (activeDateKeys.has(this.toUtcDateKey(cursor))) {
+      streakDays += 1;
+      cursor.setUTCDate(cursor.getUTCDate() - 1);
+    }
+
+    return streakDays;
+  }
+
+  private calculateTimelineWarning(
+    generatedAt: Date,
+    hoursPerDay: number | null,
+    completedHours: number,
+    now = new Date(),
+  ): TimelineWarningResponse | null {
+    if (!hoursPerDay || hoursPerDay <= 0 || Number.isNaN(generatedAt.getTime())) {
+      return null;
+    }
+
+    const daysElapsed =
+      Math.max(
+        1,
+        Math.floor((this.toUtcMidnightMs(now) - this.toUtcMidnightMs(generatedAt)) / MS_PER_DAY) +
+          1,
+      ) || 1;
+    const plannedHoursElapsed = daysElapsed * hoursPerDay;
+
+    if (plannedHoursElapsed <= 0) {
+      return null;
+    }
+
+    const hoursDeficit = Math.max(0, plannedHoursElapsed - completedHours);
+    const paceDeficitPct = this.roundToOne((hoursDeficit / plannedHoursElapsed) * 100);
+
+    if (paceDeficitPct < PACE_WARNING_THRESHOLD_PCT) {
+      return null;
+    }
+
+    const estimatedDelayDays = Math.ceil(hoursDeficit / hoursPerDay);
+
+    return {
+      isBehind: true,
+      paceDeficitPct,
+      estimatedDelayDays,
+      message:
+        `You are ${paceDeficitPct}% behind pace - projected delay is about ` +
+        `${estimatedDelayDays} day(s).`,
+    };
+  }
+
+  private roundToOne(value: number): number {
+    return Math.round(value * 10) / 10;
+  }
+
+  private toUtcDateKey(date: Date): string {
+    return date.toISOString().slice(0, 10);
+  }
+
+  private toUtcMidnightMs(date: Date): number {
+    return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
   }
 
   private formatRoadmap(roadmap: SelectedRoadmap): RoadmapResponseDto {

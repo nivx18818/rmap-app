@@ -15,6 +15,7 @@ describe('RoadmapsController', () => {
     getByIdForOwner: jest.fn(),
     getNodeDetail: jest.fn(),
     getNodeQuiz: jest.fn(),
+    getProgressSummary: jest.fn(),
     listNodes: jest.fn(),
     listUserRoadmaps: jest.fn(),
     submitNodeQuiz: jest.fn(),
@@ -153,6 +154,34 @@ describe('RoadmapsController', () => {
       const result = await controller.get(user, 'roadmap-1');
 
       expect(mockRoadmapsService.getByIdForOwner).toHaveBeenCalledWith('user-1', 'roadmap-1');
+      expect(result).toEqual(response);
+    });
+  });
+
+  describe('getProgressSummary', () => {
+    it('should call getProgressSummary and return response', async () => {
+      const user = {
+        id: 'user-1',
+        email: 'test@example.com',
+        fullName: 'Test User',
+        role: 'USER',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      };
+      const response = {
+        roadmapId: 'roadmap-1',
+        completionPct: 40,
+        streakDays: 3,
+        skillReadinessPct: 50,
+        nodesTotal: 5,
+        nodesCompleted: 2,
+        timelineWarning: null,
+      };
+
+      mockRoadmapsService.getProgressSummary.mockResolvedValue(response);
+
+      const result = await controller.getProgressSummary(user, 'roadmap-1');
+
+      expect(mockRoadmapsService.getProgressSummary).toHaveBeenCalledWith('user-1', 'roadmap-1');
       expect(result).toEqual(response);
     });
   });

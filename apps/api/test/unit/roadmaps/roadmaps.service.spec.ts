@@ -124,6 +124,9 @@ type RoadmapNodeFindFirstSelection = RoadmapNodeQuizSelection | RoadmapNodeDetai
 
 interface RoadmapsPrismaMock {
   $transaction: AsyncMock<unknown, [unknown]>;
+  dailyActivity: {
+    findMany: AsyncMock<Array<{ activityDate: Date; nodesCompleted: number }>>;
+  };
   quizQuestion: {
     findMany: AsyncMock<QuizQuestionRecord[]>;
   };
@@ -169,6 +172,9 @@ const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
     const transactionCallback = input as TransactionCallback;
     return transactionCallback(txMock);
   }),
+  dailyActivity: {
+    findMany: jest.fn<Promise<Array<{ activityDate: Date; nodesCompleted: number }>>, unknown[]>(),
+  },
   quizQuestion: {
     findMany: jest.fn<Promise<QuizQuestionRecord[]>, unknown[]>(),
   },
@@ -624,6 +630,128 @@ describe('RoadmapsService', () => {
           },
         ],
       });
+    });
+  });
+
+  describe('getProgressSummary', () => {
+    const roadmapId = 'roadmap-1';
+    const systemNow = new Date('2026-05-21T12:00:00Z');
+    const makeProgressNode = (
+      id: string,
+      nodeType: NodeType,
+      status: NodeStatus | null,
+      estimatedHours: number | null,
+    ) => ({
+      id,
+      nodeType,
+      estimatedHours,
+      userNodeProgress: status ? [{ status }] : [],
+    });
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(systemNow);
+      prisma.roadmap.findFirst.mockResolvedValue({
+        generatedAt: new Date('2026-05-20T03:00:00Z'),
+        hoursPerDay: createDecimal(2),
+        id: roadmapId,
+      });
+      prisma.dailyActivity.findMany.mockResolvedValue([]);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should throw RoadmapNotFoundException when the roadmap is not found', async () => {
+      prisma.roadmap.findFirst.mockResolvedValue(null);
+
+      await expect(service.getProgressSummary(MOCK_USER_ID, roadmapId)).rejects.toThrow(
+        RoadmapNotFoundException,
+      );
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should compute completion and skill readiness percentages', async () => {
+      prisma.roadmapNode.findMany.mockResolvedValue([
+        makeProgressNode('group-1', NodeType.GROUP, NodeStatus.COMPLETED, null),
+        makeProgressNode('required-1', NodeType.REQUIRED, NodeStatus.COMPLETED, 2),
+        makeProgressNode('required-2', NodeType.REQUIRED, NodeStatus.IN_PROGRESS, 8),
+        makeProgressNode('optional-1', NodeType.OPTIONAL, NodeStatus.COMPLETED, 3),
+        makeProgressNode('milestone-1', NodeType.MILESTONE, NodeStatus.LOCKED, null),
+      ]);
+
+      const result = await service.getProgressSummary(MOCK_USER_ID, roadmapId);
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          roadmapId,
+          completionPct: 60,
+          skillReadinessPct: 50,
+          nodesTotal: 5,
+          nodesCompleted: 3,
+          timelineWarning: null,
+        }),
+      );
+    });
+
+    it('should compute streak from consecutive daily activity rows', async () => {
+      prisma.roadmap.findFirst.mockResolvedValue({
+        generatedAt: new Date('2026-05-20T03:00:00Z'),
+        hoursPerDay: null,
+        id: roadmapId,
+      });
+      prisma.roadmapNode.findMany.mockResolvedValue([]);
+      prisma.dailyActivity.findMany.mockResolvedValue([
+        { activityDate: new Date('2026-05-20T00:00:00Z'), nodesCompleted: 1 },
+        { activityDate: new Date('2026-05-19T00:00:00Z'), nodesCompleted: 2 },
+        { activityDate: new Date('2026-05-18T00:00:00Z'), nodesCompleted: 1 },
+        { activityDate: new Date('2026-05-17T00:00:00Z'), nodesCompleted: 0 },
+        { activityDate: new Date('2026-05-16T00:00:00Z'), nodesCompleted: 1 },
+      ]);
+
+      const result = await service.getProgressSummary(MOCK_USER_ID, roadmapId);
+
+      expect(result.streakDays).toBe(3);
+      expect(result.completionPct).toBe(0);
+      expect(result.skillReadinessPct).toBe(0);
+    });
+
+    it('should return a timeline warning when pace deficit is at least 15 percent', async () => {
+      prisma.roadmap.findFirst.mockResolvedValue({
+        generatedAt: new Date('2026-05-19T03:00:00Z'),
+        hoursPerDay: createDecimal(4),
+        id: roadmapId,
+      });
+      prisma.roadmapNode.findMany.mockResolvedValue([
+        makeProgressNode('required-1', NodeType.REQUIRED, NodeStatus.COMPLETED, 9),
+        makeProgressNode('required-2', NodeType.REQUIRED, NodeStatus.IN_PROGRESS, 4),
+      ]);
+
+      const result = await service.getProgressSummary(MOCK_USER_ID, roadmapId);
+
+      expect(result.timelineWarning).toEqual({
+        isBehind: true,
+        paceDeficitPct: 25,
+        estimatedDelayDays: 1,
+        message: 'You are 25% behind pace - projected delay is about 1 day(s).',
+      });
+    });
+
+    it('should return null timeline warning when on track', async () => {
+      prisma.roadmap.findFirst.mockResolvedValue({
+        generatedAt: new Date('2026-05-19T03:00:00Z'),
+        hoursPerDay: createDecimal(4),
+        id: roadmapId,
+      });
+      prisma.roadmapNode.findMany.mockResolvedValue([
+        makeProgressNode('required-1', NodeType.REQUIRED, NodeStatus.COMPLETED, 11),
+        makeProgressNode('required-2', NodeType.REQUIRED, NodeStatus.IN_PROGRESS, 4),
+      ]);
+
+      const result = await service.getProgressSummary(MOCK_USER_ID, roadmapId);
+
+      expect(result.timelineWarning).toBeNull();
     });
   });
 

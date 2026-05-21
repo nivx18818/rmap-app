@@ -27,8 +27,12 @@ import type {
   RoadmapNodeQuizResponse,
   SubmitQuizResponse,
 } from './types/roadmap-node-quiz.types';
-import type { RoadmapNodesListResponse } from './types/roadmap-nodes.types';
-import type { UpdateNodeProgressResponse } from './types/roadmap-nodes.types';
+import type {
+  NodeDetailResponse,
+  RoadmapNodeWithUserProgressResponse,
+  RoadmapNodesListResponse,
+  UpdateNodeProgressResponse,
+} from './types/roadmap-nodes.types';
 
 import { AiService } from '../ai/ai.service';
 import { DagreLayoutService } from './dagre-layout.service';
@@ -70,6 +74,28 @@ type SelectedRoadmap = Pick<Roadmap, keyof typeof ROADMAP_SELECT>;
 type DecimalLike = {
   toNumber?: () => number;
   toString: () => string;
+};
+
+type RoadmapNodeWithProgressRecord = {
+  id: string;
+  roadmapId: string;
+  parentId: string | null;
+  skillId: string | null;
+  name: string;
+  description: string | null;
+  nodeType: NodeType;
+  estimatedHours: Prisma.Decimal | number | null;
+  posX: Prisma.Decimal | number;
+  posY: Prisma.Decimal | number;
+  userNodeProgress: Array<{
+    id: string;
+    roadmapNodeId: string;
+    status: NodeStatus;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    quizScorePct: Prisma.Decimal | number | null;
+    quizPassed: boolean | null;
+  }>;
 };
 
 const toNumberOrNull = (value: Prisma.Decimal | number | null) =>
@@ -180,33 +206,123 @@ export class RoadmapsService {
     });
 
     return {
-      nodes: nodes.map((node) => {
-        const progress = node.userNodeProgress[0] ?? null;
+      nodes: nodes.map((node) => this.formatNodeWithProgress(node)),
+    };
+  }
 
-        return {
-          id: node.id,
-          roadmapId: node.roadmapId,
-          parentId: node.parentId,
-          skillId: node.skillId,
-          name: node.name,
-          description: node.description,
-          nodeType: node.nodeType,
-          estimatedHours: toNumberOrNull(node.estimatedHours),
-          posX: Number(node.posX),
-          posY: Number(node.posY),
-          progress: progress
-            ? {
-                id: progress.id,
-                roadmapNodeId: progress.roadmapNodeId,
-                status: progress.status,
-                startedAt: progress.startedAt,
-                completedAt: progress.completedAt,
-                quizScorePct: toNumberOrNull(progress.quizScorePct),
-                quizPassed: progress.quizPassed,
-              }
-            : null,
-        };
-      }),
+  async getNodeDetail(
+    userId: string,
+    roadmapId: string,
+    nodeId: string,
+  ): Promise<NodeDetailResponse> {
+    const node = await this.prisma.roadmapNode.findFirst({
+      where: {
+        id: nodeId,
+        roadmapId,
+        roadmap: { userId },
+      },
+      select: {
+        id: true,
+        roadmapId: true,
+        parentId: true,
+        skillId: true,
+        name: true,
+        description: true,
+        nodeType: true,
+        estimatedHours: true,
+        posX: true,
+        posY: true,
+        userNodeProgress: {
+          where: { userId },
+          select: {
+            id: true,
+            roadmapNodeId: true,
+            status: true,
+            startedAt: true,
+            completedAt: true,
+            quizScorePct: true,
+            quizPassed: true,
+          },
+        },
+        skill: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            defaultEstimatedHours: true,
+            roleCategory: true,
+            resources: {
+              orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
+              select: {
+                id: true,
+                createdAt: true,
+                title: true,
+                url: true,
+                resourceType: true,
+                isFree: true,
+                isPrimary: true,
+              },
+            },
+            prerequisites: {
+              select: {
+                prerequisiteSkillId: true,
+                prerequisiteSkill: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!node) {
+      throw new RoadmapNodeNotFoundException(nodeId);
+    }
+
+    const nodeResponse = this.formatNodeWithProgress(node);
+
+    if (!LEAF_NODE_TYPES.includes(node.nodeType) || !node.skill) {
+      return {
+        node: nodeResponse,
+        skill: null,
+        resources: null,
+        prerequisites: [],
+      };
+    }
+
+    const orderedResources = [...node.skill.resources].sort(
+      (a, b) =>
+        Number(b.isPrimary) - Number(a.isPrimary) ||
+        a.createdAt.getTime() - b.createdAt.getTime() ||
+        a.id - b.id,
+    );
+    const primaryResources = orderedResources.filter((resource) => resource.isPrimary).slice(0, 2);
+    const nonPrimaryResources = orderedResources.filter((resource) => !resource.isPrimary);
+
+    return {
+      node: nodeResponse,
+      skill: {
+        id: node.skill.id,
+        name: node.skill.name,
+        description: node.skill.description,
+        defaultEstimatedHours: toNumberOrNull(node.skill.defaultEstimatedHours),
+        roleCategory: node.skill.roleCategory,
+      },
+      resources: [...primaryResources, ...nonPrimaryResources].map((resource) => ({
+        id: resource.id,
+        title: resource.title,
+        url: resource.url,
+        resourceType: resource.resourceType,
+        isFree: resource.isFree,
+        isPrimary: resource.isPrimary,
+      })),
+      prerequisites: node.skill.prerequisites.map((prerequisite) => ({
+        skillId: prerequisite.prerequisiteSkillId,
+        skillName: prerequisite.prerequisiteSkill.name,
+      })),
     };
   }
 
@@ -791,6 +907,36 @@ export class RoadmapsService {
     }
 
     return false;
+  }
+
+  private formatNodeWithProgress(
+    node: RoadmapNodeWithProgressRecord,
+  ): RoadmapNodeWithUserProgressResponse {
+    const progress = node.userNodeProgress[0] ?? null;
+
+    return {
+      id: node.id,
+      roadmapId: node.roadmapId,
+      parentId: node.parentId,
+      skillId: node.skillId,
+      name: node.name,
+      description: node.description,
+      nodeType: node.nodeType,
+      estimatedHours: toNumberOrNull(node.estimatedHours),
+      posX: Number(node.posX),
+      posY: Number(node.posY),
+      progress: progress
+        ? {
+            id: progress.id,
+            roadmapNodeId: progress.roadmapNodeId,
+            status: progress.status,
+            startedAt: progress.startedAt,
+            completedAt: progress.completedAt,
+            quizScorePct: toNumberOrNull(progress.quizScorePct),
+            quizPassed: progress.quizPassed,
+          }
+        : null,
+    };
   }
 
   private formatRoadmap(roadmap: SelectedRoadmap): RoadmapResponseDto {

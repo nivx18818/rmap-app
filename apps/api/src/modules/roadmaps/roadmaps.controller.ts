@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 
 import type { PaginatedRoadmapsResponseDto, RoadmapResponseDto } from './dto/roadmap-response.dto';
+import type { NodeDetailResponse } from './types/roadmap-nodes.types';
 
 import { CurrentUser, type RequestUser } from '../auth/decorators/current-user.decorator';
 import { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
@@ -58,6 +59,21 @@ export class RoadmapsController {
     @Query() query: RoadmapNodesFilterDto,
   ) {
     return this.roadmapsService.listNodes(user.id, roadmapId, query);
+  }
+
+  /**
+   * GET /roadmaps/:roadmapId/nodes/:nodeId
+   *
+   * Returns full sidebar content for a clicked node: node metadata + progress,
+   * skill detail, resources (primaries first), and prerequisites.
+   */
+  @Get(':roadmapId/nodes/:nodeId')
+  async getNodeDetail(
+    @CurrentUser() user: RequestUser,
+    @Param('roadmapId') roadmapId: string,
+    @Param('nodeId') nodeId: string,
+  ): Promise<NodeDetailResponse> {
+    return this.roadmapsService.getNodeDetail(user.id, roadmapId, nodeId);
   }
 
   @Get(':roadmapId')

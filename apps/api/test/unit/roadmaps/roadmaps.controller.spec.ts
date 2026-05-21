@@ -13,6 +13,7 @@ describe('RoadmapsController', () => {
     deleteByIdForOwner: jest.fn(),
     generate: jest.fn(),
     getByIdForOwner: jest.fn(),
+    getNodeDetail: jest.fn(),
     getNodeQuiz: jest.fn(),
     listNodes: jest.fn(),
     listUserRoadmaps: jest.fn(),
@@ -55,6 +56,41 @@ describe('RoadmapsController', () => {
     expect(mockRoadmapsService.listNodes).toHaveBeenCalledWith('user-1', 'roadmap-1', {
       q: 'REST',
     });
+    expect(result).toEqual(mockResponse);
+  });
+
+  it('should call getNodeDetail and return response', async () => {
+    const mockUser = {
+      id: 'user-1',
+      email: 'test@example.com',
+      fullName: 'Test User',
+      role: 'USER',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    };
+    const mockResponse = {
+      node: {
+        id: 'node-1',
+        roadmapId: 'roadmap-1',
+        parentId: 'group-1',
+        skillId: 'skill-1',
+        name: 'REST API',
+        description: null,
+        nodeType: 'REQUIRED',
+        estimatedHours: 6,
+        posX: 140,
+        posY: 240,
+        progress: null,
+      },
+      skill: null,
+      resources: null,
+      prerequisites: [],
+    };
+
+    mockRoadmapsService.getNodeDetail.mockResolvedValue(mockResponse);
+
+    const result = await controller.getNodeDetail(mockUser, 'roadmap-1', 'node-1');
+
+    expect(mockRoadmapsService.getNodeDetail).toHaveBeenCalledWith('user-1', 'roadmap-1', 'node-1');
     expect(result).toEqual(mockResponse);
   });
 

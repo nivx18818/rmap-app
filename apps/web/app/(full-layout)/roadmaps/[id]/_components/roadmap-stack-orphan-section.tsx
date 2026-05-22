@@ -9,6 +9,7 @@ import { RoadmapStackChildList } from './roadmap-stack-child-list';
 
 interface RoadmapStackOrphanSectionProps {
   isFiltered: boolean;
+  onNodeSelect?: (nodeId: string) => void;
   searchQuery?: string;
   section: RoadmapStackSection;
   shouldWrapOrphanList: boolean;
@@ -16,6 +17,7 @@ interface RoadmapStackOrphanSectionProps {
 
 export function RoadmapStackOrphanSection({
   isFiltered,
+  onNodeSelect,
   searchQuery,
   section,
   shouldWrapOrphanList,
@@ -33,7 +35,11 @@ export function RoadmapStackOrphanSection({
           <Badge variant="secondary">{section.children.length} matched</Badge>
         </div>
       ) : null}
-      <RoadmapStackChildList nodes={section.children} searchQuery={searchQuery} />
+      <RoadmapStackChildList
+        nodes={section.children}
+        searchQuery={searchQuery}
+        onNodeSelect={onNodeSelect}
+      />
     </div>
   );
 }

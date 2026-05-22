@@ -15,6 +15,7 @@ interface RoadmapStackListProps {
   isFiltered?: boolean;
   nodes: RoadmapNode[];
   nodeType?: NodeType | null;
+  onNodeSelect?: (nodeId: string) => void;
   searchQuery?: string;
   status?: ProgressStatus | null;
 }
@@ -24,6 +25,7 @@ export function RoadmapStackList({
   isFiltered = false,
   nodes,
   nodeType,
+  onNodeSelect,
   searchQuery,
   status,
 }: RoadmapStackListProps) {
@@ -61,6 +63,7 @@ export function RoadmapStackList({
             <RoadmapStackOrphanSection
               key={section.id}
               isFiltered={isFiltered}
+              onNodeSelect={onNodeSelect}
               searchQuery={searchQuery}
               section={section}
               shouldWrapOrphanList={shouldWrapOrphanList}
@@ -74,6 +77,7 @@ export function RoadmapStackList({
               key={section.id}
               isFiltered={isFiltered}
               milestoneIndex={milestoneOrderById.get(section.id) ?? 0}
+              onNodeSelect={onNodeSelect}
               searchQuery={searchQuery}
               section={section}
             />
@@ -89,6 +93,7 @@ export function RoadmapStackList({
               key={section.id}
               canOpenSection={canOpenSection}
               isOpen={isOpen}
+              onNodeSelect={onNodeSelect}
               searchQuery={searchQuery}
               section={section}
               onToggle={() => toggleSection(section.id)}

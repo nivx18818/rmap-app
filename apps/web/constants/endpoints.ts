@@ -14,7 +14,13 @@ export const ENDPOINTS = {
   roadmaps: {
     generate: '/roadmaps/generate',
     getById: (roadmapId: string) => `/roadmaps/${roadmapId}`,
+    nodeDetail: (roadmapId: string, nodeId: string) => `/roadmaps/${roadmapId}/nodes/${nodeId}`,
+    nodeProgress: (roadmapId: string, nodeId: string) =>
+      `/roadmaps/${roadmapId}/nodes/${nodeId}/progress`,
+    nodeQuiz: (roadmapId: string, nodeId: string) => `/roadmaps/${roadmapId}/nodes/${nodeId}/quiz`,
     nodes: (roadmapId: string) => `/roadmaps/${roadmapId}/nodes`,
+    submitNodeQuiz: (roadmapId: string, nodeId: string) =>
+      `/roadmaps/${roadmapId}/nodes/${nodeId}/quiz/submit`,
   },
   users: {
     me: '/users/me',

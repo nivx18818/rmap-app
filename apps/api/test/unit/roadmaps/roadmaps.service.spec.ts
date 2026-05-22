@@ -66,6 +66,9 @@ interface RoadmapNodeQuizSelection {
   parentId?: string | null;
   posY?: number;
   skillId: string | null;
+  userNodeProgress?: Array<{
+    status: NodeStatus;
+  }>;
 }
 
 interface QuizQuestionRecord {
@@ -854,6 +857,7 @@ describe('RoadmapsService', () => {
       });
       expect(findFirstArgs.select.skill?.select?.resources?.orderBy).toEqual([
         { isPrimary: 'desc' },
+        { isFree: 'desc' },
         { createdAt: 'asc' },
         { id: 'asc' },
       ]);
@@ -888,14 +892,6 @@ describe('RoadmapsService', () => {
         },
         resources: [
           {
-            id: 2,
-            title: 'Primary early',
-            url: 'https://example.com/primary-early',
-            resourceType: 'COURSE',
-            isFree: false,
-            isPrimary: true,
-          },
-          {
             id: 1,
             title: 'Primary late',
             url: 'https://example.com/primary-late',
@@ -904,19 +900,19 @@ describe('RoadmapsService', () => {
             isPrimary: true,
           },
           {
-            id: 3,
-            title: 'Article',
-            url: 'https://example.com/article',
-            resourceType: 'ARTICLE',
-            isFree: true,
-            isPrimary: false,
+            id: 2,
+            title: 'Primary early',
+            url: 'https://example.com/primary-early',
+            resourceType: 'COURSE',
+            isFree: false,
+            isPrimary: true,
           },
         ],
         prerequisites: [{ skillId: 'skill-prereq-1', skillName: 'HTTP Basics' }],
       });
     });
 
-    it('should order resources with primaries first and createdAt ascending within groups', async () => {
+    it('should order resources by primary, free, and resource type priority', async () => {
       prisma.roadmapNode.findFirst.mockResolvedValue(
         makeNodeDetail({
           skill: {
@@ -970,10 +966,10 @@ describe('RoadmapsService', () => {
 
       const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
 
-      expect(result.resources?.map((resource) => resource.id)).toEqual([1, 2, 3, 4]);
+      expect(result.resources?.map((resource) => resource.id)).toEqual([2, 1]);
     });
 
-    it('should return at most two primary resources', async () => {
+    it('should return at most two resources', async () => {
       prisma.roadmapNode.findFirst.mockResolvedValue(
         makeNodeDetail({
           skill: {
@@ -1027,8 +1023,9 @@ describe('RoadmapsService', () => {
 
       const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
 
-      expect(result.resources?.map((resource) => resource.id)).toEqual([1, 2, 4]);
+      expect(result.resources?.map((resource) => resource.id)).toEqual([3, 1]);
       expect(result.resources?.filter((resource) => resource.isPrimary)).toHaveLength(2);
+      expect(result.resources).toHaveLength(2);
     });
 
     it('should return null skill and resources for a group node', async () => {
@@ -1363,6 +1360,7 @@ describe('RoadmapsService', () => {
         id: nodeId,
         nodeType: NodeType.REQUIRED,
         skillId,
+        userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
       });
       prisma.quizQuestion.findMany.mockResolvedValue(mockQuestions);
 
@@ -1378,6 +1376,11 @@ describe('RoadmapsService', () => {
           id: true,
           nodeType: true,
           skillId: true,
+          userNodeProgress: {
+            where: { userId: MOCK_USER_ID },
+            select: { status: true },
+            take: 1,
+          },
         },
       });
       expect(prisma.quizQuestion.findMany).toHaveBeenCalledWith({
@@ -1413,6 +1416,7 @@ describe('RoadmapsService', () => {
         id: nodeId,
         nodeType: NodeType.OPTIONAL,
         skillId,
+        userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
       });
       prisma.quizQuestion.findMany.mockResolvedValue(mockQuestions);
 
@@ -1436,6 +1440,7 @@ describe('RoadmapsService', () => {
         id: nodeId,
         nodeType: NodeType.GROUP,
         skillId: null,
+        userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
       });
 
       await expect(service.getNodeQuiz(MOCK_USER_ID, roadmapId, nodeId)).rejects.toMatchObject({
@@ -1449,6 +1454,21 @@ describe('RoadmapsService', () => {
         id: nodeId,
         nodeType: NodeType.MILESTONE,
         skillId: null,
+        userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
+      });
+
+      await expect(service.getNodeQuiz(MOCK_USER_ID, roadmapId, nodeId)).rejects.toMatchObject({
+        status: 422,
+      });
+      expect(prisma.quizQuestion.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should throw 422 for locked leaf nodes', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.REQUIRED,
+        skillId,
+        userNodeProgress: [{ status: NodeStatus.LOCKED }],
       });
 
       await expect(service.getNodeQuiz(MOCK_USER_ID, roadmapId, nodeId)).rejects.toMatchObject({
@@ -1462,6 +1482,7 @@ describe('RoadmapsService', () => {
         id: nodeId,
         nodeType: NodeType.REQUIRED,
         skillId,
+        userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
       });
       prisma.quizQuestion.findMany.mockResolvedValue(mockQuestions.slice(0, 4));
 
@@ -1513,6 +1534,7 @@ describe('RoadmapsService', () => {
         id: nodeId,
         nodeType: NodeType.REQUIRED,
         skillId,
+        userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
       });
       prisma.quizQuestion.findMany.mockResolvedValue(mockQuestions);
       txMock.userNodeProgress.update.mockResolvedValue(updatedProgress);
@@ -1531,6 +1553,11 @@ describe('RoadmapsService', () => {
           id: true,
           nodeType: true,
           skillId: true,
+          userNodeProgress: {
+            where: { userId: MOCK_USER_ID },
+            select: { status: true },
+            take: 1,
+          },
         },
       });
       expect(prisma.quizQuestion.findMany).toHaveBeenCalledWith({
@@ -1704,6 +1731,7 @@ describe('RoadmapsService', () => {
         id: nodeId,
         nodeType: NodeType.GROUP,
         skillId: null,
+        userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
       });
 
       await expect(
@@ -1717,12 +1745,28 @@ describe('RoadmapsService', () => {
         id: nodeId,
         nodeType: NodeType.MILESTONE,
         skillId: null,
+        userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
       });
 
       await expect(
         service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, submitDto),
       ).rejects.toMatchObject({ status: 422 });
       expect(prisma.quizQuestion.findMany).not.toHaveBeenCalled();
+    });
+
+    it('should throw 422 for locked leaf nodes', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.REQUIRED,
+        skillId,
+        userNodeProgress: [{ status: NodeStatus.LOCKED }],
+      });
+
+      await expect(
+        service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, submitDto),
+      ).rejects.toMatchObject({ status: 422 });
+      expect(prisma.quizQuestion.findMany).not.toHaveBeenCalled();
+      expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
     });
 
     it('should throw 500 when the seeded quiz catalog has fewer than 5 questions', async () => {

@@ -1,7 +1,9 @@
 import { PrismaClientKnownRequestError } from './prisma-namespace.mock';
 
 export class PrismaClient {
-  constructor(_options?: { adapter?: unknown }) {}
+  constructor(_options?: { adapter?: unknown }) {
+    void _options;
+  }
 
   $connect = jest.fn();
   $disconnect = jest.fn();
@@ -41,4 +43,11 @@ export const NodeType = {
   MILESTONE: 'MILESTONE',
   REQUIRED: 'REQUIRED',
   OPTIONAL: 'OPTIONAL',
+} as const;
+
+export const ResourceType = {
+  YOUTUBE: 'YOUTUBE',
+  DOCS: 'DOCS',
+  COURSE: 'COURSE',
+  ARTICLE: 'ARTICLE',
 } as const;

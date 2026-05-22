@@ -1,5 +1,11 @@
 import { Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
-import { NodeStatus, NodeType, type Prisma, type Roadmap } from '@repo/db/prisma/client';
+import {
+  NodeStatus,
+  NodeType,
+  ResourceType,
+  type Prisma,
+  type Roadmap,
+} from '@repo/db/prisma/client';
 
 import {
   AppNotFoundException,
@@ -53,6 +59,14 @@ const LEAF_NODE_TYPES: NodeType[] = [NodeType.REQUIRED, NodeType.OPTIONAL];
 const NODE_QUIZ_QUESTION_COUNT = 5;
 const QUIZ_PASSING_SCORE_PCT = 60;
 const QUIZ_REVIEW_SUGGESTION = 'You should review this part before continuing.';
+const NODE_DETAIL_RESOURCE_LIMIT = 2;
+
+const RESOURCE_TYPE_PRIORITY = {
+  [ResourceType.YOUTUBE]: 0,
+  [ResourceType.DOCS]: 1,
+  [ResourceType.COURSE]: 2,
+  [ResourceType.ARTICLE]: 3,
+} satisfies Record<ResourceType, number>;
 
 const VALID_TRANSITIONS: Record<NodeStatus, NodeStatus[]> = {
   [NodeStatus.LOCKED]: [],
@@ -342,7 +356,12 @@ export class RoadmapsService {
             defaultEstimatedHours: true,
             roleCategory: true,
             resources: {
-              orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
+              orderBy: [
+                { isPrimary: 'desc' },
+                { isFree: 'desc' },
+                { createdAt: 'asc' },
+                { id: 'asc' },
+              ],
               select: {
                 id: true,
                 createdAt: true,
@@ -383,14 +402,21 @@ export class RoadmapsService {
       };
     }
 
-    const orderedResources = [...node.skill.resources].sort(
+    const orderedResources = [...node.skill.resources]
+      .sort(
+        (a, b) =>
+          Number(b.isPrimary) - Number(a.isPrimary) ||
+          Number(b.isFree) - Number(a.isFree) ||
+          RESOURCE_TYPE_PRIORITY[a.resourceType] - RESOURCE_TYPE_PRIORITY[b.resourceType] ||
+          a.createdAt.getTime() - b.createdAt.getTime() ||
+          a.id - b.id,
+      )
+      .slice(0, NODE_DETAIL_RESOURCE_LIMIT);
+    const orderedPrerequisites = [...node.skill.prerequisites].sort(
       (a, b) =>
-        Number(b.isPrimary) - Number(a.isPrimary) ||
-        a.createdAt.getTime() - b.createdAt.getTime() ||
-        a.id - b.id,
+        a.prerequisiteSkill.name.localeCompare(b.prerequisiteSkill.name) ||
+        a.prerequisiteSkillId.localeCompare(b.prerequisiteSkillId),
     );
-    const primaryResources = orderedResources.filter((resource) => resource.isPrimary).slice(0, 2);
-    const nonPrimaryResources = orderedResources.filter((resource) => !resource.isPrimary);
 
     return {
       node: nodeResponse,
@@ -401,7 +427,7 @@ export class RoadmapsService {
         defaultEstimatedHours: toNumberOrNull(node.skill.defaultEstimatedHours),
         roleCategory: node.skill.roleCategory,
       },
-      resources: [...primaryResources, ...nonPrimaryResources].map((resource) => ({
+      resources: orderedResources.map((resource) => ({
         id: resource.id,
         title: resource.title,
         url: resource.url,
@@ -409,7 +435,7 @@ export class RoadmapsService {
         isFree: resource.isFree,
         isPrimary: resource.isPrimary,
       })),
-      prerequisites: node.skill.prerequisites.map((prerequisite) => ({
+      prerequisites: orderedPrerequisites.map((prerequisite) => ({
         skillId: prerequisite.prerequisiteSkillId,
         skillName: prerequisite.prerequisiteSkill.name,
       })),
@@ -431,6 +457,11 @@ export class RoadmapsService {
         id: true,
         nodeType: true,
         skillId: true,
+        userNodeProgress: {
+          where: { userId },
+          select: { status: true },
+          take: 1,
+        },
       },
     });
 
@@ -444,6 +475,8 @@ export class RoadmapsService {
         message: 'Quiz is only available for required or optional leaf nodes',
       });
     }
+
+    this.assertQuizNodeInProgress(node.userNodeProgress[0]?.status ?? NodeStatus.LOCKED);
 
     const questions = await this.prisma.quizQuestion.findMany({
       where: { skillId: node.skillId },
@@ -497,6 +530,11 @@ export class RoadmapsService {
         id: true,
         nodeType: true,
         skillId: true,
+        userNodeProgress: {
+          where: { userId },
+          select: { status: true },
+          take: 1,
+        },
       },
     });
 
@@ -510,6 +548,8 @@ export class RoadmapsService {
         message: 'Quiz is only available for required or optional leaf nodes',
       });
     }
+
+    this.assertQuizNodeInProgress(node.userNodeProgress[0]?.status ?? NodeStatus.LOCKED);
 
     const questions = await this.prisma.quizQuestion.findMany({
       where: { skillId: node.skillId },
@@ -1157,6 +1197,15 @@ export class RoadmapsService {
     if (!hasOnlyExpectedQuestions) {
       throw new AppBadRequestException('Quiz submission contains unknown question answers');
     }
+  }
+
+  private assertQuizNodeInProgress(status: NodeStatus): void {
+    if (status === NodeStatus.IN_PROGRESS) return;
+
+    throw new UnprocessableEntityException({
+      code: 42201,
+      message: 'Quiz is only available for in-progress roadmap nodes',
+    });
   }
 
   async updateNodeProgress(

@@ -19,6 +19,7 @@ import { RoadmapStackSectionBadges } from './roadmap-stack-section-badges';
 interface RoadmapStackGroupSectionProps {
   canOpenSection: boolean;
   isOpen: boolean;
+  onNodeSelect?: (nodeId: string) => void;
   onToggle: () => void;
   searchQuery?: string;
   section: RoadmapStackSection;
@@ -27,6 +28,7 @@ interface RoadmapStackGroupSectionProps {
 export function RoadmapStackGroupSection({
   canOpenSection,
   isOpen,
+  onNodeSelect,
   onToggle,
   searchQuery,
   section,
@@ -84,7 +86,11 @@ export function RoadmapStackGroupSection({
         <>
           <Separator />
           <div className="p-3">
-            <RoadmapStackChildList nodes={section.children} searchQuery={searchQuery} />
+            <RoadmapStackChildList
+              nodes={section.children}
+              searchQuery={searchQuery}
+              onNodeSelect={onNodeSelect}
+            />
           </div>
         </>
       ) : null}

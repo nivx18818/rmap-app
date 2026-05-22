@@ -23,6 +23,7 @@ import { RoadmapStackChildList } from './roadmap-stack-child-list';
 interface RoadmapStackMilestoneSectionProps {
   isFiltered: boolean;
   milestoneIndex: number;
+  onNodeSelect?: (nodeId: string) => void;
   searchQuery?: string;
   section: RoadmapStackSection;
 }
@@ -30,6 +31,7 @@ interface RoadmapStackMilestoneSectionProps {
 export function RoadmapStackMilestoneSection({
   isFiltered,
   milestoneIndex,
+  onNodeSelect,
   searchQuery,
   section,
 }: RoadmapStackMilestoneSectionProps) {
@@ -38,7 +40,14 @@ export function RoadmapStackMilestoneSection({
 
   return (
     <section className={cn('rounded-lg border px-4 py-4', sectionClasses.milestone[sectionStatus])}>
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+      <button
+        className="focus-visible:border-ring focus-visible:ring-ring/50 flex min-w-0 flex-1 items-center gap-3 rounded-md text-left outline-none focus-visible:ring-3"
+        type="button"
+        onClick={() => {
+          if (!section.node) return;
+          onNodeSelect?.(section.node.id);
+        }}
+      >
         <div
           className={cn(
             'flex size-9 shrink-0 items-center justify-center rounded-full shadow-sm',
@@ -60,11 +69,15 @@ export function RoadmapStackMilestoneSection({
             </Badge>
           </div>
         </div>
-      </div>
+      </button>
       {section.children.length > 0 ? (
         <>
           <Separator className="my-3" />
-          <RoadmapStackChildList nodes={section.children} searchQuery={searchQuery} />
+          <RoadmapStackChildList
+            nodes={section.children}
+            searchQuery={searchQuery}
+            onNodeSelect={onNodeSelect}
+          />
         </>
       ) : isFiltered ? (
         <p className="text-muted-foreground px-1 pt-3 text-sm">

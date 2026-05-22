@@ -29,6 +29,7 @@ interface RoadmapSkillTreeProps {
   edges: Edge[];
   nodeChanges: OnNodesChange<RoadmapFlowNode>;
   nodes: RoadmapFlowNode[];
+  onNodeSelect?: (nodeId: string) => void;
   treeKey: string;
 }
 
@@ -38,6 +39,7 @@ export function RoadmapSkillTree({
   edges,
   nodeChanges,
   nodes,
+  onNodeSelect,
   treeKey,
 }: RoadmapSkillTreeProps) {
   return (
@@ -56,7 +58,7 @@ export function RoadmapSkillTree({
         minZoom={0.05}
         colorMode="light"
         edges={edges}
-        elementsSelectable={false}
+        elementsSelectable={Boolean(onNodeSelect)}
         fitView
         fitViewOptions={{ padding: 0.05 }}
         nodes={nodes}
@@ -64,6 +66,10 @@ export function RoadmapSkillTree({
         nodesDraggable={false}
         nodeTypes={nodeTypes}
         onEdgesChange={edgeChanges}
+        onNodeClick={(_, node) => {
+          if (!node.data.node) return;
+          onNodeSelect?.(node.data.node.id);
+        }}
         onNodesChange={nodeChanges}
         panOnDrag={false}
         panOnScroll={false}

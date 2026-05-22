@@ -1,11 +1,14 @@
 'use client';
 
 import { SectionContainer } from '@repo/design-system/components/common/section-container';
+import { useMemo } from 'react';
 
 import { useRoadmapFlowState } from '../_hooks/use-roadmap-flow-state';
 import { useRoadmapGraphData } from '../_hooks/use-roadmap-graph-data';
+import { useRoadmapNodeSelection } from '../_hooks/use-roadmap-node-selection';
 import { RoadmapFilterBar } from './roadmap-filter-bar';
 import { RoadmapGraphState } from './roadmap-graph-state';
+import { RoadmapNodeDetailDrawer } from './roadmap-node-detail-drawer';
 import { RoadmapSkillTree } from './roadmap-skill-tree';
 import { RoadmapStackList } from './roadmap-stack-list';
 
@@ -35,6 +38,7 @@ export function RoadmapGraph({ roadmapId, roadmapTitle }: RoadmapGraphProps) {
     status,
     updateUrlFilters,
   } = useRoadmapGraphData({ roadmapId });
+  const { clearSelectedNode, selectNode, selectedNodeId } = useRoadmapNodeSelection();
   const { desktopFlowLayout, edges, layoutRoadmapNodes, nodes, onEdgesChange, onNodesChange } =
     useRoadmapFlowState({
       hasActiveFilters: isSearchFilterActive,
@@ -44,6 +48,14 @@ export function RoadmapGraph({ roadmapId, roadmapTitle }: RoadmapGraphProps) {
       shouldCompactAxis: false,
       title: roadmapTitle,
     });
+  const selectedNodes = useMemo(
+    () =>
+      nodes.map((node) => ({
+        ...node,
+        selected: Boolean(node.data.node && node.data.node.id === selectedNodeId),
+      })),
+    [nodes, selectedNodeId],
+  );
 
   return (
     <>
@@ -79,7 +91,8 @@ export function RoadmapGraph({ roadmapId, roadmapTitle }: RoadmapGraphProps) {
             edgeChanges={onEdgesChange}
             edges={edges}
             nodeChanges={onNodesChange}
-            nodes={nodes}
+            nodes={selectedNodes}
+            onNodeSelect={selectNode}
             treeKey={`${baseRoadmapNodes.length}-${desktopFlowLayout.width}-${desktopFlowLayout.height}`}
           />
         ) : null}
@@ -98,12 +111,22 @@ export function RoadmapGraph({ roadmapId, roadmapTitle }: RoadmapGraphProps) {
               isFiltered={isSearchFilterActive}
               nodes={isSearchFilterActive ? stackListNodes : layoutRoadmapNodes}
               nodeType={nodeType}
+              onNodeSelect={selectNode}
               searchQuery={debouncedQuery}
               status={status}
             />
           )}
         </SectionContainer>
       ) : null}
+
+      <RoadmapNodeDetailDrawer
+        onProgressUpdated={refreshRoadmapNodes}
+        roadmapId={roadmapId}
+        selectedNodeId={selectedNodeId}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) clearSelectedNode();
+        }}
+      />
     </>
   );
 }

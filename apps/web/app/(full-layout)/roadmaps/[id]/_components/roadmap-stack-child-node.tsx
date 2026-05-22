@@ -12,14 +12,23 @@ import { getNodeStatus } from '../_utils/roadmap-node.utils';
 
 interface RoadmapStackChildNodeProps {
   node: RoadmapNode;
+  onNodeSelect?: (nodeId: string) => void;
   searchQuery?: string;
 }
 
-export function RoadmapStackChildNode({ node, searchQuery }: RoadmapStackChildNodeProps) {
+export function RoadmapStackChildNode({
+  node,
+  onNodeSelect,
+  searchQuery,
+}: RoadmapStackChildNodeProps) {
   const childStatus = getNodeStatus(node);
 
   return (
-    <div className="border-border/80 bg-background hover:bg-muted/40 hover:border-primary/40 flex cursor-pointer flex-col gap-2 rounded-md border px-3 py-3 shadow-sm transition-colors sm:flex-row sm:items-center sm:justify-between">
+    <button
+      className="border-border/80 bg-background hover:bg-muted/40 hover:border-primary/40 focus-visible:border-ring focus-visible:ring-ring/50 flex cursor-pointer flex-col gap-2 rounded-md border px-3 py-3 text-left shadow-sm transition-colors outline-none focus-visible:ring-3 sm:flex-row sm:items-center sm:justify-between"
+      type="button"
+      onClick={() => onNodeSelect?.(node.id)}
+    >
       <div className="flex min-w-0 flex-col gap-1">
         <span className="text-foreground text-sm font-medium">
           <HighlightedText query={searchQuery} text={node.name} />
@@ -34,6 +43,6 @@ export function RoadmapStackChildNode({ node, searchQuery }: RoadmapStackChildNo
           {STATUS_LABELS[childStatus]}
         </Badge>
       </div>
-    </div>
+    </button>
   );
 }

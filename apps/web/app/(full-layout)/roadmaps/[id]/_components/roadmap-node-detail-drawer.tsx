@@ -1,6 +1,7 @@
 'use client';
 
 import type { Route } from 'next';
+import type { FormEvent } from 'react';
 
 import { Badge } from '@repo/design-system/components/ui/badge';
 import { Button } from '@repo/design-system/components/ui/button';
@@ -12,10 +13,15 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@repo/design-system/components/ui/drawer';
+import { Input } from '@repo/design-system/components/ui/input';
+import { Label } from '@repo/design-system/components/ui/label';
 import { Separator } from '@repo/design-system/components/ui/separator';
 import { Skeleton } from '@repo/design-system/components/ui/skeleton';
 import { cn } from '@repo/design-system/lib/utils';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+
+import { LoadingState } from '@/components/shared/loading-state';
 
 import type { RoadmapNodeDetail } from '../_types/roadmap-node-detail.types';
 
@@ -30,6 +36,23 @@ const RESOURCE_TYPE_LABELS = {
   DOCS: 'Docs',
   YOUTUBE: 'YouTube',
 } as const satisfies Record<RoadmapNodeDetail['resources'][number]['resourceType'], string>;
+
+const DEFAULT_MILESTONE_TEST_COMMAND = 'npm test';
+const OUTPUT_LOG_PREVIEW_LENGTH = 1800;
+
+function formatOutputLog(outputLog: string | null): string {
+  const trimmedOutputLog = outputLog?.trim();
+
+  if (!trimmedOutputLog) {
+    return 'No output log was captured for this submission.';
+  }
+
+  if (trimmedOutputLog.length <= OUTPUT_LOG_PREVIEW_LENGTH) {
+    return trimmedOutputLog;
+  }
+
+  return `...${trimmedOutputLog.slice(-OUTPUT_LOG_PREVIEW_LENGTH)}`;
+}
 
 interface RoadmapNodeDetailDrawerProps {
   onOpenChange: (isOpen: boolean) => void;
@@ -126,34 +149,177 @@ function RoadmapNodeDetailActions({
   isMarkingComplete,
   nodeDetail,
   onMarkComplete,
+  onSubmitMilestoneSubmission,
   roadmapId,
 }: {
   actionErrorMessage: string | null;
   isMarkingComplete: boolean;
   nodeDetail: RoadmapNodeDetail;
-  onMarkComplete: () => void;
+  onMarkComplete: (options?: { forceComplete?: boolean }) => void;
+  onSubmitMilestoneSubmission: (payload: {
+    repoUrl: string;
+    testCommand?: string;
+  }) => Promise<void>;
   roadmapId: string;
 }) {
+  const [isSubmittingMilestone, setIsSubmittingMilestone] = useState(false);
+  const [repoUrl, setRepoUrl] = useState(nodeDetail.latestSubmission?.repoUrl ?? '');
+  const [testCommand, setTestCommand] = useState(
+    nodeDetail.latestSubmission?.testCommand ?? DEFAULT_MILESTONE_TEST_COMMAND,
+  );
   const status = nodeDetail.progress?.status ?? 'LOCKED';
   const isLeafNode = nodeDetail.nodeType === 'OPTIONAL' || nodeDetail.nodeType === 'REQUIRED';
   const isMilestone = nodeDetail.nodeType === 'MILESTONE';
+  const latestSubmission = nodeDetail.latestSubmission;
   const quizHref = `/roadmaps/${roadmapId}/nodes/${nodeDetail.id}/quiz` as Route<string>;
   const canTakeQuiz = isLeafNode && status === 'IN_PROGRESS';
   const canMarkComplete =
     status === 'IN_PROGRESS' &&
-    (isMilestone || (isLeafNode && nodeDetail.progress?.quizPassed === true));
+    ((isMilestone && latestSubmission?.status === 'PASSED') ||
+      (isLeafNode && nodeDetail.progress?.quizPassed === true));
   const shouldShowComplete = status === 'IN_PROGRESS' && (isLeafNode || isMilestone);
+
+  useEffect(() => {
+    setRepoUrl(nodeDetail.latestSubmission?.repoUrl ?? '');
+    setTestCommand(nodeDetail.latestSubmission?.testCommand ?? DEFAULT_MILESTONE_TEST_COMMAND);
+  }, [nodeDetail.id, nodeDetail.latestSubmission]);
+
+  const handleMilestoneSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!repoUrl.trim()) return;
+
+    setIsSubmittingMilestone(true);
+
+    try {
+      await onSubmitMilestoneSubmission({
+        repoUrl: repoUrl.trim(),
+        testCommand: testCommand.trim() || undefined,
+      });
+    } finally {
+      setIsSubmittingMilestone(false);
+    }
+  };
 
   if (status === 'LOCKED') {
     return (
       <p className="text-muted-foreground px-4 py-4 text-sm">
-        Complete earlier roadmap nodes to unlock this one.
+        {isMilestone
+          ? 'Unlock this milestone to submit your project.'
+          : 'Complete earlier roadmap nodes to unlock this one.'}
       </p>
     );
   }
 
   if (status === 'COMPLETED') {
-    return <p className="text-muted-foreground px-4 py-4 text-sm">This node is complete.</p>;
+    return (
+      <p className="text-muted-foreground px-4 py-4 text-sm">
+        {isMilestone ? 'This milestone is complete.' : 'This node is complete.'}
+      </p>
+    );
+  }
+
+  if (isMilestone) {
+    if (latestSubmission?.status === 'RUNNING') {
+      return (
+        <DrawerFooter>
+          <LoadingState
+            className="py-2"
+            message="Running your tests..."
+            description="We are cloning your repository, installing dependencies, and running your Node.js test suite."
+          />
+          {actionErrorMessage ? (
+            <p className="text-destructive text-xs">{actionErrorMessage}</p>
+          ) : null}
+        </DrawerFooter>
+      );
+    }
+
+    return (
+      <DrawerFooter>
+        {latestSubmission?.status === 'PASSED' ? (
+          <div className="border-chart-2 bg-chart-2/10 flex flex-col gap-2 rounded-md border p-3">
+            <p className="text-foreground text-sm font-medium">Tests passed!</p>
+            <p className="text-muted-foreground text-xs">
+              Attempt {latestSubmission.attemptNumber} passed. You can now mark this milestone
+              complete.
+            </p>
+          </div>
+        ) : null}
+
+        {latestSubmission?.status === 'FAILED' || latestSubmission?.status === 'ERROR' ? (
+          <div className="border-border bg-muted/30 flex flex-col gap-2 rounded-md border p-3">
+            <p className="text-foreground text-sm font-medium">
+              {latestSubmission.status === 'FAILED'
+                ? 'Tests did not pass.'
+                : 'Test execution hit a server-side error.'}
+            </p>
+            <pre className="bg-background text-muted-foreground max-h-48 overflow-auto rounded border p-3 text-xs whitespace-pre-wrap">
+              {formatOutputLog(latestSubmission.outputLog)}
+            </pre>
+          </div>
+        ) : null}
+
+        {latestSubmission?.status !== 'PASSED' ? (
+          <form className="flex flex-col gap-3" onSubmit={handleMilestoneSubmit}>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="milestone-repo-url">GitHub repository URL</Label>
+              <Input
+                id="milestone-repo-url"
+                placeholder="https://github.com/owner/repo"
+                value={repoUrl}
+                onChange={(event) => setRepoUrl(event.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="milestone-test-command">Test command</Label>
+              <Input
+                id="milestone-test-command"
+                placeholder={DEFAULT_MILESTONE_TEST_COMMAND}
+                value={testCommand}
+                onChange={(event) => setTestCommand(event.target.value)}
+              />
+              <p className="text-muted-foreground text-xs">
+                Allowed: npm test or npm run &lt;script&gt;.
+              </p>
+            </div>
+            <Button disabled={!repoUrl.trim() || isSubmittingMilestone} type="submit">
+              {isSubmittingMilestone
+                ? 'Submitting...'
+                : latestSubmission
+                  ? 'Submit again'
+                  : 'Submit project'}
+            </Button>
+          </form>
+        ) : null}
+
+        {latestSubmission?.status === 'PASSED' ? (
+          <Button
+            variant="outline"
+            disabled={isMarkingComplete}
+            type="button"
+            onClick={() => onMarkComplete()}
+          >
+            {isMarkingComplete ? 'Marking complete...' : 'Mark complete'}
+          </Button>
+        ) : null}
+
+        {latestSubmission?.status === 'ERROR' ? (
+          <Button
+            variant="outline"
+            disabled={isMarkingComplete}
+            type="button"
+            onClick={() => onMarkComplete({ forceComplete: true })}
+          >
+            {isMarkingComplete ? 'Marking complete...' : 'Force complete after review'}
+          </Button>
+        ) : null}
+
+        {actionErrorMessage ? (
+          <p className="text-destructive text-xs">{actionErrorMessage}</p>
+        ) : null}
+      </DrawerFooter>
+    );
   }
 
   return (
@@ -170,7 +336,7 @@ function RoadmapNodeDetailActions({
           variant="outline"
           disabled={!canMarkComplete || isMarkingComplete}
           type="button"
-          onClick={onMarkComplete}
+          onClick={() => onMarkComplete()}
         >
           {isMarkingComplete ? 'Marking complete...' : 'Mark complete'}
         </Button>
@@ -197,6 +363,7 @@ export function RoadmapNodeDetailDrawer({
     isMarkingComplete,
     markComplete,
     nodeDetail,
+    submitMilestoneSubmission,
   } = useRoadmapNodeDetail({
     nodeId: selectedNodeId,
     onProgressUpdated,
@@ -253,6 +420,7 @@ export function RoadmapNodeDetailDrawer({
               nodeDetail={nodeDetail}
               roadmapId={roadmapId}
               onMarkComplete={markComplete}
+              onSubmitMilestoneSubmission={submitMilestoneSubmission}
             />
           </>
         ) : null}

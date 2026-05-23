@@ -2,6 +2,9 @@ import type { RoadmapDetail } from '@/app/(full-layout)/roadmaps/[id]/_types/roa
 import type {
   RoadmapNodeDetail,
   RoadmapNodeDetailApiResponse,
+  LatestMilestoneSubmissionResponse,
+  MilestoneSubmissionResponse,
+  SubmitMilestoneSubmissionPayload,
   UpdateRoadmapNodeProgressResponse,
 } from '@/app/(full-layout)/roadmaps/[id]/_types/roadmap-node-detail.types';
 import type {
@@ -39,6 +42,7 @@ function mapNodeDetailResponse(response: RoadmapNodeDetailApiResponse): RoadmapN
     id: response.node.id,
     name: response.node.name,
     nodeType: response.node.nodeType,
+    latestSubmission: response.latestSubmission,
     prerequisites: response.prerequisites.map((prerequisite) => ({
       id: prerequisite.skillId,
       name: prerequisite.skillName,
@@ -107,6 +111,13 @@ export const roadmapService = {
     return mapNodeDetailResponse(response.data);
   },
 
+  getLatestMilestoneSubmission: async (roadmapId: string, nodeId: string) => {
+    const response = await axiosInstance.get<LatestMilestoneSubmissionResponse>(
+      ENDPOINTS.roadmaps.latestMilestoneSubmission(roadmapId, nodeId),
+    );
+    return response.data;
+  },
+
   getNodeQuiz: async (roadmapId: string, nodeId: string): Promise<RoadmapNodeQuiz> => {
     const response = await axiosInstance.get<RoadmapNodeQuizApiResponse>(
       ENDPOINTS.roadmaps.nodeQuiz(roadmapId, nodeId),
@@ -127,10 +138,27 @@ export const roadmapService = {
     return response.data;
   },
 
-  updateNodeProgress: async (roadmapId: string, nodeId: string, status: ProgressStatus) => {
+  submitMilestoneSubmission: async (
+    roadmapId: string,
+    nodeId: string,
+    payload: SubmitMilestoneSubmissionPayload,
+  ) => {
+    const response = await axiosInstance.post<MilestoneSubmissionResponse>(
+      ENDPOINTS.roadmaps.milestoneSubmissions(roadmapId, nodeId),
+      payload,
+    );
+    return response.data;
+  },
+
+  updateNodeProgress: async (
+    roadmapId: string,
+    nodeId: string,
+    status: ProgressStatus,
+    options: { forceComplete?: boolean } = {},
+  ) => {
     const response = await axiosInstance.patch<UpdateRoadmapNodeProgressResponse>(
       ENDPOINTS.roadmaps.nodeProgress(roadmapId, nodeId),
-      { status },
+      { forceComplete: options.forceComplete, status },
     );
     return response.data;
   },

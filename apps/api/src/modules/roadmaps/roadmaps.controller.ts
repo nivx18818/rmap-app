@@ -12,13 +12,18 @@ import {
 } from '@nestjs/common';
 
 import type { PaginatedRoadmapsResponseDto, RoadmapResponseDto } from './dto/roadmap-response.dto';
-import type { NodeDetailResponse } from './types/roadmap-nodes.types';
+import type {
+  LatestMilestoneSubmissionResponse,
+  MilestoneSubmissionEnvelopeResponse,
+  NodeDetailResponse,
+} from './types/roadmap-nodes.types';
 import type { RoadmapProgressSummaryResponse } from './types/roadmap-progress.types';
 
 import { CurrentUser, type RequestUser } from '../auth/decorators/current-user.decorator';
 import { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
 import { ListRoadmapsQueryDto } from './dto/list-roadmaps-query.dto';
 import { RoadmapNodesFilterDto } from './dto/roadmap-nodes-filter.dto';
+import { SubmitMilestoneSubmissionDto } from './dto/submit-milestone-submission.dto';
 import { SubmitQuizDto } from './dto/submit-quiz.dto';
 import { UpdateNodeProgressDto } from './dto/update-node-progress.dto';
 import { RoadmapsService } from './roadmaps.service';
@@ -132,6 +137,36 @@ export class RoadmapsController {
     @Body() dto: SubmitQuizDto,
   ) {
     return this.roadmapsService.submitNodeQuiz(user.id, roadmapId, nodeId, dto);
+  }
+
+  /**
+   * GET /roadmaps/:roadmapId/nodes/:nodeId/milestone-submissions/latest
+   *
+   * Returns the latest project test submission for a milestone node.
+   */
+  @Get(':roadmapId/nodes/:nodeId/milestone-submissions/latest')
+  async getLatestMilestoneSubmission(
+    @CurrentUser() user: RequestUser,
+    @Param('roadmapId') roadmapId: string,
+    @Param('nodeId') nodeId: string,
+  ): Promise<LatestMilestoneSubmissionResponse> {
+    return this.roadmapsService.getLatestMilestoneSubmission(user.id, roadmapId, nodeId);
+  }
+
+  /**
+   * POST /roadmaps/:roadmapId/nodes/:nodeId/milestone-submissions
+   *
+   * Stores a GitHub repo submission and starts the sandboxed Node.js test run asynchronously.
+   */
+  @Post(':roadmapId/nodes/:nodeId/milestone-submissions')
+  @HttpCode(HttpStatus.CREATED)
+  async submitMilestoneSubmission(
+    @CurrentUser() user: RequestUser,
+    @Param('roadmapId') roadmapId: string,
+    @Param('nodeId') nodeId: string,
+    @Body() dto: SubmitMilestoneSubmissionDto,
+  ): Promise<MilestoneSubmissionEnvelopeResponse> {
+    return this.roadmapsService.submitMilestoneSubmission(user.id, roadmapId, nodeId, dto);
   }
 
   /**

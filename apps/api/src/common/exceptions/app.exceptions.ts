@@ -106,6 +106,33 @@ export class InvalidStatusTransitionException extends BadRequestException {
   }
 }
 
+export class MilestoneSubmissionInvalidUrlException extends BadRequestException {
+  constructor() {
+    super({
+      code: ErrorCode.MILESTONE_SUBMISSION_INVALID_URL,
+      message: getErrorMessage(ErrorCode.MILESTONE_SUBMISSION_INVALID_URL),
+    });
+  }
+}
+
+export class MilestoneSubmissionInvalidCommandException extends BadRequestException {
+  constructor() {
+    super({
+      code: ErrorCode.MILESTONE_SUBMISSION_INVALID_COMMAND,
+      message: getErrorMessage(ErrorCode.MILESTONE_SUBMISSION_INVALID_COMMAND),
+    });
+  }
+}
+
+export class MilestoneSubmissionInProgressException extends BadRequestException {
+  constructor() {
+    super({
+      code: ErrorCode.MILESTONE_SUBMISSION_IN_PROGRESS,
+      message: getErrorMessage(ErrorCode.MILESTONE_SUBMISSION_IN_PROGRESS),
+    });
+  }
+}
+
 // ==========================================
 // 401 - Unauthorized (Authentication Errors)
 // ==========================================
@@ -356,6 +383,15 @@ export class QuizNodeNotInProgressException extends UnprocessableEntityException
   }
 }
 
+export class MilestoneTestsNotPassedException extends UnprocessableEntityException {
+  constructor(message?: string) {
+    super({
+      code: ErrorCode.MILESTONE_TESTS_NOT_PASSED,
+      message: message || getErrorMessage(ErrorCode.MILESTONE_TESTS_NOT_PASSED),
+    });
+  }
+}
+
 // ===========================
 // 500 - Internal Server Error
 // ===========================
@@ -438,6 +474,9 @@ export const ErrorCodeToException = {
   [ErrorCode.MISSING_REQUIRED_FIELD]: MissingRequiredFieldException,
   [ErrorCode.DEADLINE_IN_PAST]: DeadlineInPastException,
   [ErrorCode.INVALID_STATUS_TRANSITION]: InvalidStatusTransitionException,
+  [ErrorCode.MILESTONE_SUBMISSION_INVALID_URL]: MilestoneSubmissionInvalidUrlException,
+  [ErrorCode.MILESTONE_SUBMISSION_INVALID_COMMAND]: MilestoneSubmissionInvalidCommandException,
+  [ErrorCode.MILESTONE_SUBMISSION_IN_PROGRESS]: MilestoneSubmissionInProgressException,
   // 401 - Unauthorized
   [ErrorCode.UNAUTHORIZED]: AppUnauthorizedException,
   [ErrorCode.INVALID_ACCESS_TOKEN]: InvalidTokenException,
@@ -475,4 +514,5 @@ export const ErrorCodeToException = {
   [ErrorCode.QUIZ_NOT_PASSED]: QuizNotPassedException,
   [ErrorCode.QUIZ_NODE_TYPE_INVALID]: QuizNodeTypeInvalidException,
   [ErrorCode.QUIZ_NODE_NOT_IN_PROGRESS]: QuizNodeNotInProgressException,
+  [ErrorCode.MILESTONE_TESTS_NOT_PASSED]: MilestoneTestsNotPassedException,
 } satisfies Record<ErrorCode, new (...args: any[]) => HttpException>;

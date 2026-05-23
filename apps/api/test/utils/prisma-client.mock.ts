@@ -58,3 +58,10 @@ export const QuizGenerationStatus = {
   READY: 'READY',
   FAILED: 'FAILED',
 } as const;
+
+export const MilestoneSubmissionStatus = {
+  RUNNING: 'RUNNING',
+  PASSED: 'PASSED',
+  FAILED: 'FAILED',
+  ERROR: 'ERROR',
+} as const;

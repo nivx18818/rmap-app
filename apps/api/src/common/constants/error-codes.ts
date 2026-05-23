@@ -13,6 +13,9 @@ export enum ErrorCode {
   MISSING_REQUIRED_FIELD = 40005,
   DEADLINE_IN_PAST = 40006,
   INVALID_STATUS_TRANSITION = 40007,
+  MILESTONE_SUBMISSION_INVALID_URL = 40008,
+  MILESTONE_SUBMISSION_INVALID_COMMAND = 40009,
+  MILESTONE_SUBMISSION_IN_PROGRESS = 40010,
   // 401 - Unauthorized
   UNAUTHORIZED = 40100,
   INVALID_ACCESS_TOKEN = 40101,
@@ -43,6 +46,7 @@ export enum ErrorCode {
   QUIZ_NOT_PASSED = 42200,
   QUIZ_NODE_TYPE_INVALID = 42201,
   QUIZ_NODE_NOT_IN_PROGRESS = 42202,
+  MILESTONE_TESTS_NOT_PASSED = 42203,
   // 500 - Internal Server Error
   INTERNAL_SERVER_ERROR = 50000,
   DATABASE_ERROR = 50001,
@@ -62,6 +66,12 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.MISSING_REQUIRED_FIELD]: 'Required field is missing',
   [ErrorCode.DEADLINE_IN_PAST]: 'deadline_date must be in the future',
   [ErrorCode.INVALID_STATUS_TRANSITION]: 'Invalid status transition',
+  [ErrorCode.MILESTONE_SUBMISSION_INVALID_URL]:
+    'Milestone submission repoUrl must match https://github.com/<owner>/<repo>',
+  [ErrorCode.MILESTONE_SUBMISSION_INVALID_COMMAND]:
+    'Milestone submission testCommand must be npm test or npm run <script>',
+  [ErrorCode.MILESTONE_SUBMISSION_IN_PROGRESS]:
+    'A milestone submission is already running for this node',
   // 401 - Unauthorized
   [ErrorCode.UNAUTHORIZED]: 'Authentication required',
   [ErrorCode.INVALID_ACCESS_TOKEN]: 'Invalid authentication token',
@@ -92,6 +102,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.QUIZ_NOT_PASSED]: 'Quiz must be passed before completing this node',
   [ErrorCode.QUIZ_NODE_TYPE_INVALID]: 'Quiz is only available for required or optional leaf nodes',
   [ErrorCode.QUIZ_NODE_NOT_IN_PROGRESS]: 'Quiz is only available for in-progress roadmap nodes',
+  [ErrorCode.MILESTONE_TESTS_NOT_PASSED]: 'Milestone tests must pass before completing this node',
   // 500 - Internal Server Error
   [ErrorCode.INTERNAL_SERVER_ERROR]: 'An unexpected error occurred',
   [ErrorCode.DATABASE_ERROR]: 'Database operation failed',

@@ -1,4 +1,4 @@
-import type { NodeStatus, NodeType } from '@repo/db/prisma/client';
+import type { MilestoneSubmissionStatus, NodeStatus, NodeType } from '@repo/db/prisma/client';
 
 export interface UserNodeProgressResponse {
   id: string;
@@ -50,11 +50,31 @@ export interface PrerequisiteResponse {
   skillName: string;
 }
 
+export interface MilestoneSubmissionResponse {
+  id: string;
+  repoUrl: string;
+  testCommand: string;
+  status: MilestoneSubmissionStatus;
+  outputLog: string | null;
+  attemptNumber: number;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface MilestoneSubmissionEnvelopeResponse {
+  submission: MilestoneSubmissionResponse;
+}
+
+export interface LatestMilestoneSubmissionResponse {
+  submission: MilestoneSubmissionResponse | null;
+}
+
 export interface NodeDetailResponse {
   node: RoadmapNodeWithUserProgressResponse;
   skill: SkillDetailResponse | null;
   resources: ResourceResponse[] | null;
   prerequisites: PrerequisiteResponse[];
+  latestSubmission: MilestoneSubmissionResponse | null;
 }
 
 export interface UpdateNodeProgressResponse {

@@ -34,11 +34,12 @@ model RoadmapNode {
   posY           Decimal  @map("pos_y") @db.Decimal(8, 2)
   createdAt      DateTime @default(now()) @map("created_at")
 
-  roadmap          Roadmap            @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
-  parent           RoadmapNode?       @relation("RoadmapNodeHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
-  children         RoadmapNode[]      @relation("RoadmapNodeHierarchy")
-  skill            Skill?             @relation(fields: [skillId], references: [id], onDelete: Cascade)
-  userNodeProgress UserNodeProgress[]
+  roadmap              Roadmap               @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  parent               RoadmapNode?          @relation("RoadmapNodeHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children             RoadmapNode[]         @relation("RoadmapNodeHierarchy")
+  skill                Skill?                @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  userNodeProgress     UserNodeProgress[]
+  milestoneSubmissions MilestoneSubmission[]
 
   @@index([roadmapId])
   @@index([parentId])
@@ -75,4 +76,23 @@ model DailyActivity {
   @@unique([userId, activityDate])
   @@index([userId])
   @@map("daily_activity")
+}
+
+model MilestoneSubmission {
+  id            String                    @id @default(dbgenerated("gen_random_uuid()"))
+  userId        String                    @map("user_id")
+  roadmapNodeId String                    @map("roadmap_node_id")
+  repoUrl       String                    @map("repo_url") @db.Text
+  testCommand   String                    @default("npm test") @map("test_command")
+  status        MilestoneSubmissionStatus
+  outputLog     String?                   @map("output_log") @db.Text
+  attemptNumber Int                       @default(1) @map("attempt_number")
+  createdAt     DateTime                  @default(now()) @map("created_at")
+  completedAt   DateTime?                 @map("completed_at")
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roadmapNode RoadmapNode @relation(fields: [roadmapNodeId], references: [id], onDelete: Cascade)
+
+  @@index([userId, roadmapNodeId])
+  @@map("milestone_submissions")
 }

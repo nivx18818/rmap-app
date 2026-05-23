@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/unbound-method */
 import type { TestingModule } from '@nestjs/testing';
 
 import { Test } from '@nestjs/testing';

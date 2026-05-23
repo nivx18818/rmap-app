@@ -51,3 +51,10 @@ export const ResourceType = {
   COURSE: 'COURSE',
   ARTICLE: 'ARTICLE',
 } as const;
+
+export const QuizGenerationStatus = {
+  NOT_GENERATED: 'NOT_GENERATED',
+  GENERATING: 'GENERATING',
+  READY: 'READY',
+  FAILED: 'FAILED',
+} as const;

@@ -1,11 +1,14 @@
 model Skill {
-  id                    String        @id @default(dbgenerated("gen_random_uuid()"))
-  name                  String        @unique
-  description           String?
-  defaultEstimatedHours Decimal?      @map("default_estimated_hours") @db.Decimal(6, 2)
-  roleCategory          RoleCategory? @map("role_category")
-  createdAt             DateTime      @default(now()) @map("created_at")
-  updatedAt             DateTime      @updatedAt @map("updated_at")
+  id                       String               @id @default(dbgenerated("gen_random_uuid()"))
+  name                     String               @unique
+  description              String?
+  defaultEstimatedHours    Decimal?             @map("default_estimated_hours") @db.Decimal(6, 2)
+  roleCategory             RoleCategory?        @map("role_category")
+  quizGenerationStatus     QuizGenerationStatus @default(NOT_GENERATED) @map("quiz_generation_status")
+  quizGenerationStartedAt  DateTime?            @map("quiz_generation_started_at")
+  quizGeneratedAt          DateTime?            @map("quiz_generated_at")
+  createdAt                DateTime             @default(now()) @map("created_at")
+  updatedAt                DateTime             @updatedAt @map("updated_at")
 
   prerequisites   SkillPrerequisite[] @relation("SkillPrerequisites")
   prerequisiteFor SkillPrerequisite[] @relation("PrerequisiteFor")

@@ -1,14 +1,41 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { getOnboardingQuizPrompt, getRoadmapGenerationPrompt } from '@/common/constants/prompts';
+import {
+  getNodeQuizGenerationPrompt,
+  getOnboardingQuizPrompt,
+  getRoadmapGenerationPrompt,
+} from '@/common/constants/prompts';
 import {
   ExternalServiceErrorException,
+  NodeQuizGenerationUnavailableException,
   RoadmapGenerationUnavailableException,
 } from '@/common/exceptions/app.exceptions';
 
 import type { OnboardingQuizRequestDto } from '../onboarding/dto/onboarding-quiz-request.dto';
 import type { GenerateRoadmapInput } from '../roadmaps/types/ai-roadmap.types';
+
+export interface GenerateNodeQuizInput {
+  description: null | string;
+  name: string;
+  roleCategory: null | string;
+}
+
+export interface GeneratedNodeQuizQuestion {
+  questionText: string;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  correctOption: 'A' | 'B' | 'C' | 'D';
+}
+
+interface GeneratedNodeQuizPayload {
+  questions: GeneratedNodeQuizQuestion[];
+}
+
+const NODE_QUIZ_GENERATION_QUESTION_COUNT = 8;
+const VALID_NODE_QUIZ_OPTIONS = new Set(['A', 'B', 'C', 'D']);
 
 @Injectable()
 export class AiService {
@@ -75,6 +102,24 @@ export class AiService {
     return responseText;
   }
 
+  async generateNodeQuiz(input: GenerateNodeQuizInput): Promise<GeneratedNodeQuizQuestion[]> {
+    const prompt = getNodeQuizGenerationPrompt(input);
+
+    try {
+      const responseText = await this.generateContent(prompt, { temperature: 0.2 });
+      const payload = this.parseNodeQuizResponse(responseText);
+
+      this.logger.log(
+        `AI node quiz generated successfully for skill "${input.name}" with ` +
+          `${payload.questions.length} questions`,
+      );
+      return payload.questions;
+    } catch (err) {
+      this.logger.error(`Gemini generateContent failed for node quiz skill "${input.name}"`, err);
+      throw new NodeQuizGenerationUnavailableException();
+    }
+  }
+
   async generateRoadmap(input: GenerateRoadmapInput): Promise<string> {
     const prompt = getRoadmapGenerationPrompt(input);
 
@@ -90,5 +135,73 @@ export class AiService {
     }
 
     return responseText;
+  }
+
+  private parseNodeQuizResponse(responseText: string): GeneratedNodeQuizPayload {
+    let parsed: unknown;
+
+    try {
+      parsed = JSON.parse(this.stripMarkdownFences(responseText));
+    } catch {
+      throw new Error('Node quiz AI response is not valid JSON');
+    }
+
+    if (!this.isValidNodeQuizPayload(parsed)) {
+      throw new Error('Node quiz AI response failed validation');
+    }
+
+    return parsed;
+  }
+
+  private isValidNodeQuizPayload(payload: unknown): payload is GeneratedNodeQuizPayload {
+    if (!payload || typeof payload !== 'object') return false;
+
+    const candidate = payload as { questions?: unknown };
+    if (!Array.isArray(candidate.questions)) return false;
+    if (candidate.questions.length !== NODE_QUIZ_GENERATION_QUESTION_COUNT) return false;
+
+    const questionTexts = new Set<string>();
+
+    for (const question of candidate.questions) {
+      if (!this.isValidNodeQuizQuestion(question)) return false;
+
+      const normalizedQuestionText = question.questionText.trim().toLowerCase();
+      if (questionTexts.has(normalizedQuestionText)) return false;
+      questionTexts.add(normalizedQuestionText);
+    }
+
+    return true;
+  }
+
+  private isValidNodeQuizQuestion(question: unknown): question is GeneratedNodeQuizQuestion {
+    if (!question || typeof question !== 'object') return false;
+
+    const candidate = question as Partial<Record<keyof GeneratedNodeQuizQuestion, unknown>>;
+    const { questionText, optionA, optionB, optionC, optionD, correctOption } = candidate;
+    const textFields = [questionText, optionA, optionB, optionC, optionD];
+
+    if (!textFields.every((field) => typeof field === 'string' && field.trim().length > 0)) {
+      return false;
+    }
+
+    if (typeof correctOption !== 'string') return false;
+    if (!VALID_NODE_QUIZ_OPTIONS.has(correctOption)) return false;
+
+    const optionTexts = [optionA, optionB, optionC, optionD].map((option) =>
+      (option as string).trim().toLowerCase(),
+    );
+
+    return new Set(optionTexts).size === optionTexts.length;
+  }
+
+  private stripMarkdownFences(text: string): string {
+    const trimmed = text.trim();
+    if (trimmed.startsWith('```')) {
+      return trimmed
+        .replace(/^```(?:json)?/i, '')
+        .replace(/```$/, '')
+        .trim();
+    }
+    return trimmed;
   }
 }

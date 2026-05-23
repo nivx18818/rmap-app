@@ -3,7 +3,10 @@ import type { TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
-import { RoadmapGenerationUnavailableException } from '@/common/exceptions/app.exceptions';
+import {
+  NodeQuizGenerationUnavailableException,
+  RoadmapGenerationUnavailableException,
+} from '@/common/exceptions/app.exceptions';
 import { AiService } from '@/modules/ai/ai.service';
 
 import {
@@ -15,7 +18,6 @@ import {
 
 describe('AiService', () => {
   let service: AiService;
-  let configService: jest.Mocked<ConfigService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -29,7 +31,6 @@ describe('AiService', () => {
     }).compile();
 
     service = module.get<AiService>(AiService);
-    configService = module.get(ConfigService);
   });
 
   afterEach(() => {
@@ -46,6 +47,14 @@ describe('AiService', () => {
     skillMap: MOCK_SKILL_MAP,
     prerequisites: MOCK_SKILL_PREREQUISITES,
   };
+  const generatedQuizQuestions = Array.from({ length: 8 }, (_, index) => ({
+    questionText: `Generated question ${index + 1}?`,
+    optionA: `Generated option A ${index + 1}`,
+    optionB: `Generated option B ${index + 1}`,
+    optionC: `Generated option C ${index + 1}`,
+    optionD: `Generated option D ${index + 1}`,
+    correctOption: 'A' as const,
+  }));
 
   it('should be defined', () => {
     expect(service).toBeDefined();
@@ -85,6 +94,43 @@ describe('AiService', () => {
       expect(promptArg).toContain('Node.js Basics');
       expect(promptArg).toContain('What is your current backend experience level?');
       expect(promptArg).toContain(baseInput.goal);
+    });
+  });
+
+  describe('generateNodeQuiz', () => {
+    it('should return validated node quiz questions on success', async () => {
+      const spy = jest.spyOn(service, 'generateContent').mockResolvedValue(
+        JSON.stringify({
+          questions: generatedQuizQuestions,
+        }),
+      );
+
+      const result = await service.generateNodeQuiz({
+        name: 'HTTP & REST',
+        description: 'Design HTTP APIs',
+        roleCategory: 'WEB_DEVELOPMENT',
+      });
+
+      expect(result).toEqual(generatedQuizQuestions);
+      expect(spy).toHaveBeenCalledWith(expect.stringContaining('Generate exactly 8'), {
+        temperature: 0.2,
+      });
+    });
+
+    it('should throw NodeQuizGenerationUnavailableException on invalid AI quiz output', async () => {
+      jest.spyOn(service, 'generateContent').mockResolvedValue(
+        JSON.stringify({
+          questions: generatedQuizQuestions.slice(0, 7),
+        }),
+      );
+
+      await expect(
+        service.generateNodeQuiz({
+          name: 'HTTP & REST',
+          description: 'Design HTTP APIs',
+          roleCategory: 'WEB_DEVELOPMENT',
+        }),
+      ).rejects.toThrow(NodeQuizGenerationUnavailableException);
     });
   });
 });

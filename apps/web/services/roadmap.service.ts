@@ -110,6 +110,7 @@ export const roadmapService = {
   getNodeQuiz: async (roadmapId: string, nodeId: string): Promise<RoadmapNodeQuiz> => {
     const response = await axiosInstance.get<RoadmapNodeQuizApiResponse>(
       ENDPOINTS.roadmaps.nodeQuiz(roadmapId, nodeId),
+      { timeout: 60000 },
     );
     return {
       nodeId: response.data.nodeId,

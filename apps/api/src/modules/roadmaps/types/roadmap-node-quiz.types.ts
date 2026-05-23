@@ -31,5 +31,6 @@ export interface SubmitQuizResponse {
   totalQuestions: number;
   results: SubmitQuizQuestionResult[];
   nodeProgress: UserNodeProgressResponse;
+  unlockedNodes: string[];
   suggestion: string | null;
 }

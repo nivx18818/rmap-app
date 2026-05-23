@@ -1,13 +1,17 @@
 import { Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
-import { NodeType, type Prisma, type Roadmap } from '@repo/db/prisma/client';
+import { NodeStatus, NodeType, type Prisma, type Roadmap } from '@repo/db/prisma/client';
 
 import {
-  AppBadRequestException,
   AppNotFoundException,
+  AppBadRequestException,
   DeadlineInPastException,
   InternalServerErrorException,
+  InvalidStatusTransitionException,
+  QuizNotPassedException,
   RoadmapGenerationUnavailableException,
+  RoadmapNodeNotFoundException,
   RoadmapNotFoundException,
+  UserNodeProgressNotFoundException,
 } from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
@@ -16,13 +20,23 @@ import type { ListRoadmapsQueryDto } from './dto/list-roadmaps-query.dto';
 import type { RoadmapNodesFilterDto } from './dto/roadmap-nodes-filter.dto';
 import type { PaginatedRoadmapsResponseDto, RoadmapResponseDto } from './dto/roadmap-response.dto';
 import type { SubmitQuizDto } from './dto/submit-quiz.dto';
+import type { UpdateNodeProgressDto } from './dto/update-node-progress.dto';
 import type { AiNode, AiRoadmapOutput, FlatNode } from './types/ai-roadmap.types';
 import type {
   QuizOption,
   RoadmapNodeQuizResponse,
   SubmitQuizResponse,
 } from './types/roadmap-node-quiz.types';
-import type { RoadmapNodesListResponse } from './types/roadmap-nodes.types';
+import type {
+  NodeDetailResponse,
+  RoadmapNodeWithUserProgressResponse,
+  RoadmapNodesListResponse,
+  UpdateNodeProgressResponse,
+} from './types/roadmap-nodes.types';
+import type {
+  RoadmapProgressSummaryResponse,
+  TimelineWarningResponse,
+} from './types/roadmap-progress.types';
 
 import { AiService } from '../ai/ai.service';
 import { DagreLayoutService } from './dagre-layout.service';
@@ -33,10 +47,17 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 /** Timeline warning threshold: warn when total > available * (1 + THRESHOLD). */
 const FEASIBILITY_THRESHOLD = 0.15;
 
+const PACE_WARNING_THRESHOLD_PCT = 15;
 const LEAF_NODE_TYPES: NodeType[] = [NodeType.REQUIRED, NodeType.OPTIONAL];
 const NODE_QUIZ_QUESTION_COUNT = 5;
 const QUIZ_PASSING_SCORE_PCT = 60;
 const QUIZ_REVIEW_SUGGESTION = 'You should review this part before continuing.';
+
+const VALID_TRANSITIONS: Record<NodeStatus, NodeStatus[]> = {
+  [NodeStatus.LOCKED]: [],
+  [NodeStatus.IN_PROGRESS]: [NodeStatus.COMPLETED],
+  [NodeStatus.COMPLETED]: [],
+};
 
 const ROADMAP_SELECT = {
   deadlineDate: true,
@@ -58,6 +79,42 @@ type SelectedRoadmap = Pick<Roadmap, keyof typeof ROADMAP_SELECT>;
 type DecimalLike = {
   toNumber?: () => number;
   toString: () => string;
+};
+
+type RoadmapNodeWithProgressRecord = {
+  id: string;
+  roadmapId: string;
+  parentId: string | null;
+  skillId: string | null;
+  name: string;
+  description: string | null;
+  nodeType: NodeType;
+  estimatedHours: Prisma.Decimal | number | null;
+  posX: Prisma.Decimal | number;
+  posY: Prisma.Decimal | number;
+  userNodeProgress: Array<{
+    id: string;
+    roadmapNodeId: string;
+    status: NodeStatus;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    quizScorePct: Prisma.Decimal | number | null;
+    quizPassed: boolean | null;
+  }>;
+};
+
+type RoadmapProgressNodeRecord = {
+  id: string;
+  nodeType: NodeType;
+  estimatedHours: Prisma.Decimal | number | null;
+  userNodeProgress: Array<{
+    status: NodeStatus;
+  }>;
+};
+
+type DailyActivityRecord = {
+  activityDate: Date;
+  nodesCompleted: number;
 };
 
 const toNumberOrNull = (value: Prisma.Decimal | number | null) =>
@@ -168,33 +225,198 @@ export class RoadmapsService {
     });
 
     return {
-      nodes: nodes.map((node) => {
-        const progress = node.userNodeProgress[0] ?? null;
+      nodes: nodes.map((node) => this.formatNodeWithProgress(node)),
+    };
+  }
 
-        return {
-          id: node.id,
-          roadmapId: node.roadmapId,
-          parentId: node.parentId,
-          skillId: node.skillId,
-          name: node.name,
-          description: node.description,
-          nodeType: node.nodeType,
-          estimatedHours: toNumberOrNull(node.estimatedHours),
-          posX: Number(node.posX),
-          posY: Number(node.posY),
-          progress: progress
-            ? {
-                id: progress.id,
-                roadmapNodeId: progress.roadmapNodeId,
-                status: progress.status,
-                startedAt: progress.startedAt,
-                completedAt: progress.completedAt,
-                quizScorePct: toNumberOrNull(progress.quizScorePct),
-                quizPassed: progress.quizPassed,
-              }
-            : null,
-        };
+  async getProgressSummary(
+    userId: string,
+    roadmapId: string,
+  ): Promise<RoadmapProgressSummaryResponse> {
+    const roadmap = await this.prisma.roadmap.findFirst({
+      where: {
+        id: roadmapId,
+        isTemplate: false,
+        userId,
+      },
+      select: {
+        generatedAt: true,
+        hoursPerDay: true,
+        id: true,
+      },
+    });
+
+    if (!roadmap) {
+      throw new RoadmapNotFoundException(roadmapId);
+    }
+
+    const [nodes, dailyActivities] = await this.prisma.$transaction([
+      this.prisma.roadmapNode.findMany({
+        where: { roadmapId },
+        select: {
+          id: true,
+          nodeType: true,
+          estimatedHours: true,
+          userNodeProgress: {
+            where: { userId },
+            select: { status: true },
+          },
+        },
       }),
+      this.prisma.dailyActivity.findMany({
+        where: { userId },
+        orderBy: [{ activityDate: 'desc' }, { id: 'asc' }],
+        select: {
+          activityDate: true,
+          nodesCompleted: true,
+        },
+      }),
+    ]);
+
+    const nodesTotal = nodes.length;
+    const completedNodes = nodes.filter((node) => this.isNodeCompleted(node));
+    const nodesCompleted = completedNodes.length;
+    const requiredLeafNodes = nodes.filter((node) => node.nodeType === NodeType.REQUIRED);
+    const requiredLeafNodesCompleted = requiredLeafNodes.filter((node) =>
+      this.isNodeCompleted(node),
+    ).length;
+    const completedHours = completedNodes.reduce(
+      (total, node) => total + (toNumberOrNull(node.estimatedHours) ?? 0),
+      0,
+    );
+    const hoursPerDay = toNumberOrNull(roadmap.hoursPerDay);
+
+    return {
+      roadmapId: roadmap.id,
+      completionPct: this.calculatePercent(nodesCompleted, nodesTotal),
+      streakDays: this.calculateStreakDays(dailyActivities),
+      skillReadinessPct: this.calculatePercent(
+        requiredLeafNodesCompleted,
+        requiredLeafNodes.length,
+      ),
+      nodesTotal,
+      nodesCompleted,
+      timelineWarning: this.calculateTimelineWarning(
+        roadmap.generatedAt,
+        hoursPerDay,
+        completedHours,
+      ),
+    };
+  }
+
+  async getNodeDetail(
+    userId: string,
+    roadmapId: string,
+    nodeId: string,
+  ): Promise<NodeDetailResponse> {
+    const node = await this.prisma.roadmapNode.findFirst({
+      where: {
+        id: nodeId,
+        roadmapId,
+        roadmap: { userId },
+      },
+      select: {
+        id: true,
+        roadmapId: true,
+        parentId: true,
+        skillId: true,
+        name: true,
+        description: true,
+        nodeType: true,
+        estimatedHours: true,
+        posX: true,
+        posY: true,
+        userNodeProgress: {
+          where: { userId },
+          select: {
+            id: true,
+            roadmapNodeId: true,
+            status: true,
+            startedAt: true,
+            completedAt: true,
+            quizScorePct: true,
+            quizPassed: true,
+          },
+        },
+        skill: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            defaultEstimatedHours: true,
+            roleCategory: true,
+            resources: {
+              orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
+              select: {
+                id: true,
+                createdAt: true,
+                title: true,
+                url: true,
+                resourceType: true,
+                isFree: true,
+                isPrimary: true,
+              },
+            },
+            prerequisites: {
+              select: {
+                prerequisiteSkillId: true,
+                prerequisiteSkill: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!node) {
+      throw new RoadmapNodeNotFoundException(nodeId);
+    }
+
+    const nodeResponse = this.formatNodeWithProgress(node);
+
+    if (!LEAF_NODE_TYPES.includes(node.nodeType) || !node.skill) {
+      return {
+        node: nodeResponse,
+        skill: null,
+        resources: null,
+        prerequisites: [],
+      };
+    }
+
+    const orderedResources = [...node.skill.resources].sort(
+      (a, b) =>
+        Number(b.isPrimary) - Number(a.isPrimary) ||
+        a.createdAt.getTime() - b.createdAt.getTime() ||
+        a.id - b.id,
+    );
+    const primaryResources = orderedResources.filter((resource) => resource.isPrimary).slice(0, 2);
+    const nonPrimaryResources = orderedResources.filter((resource) => !resource.isPrimary);
+
+    return {
+      node: nodeResponse,
+      skill: {
+        id: node.skill.id,
+        name: node.skill.name,
+        description: node.skill.description,
+        defaultEstimatedHours: toNumberOrNull(node.skill.defaultEstimatedHours),
+        roleCategory: node.skill.roleCategory,
+      },
+      resources: [...primaryResources, ...nonPrimaryResources].map((resource) => ({
+        id: resource.id,
+        title: resource.title,
+        url: resource.url,
+        resourceType: resource.resourceType,
+        isFree: resource.isFree,
+        isPrimary: resource.isPrimary,
+      })),
+      prerequisites: node.skill.prerequisites.map((prerequisite) => ({
+        skillId: prerequisite.prerequisiteSkillId,
+        skillName: prerequisite.prerequisiteSkill.name,
+      })),
     };
   }
 
@@ -781,6 +1003,125 @@ export class RoadmapsService {
     return false;
   }
 
+  private formatNodeWithProgress(
+    node: RoadmapNodeWithProgressRecord,
+  ): RoadmapNodeWithUserProgressResponse {
+    const progress = node.userNodeProgress[0] ?? null;
+
+    return {
+      id: node.id,
+      roadmapId: node.roadmapId,
+      parentId: node.parentId,
+      skillId: node.skillId,
+      name: node.name,
+      description: node.description,
+      nodeType: node.nodeType,
+      estimatedHours: toNumberOrNull(node.estimatedHours),
+      posX: Number(node.posX),
+      posY: Number(node.posY),
+      progress: progress
+        ? {
+            id: progress.id,
+            roadmapNodeId: progress.roadmapNodeId,
+            status: progress.status,
+            startedAt: progress.startedAt,
+            completedAt: progress.completedAt,
+            quizScorePct: toNumberOrNull(progress.quizScorePct),
+            quizPassed: progress.quizPassed,
+          }
+        : null,
+    };
+  }
+
+  private isNodeCompleted(node: RoadmapProgressNodeRecord): boolean {
+    return node.userNodeProgress[0]?.status === NodeStatus.COMPLETED;
+  }
+
+  private calculatePercent(completed: number, total: number): number {
+    if (total === 0) {
+      return 0;
+    }
+
+    return this.roundToOne((completed / total) * 100);
+  }
+
+  private calculateStreakDays(dailyActivities: DailyActivityRecord[], now = new Date()): number {
+    const activeDateKeys = new Set(
+      dailyActivities
+        .filter((activity) => activity.nodesCompleted > 0)
+        .map((activity) => this.toUtcDateKey(activity.activityDate)),
+    );
+    const todayKey = this.toUtcDateKey(now);
+    const startDate = new Date(this.toUtcMidnightMs(now));
+
+    if (!activeDateKeys.has(todayKey)) {
+      startDate.setUTCDate(startDate.getUTCDate() - 1);
+    }
+
+    let streakDays = 0;
+    const cursor = new Date(startDate);
+
+    while (activeDateKeys.has(this.toUtcDateKey(cursor))) {
+      streakDays += 1;
+      cursor.setUTCDate(cursor.getUTCDate() - 1);
+    }
+
+    return streakDays;
+  }
+
+  private calculateTimelineWarning(
+    generatedAt: Date,
+    hoursPerDay: number | null,
+    completedHours: number,
+    now = new Date(),
+  ): TimelineWarningResponse | null {
+    if (!hoursPerDay || hoursPerDay <= 0 || Number.isNaN(generatedAt.getTime())) {
+      return null;
+    }
+
+    const daysElapsed =
+      Math.max(
+        1,
+        Math.floor((this.toUtcMidnightMs(now) - this.toUtcMidnightMs(generatedAt)) / MS_PER_DAY) +
+          1,
+      ) || 1;
+    const plannedHoursElapsed = daysElapsed * hoursPerDay;
+
+    if (plannedHoursElapsed <= 0) {
+      return null;
+    }
+
+    const hoursDeficit = Math.max(0, plannedHoursElapsed - completedHours);
+    const paceDeficitPct = this.roundToOne((hoursDeficit / plannedHoursElapsed) * 100);
+
+    if (paceDeficitPct < PACE_WARNING_THRESHOLD_PCT) {
+      return null;
+    }
+
+    const estimatedDelayDays = Math.ceil(hoursDeficit / hoursPerDay);
+
+    return {
+      isBehind: true,
+      paceDeficitPct,
+      estimatedDelayDays,
+      message:
+        `You are ${paceDeficitPct}% behind pace - projected delay is about ` +
+        `${estimatedDelayDays} day(s).`,
+    };
+  }
+
+  private roundToOne(value: number): number {
+    return Math.round(value * 10) / 10;
+  }
+
+  private toUtcDateKey(date: Date): string {
+    return date.toISOString().slice(0, 10);
+  }
+
+  private toUtcMidnightMs(date: Date): number {
+    return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  }
+
   private formatRoadmap(roadmap: SelectedRoadmap): RoadmapResponseDto {
     return {
       deadlineDate: this.formatDateOnly(roadmap.deadlineDate),
@@ -844,6 +1185,248 @@ export class RoadmapsService {
     if (!hasOnlyExpectedQuestions) {
       throw new AppBadRequestException('Quiz submission contains unknown question answers');
     }
+  }
+
+  async updateNodeProgress(
+    userId: string,
+    roadmapId: string,
+    nodeId: string,
+    dto: UpdateNodeProgressDto,
+  ): Promise<UpdateNodeProgressResponse> {
+    const node = await this.prisma.roadmapNode.findFirst({
+      where: { id: nodeId, roadmapId, roadmap: { userId } },
+      select: { id: true, nodeType: true, parentId: true, posY: true },
+    });
+
+    if (!node) {
+      throw new RoadmapNodeNotFoundException(nodeId);
+    }
+
+    const currentProgress = await this.prisma.userNodeProgress.findUnique({
+      where: { userId_roadmapNodeId: { userId, roadmapNodeId: nodeId } },
+      select: { status: true, quizPassed: true },
+    });
+
+    if (!currentProgress) {
+      throw new UserNodeProgressNotFoundException(nodeId);
+    }
+
+    const allowed = VALID_TRANSITIONS[currentProgress.status] ?? [];
+    if (!allowed.includes(dto.status)) {
+      throw new InvalidStatusTransitionException(currentProgress.status, dto.status);
+    }
+
+    if (LEAF_NODE_TYPES.includes(node.nodeType) && dto.status === NodeStatus.COMPLETED) {
+      if (!currentProgress.quizPassed) {
+        throw new QuizNotPassedException();
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+
+      const updatedProgress = await tx.userNodeProgress.update({
+        where: { userId_roadmapNodeId: { userId, roadmapNodeId: nodeId } },
+        data: {
+          status: dto.status,
+          ...(dto.status === NodeStatus.IN_PROGRESS ? { startedAt: now } : {}),
+          ...(dto.status === NodeStatus.COMPLETED ? { completedAt: now } : {}),
+        },
+        select: {
+          id: true,
+          roadmapNodeId: true,
+          status: true,
+          startedAt: true,
+          completedAt: true,
+          quizScorePct: true,
+          quizPassed: true,
+        },
+      });
+
+      const unlockedNodes: string[] = [];
+
+      if (dto.status === NodeStatus.COMPLETED) {
+        if (LEAF_NODE_TYPES.includes(node.nodeType)) {
+          const today = new Date(now);
+          today.setUTCHours(0, 0, 0, 0);
+
+          await tx.dailyActivity.upsert({
+            where: { userId_activityDate: { userId, activityDate: today } },
+            create: { userId, activityDate: today, nodesCompleted: 1 },
+            update: { nodesCompleted: { increment: 1 } },
+          });
+
+          if (node.parentId) {
+            await this.cascadeGroupCompletion(
+              tx,
+              userId,
+              roadmapId,
+              node.parentId,
+              now,
+              unlockedNodes,
+            );
+          }
+        } else if (node.nodeType === NodeType.MILESTONE) {
+          await this.unlockNextGroupAfterMilestone(
+            tx,
+            userId,
+            roadmapId,
+            node.parentId,
+            node.posY,
+            now,
+            unlockedNodes,
+          );
+        }
+      }
+
+      return {
+        progress: {
+          id: updatedProgress.id,
+          roadmapNodeId: updatedProgress.roadmapNodeId,
+          status: updatedProgress.status,
+          startedAt: updatedProgress.startedAt,
+          completedAt: updatedProgress.completedAt,
+          quizScorePct: toNumberOrNull(updatedProgress.quizScorePct),
+          quizPassed: updatedProgress.quizPassed,
+        },
+        unlockedNodes,
+      };
+    });
+  }
+
+  private async cascadeGroupCompletion(
+    tx: Awaited<Parameters<Parameters<typeof this.prisma.$transaction>[0]>[0]>,
+    userId: string,
+    roadmapId: string,
+    groupId: string,
+    now: Date,
+    unlockedNodes: string[],
+  ): Promise<void> {
+    const requiredChildren = await tx.roadmapNode.findMany({
+      where: { parentId: groupId, nodeType: NodeType.REQUIRED },
+      select: { id: true },
+    });
+
+    if (requiredChildren.length === 0) return;
+
+    const completedCount = await tx.userNodeProgress.count({
+      where: {
+        userId,
+        roadmapNodeId: { in: requiredChildren.map((c) => c.id) },
+        status: NodeStatus.COMPLETED,
+      },
+    });
+
+    if (completedCount < requiredChildren.length) return;
+
+    const group = await tx.roadmapNode.findFirst({
+      where: { id: groupId },
+      select: { parentId: true, posY: true },
+    });
+
+    if (!group) return;
+
+    const groupProgress = await tx.userNodeProgress.findUnique({
+      where: { userId_roadmapNodeId: { userId, roadmapNodeId: groupId } },
+      select: { status: true },
+    });
+
+    if (groupProgress?.status === NodeStatus.COMPLETED) return;
+
+    await tx.userNodeProgress.update({
+      where: { userId_roadmapNodeId: { userId, roadmapNodeId: groupId } },
+      data: { status: NodeStatus.COMPLETED, completedAt: now },
+    });
+
+    const nextSiblings = await tx.roadmapNode.findMany({
+      where: {
+        roadmapId,
+        parentId: group.parentId,
+        posY: { gt: group.posY },
+      },
+      orderBy: [{ posY: 'asc' }, { id: 'asc' }],
+      select: { id: true, nodeType: true, posY: true },
+      take: 5,
+    });
+
+    const firstNext = nextSiblings[0];
+    if (!firstNext) return;
+
+    if (firstNext.nodeType === NodeType.MILESTONE) {
+      await this.unlockProgressNode(tx, userId, firstNext.id, now, unlockedNodes);
+    } else if (firstNext.nodeType === NodeType.GROUP) {
+      await this.unlockGroupLeaves(tx, userId, firstNext.id, now, unlockedNodes);
+    }
+  }
+
+  private async unlockNextGroupAfterMilestone(
+    tx: Awaited<Parameters<Parameters<typeof this.prisma.$transaction>[0]>[0]>,
+    userId: string,
+    roadmapId: string,
+    milestoneParentId: string | null,
+    milestonePosY: Prisma.Decimal | number,
+    now: Date,
+    unlockedNodes: string[],
+  ): Promise<void> {
+    const nextGroup = await tx.roadmapNode.findFirst({
+      where: {
+        roadmapId,
+        parentId: milestoneParentId,
+        nodeType: NodeType.GROUP,
+        posY: { gt: milestonePosY },
+      },
+      orderBy: [{ posY: 'asc' }, { id: 'asc' }],
+      select: { id: true },
+    });
+
+    if (!nextGroup) return;
+
+    await this.unlockGroupLeaves(tx, userId, nextGroup.id, now, unlockedNodes);
+  }
+
+  private async unlockProgressNode(
+    tx: Awaited<Parameters<Parameters<typeof this.prisma.$transaction>[0]>[0]>,
+    userId: string,
+    roadmapNodeId: string,
+    now: Date,
+    unlockedNodes: string[],
+  ): Promise<void> {
+    const result = await tx.userNodeProgress.updateMany({
+      where: { userId, roadmapNodeId, status: NodeStatus.LOCKED },
+      data: { status: NodeStatus.IN_PROGRESS, startedAt: now },
+    });
+
+    if (result.count > 0) {
+      unlockedNodes.push(roadmapNodeId);
+    }
+  }
+
+  private async unlockGroupLeaves(
+    tx: Awaited<Parameters<Parameters<typeof this.prisma.$transaction>[0]>[0]>,
+    userId: string,
+    groupId: string,
+    now: Date,
+    unlockedNodes: string[],
+  ): Promise<void> {
+    const lockedProgress = await tx.userNodeProgress.findMany({
+      where: {
+        userId,
+        status: NodeStatus.LOCKED,
+        roadmapNode: { parentId: groupId, nodeType: { in: LEAF_NODE_TYPES } },
+      },
+      select: { roadmapNodeId: true },
+    });
+
+    if (lockedProgress.length === 0) return;
+
+    const leafIds = lockedProgress.map((p) => p.roadmapNodeId);
+
+    await tx.userNodeProgress.updateMany({
+      where: { userId, roadmapNodeId: { in: leafIds } },
+      data: { status: NodeStatus.IN_PROGRESS, startedAt: now },
+    });
+
+    unlockedNodes.push(...leafIds);
   }
 
   async getByIdForOwner(userId: string, roadmapId: string): Promise<RoadmapResponseDto> {

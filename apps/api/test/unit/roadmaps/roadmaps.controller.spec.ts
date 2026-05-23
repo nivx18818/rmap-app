@@ -1,6 +1,7 @@
 import type { TestingModule } from '@nestjs/testing';
 
 import { Test } from '@nestjs/testing';
+import { NodeStatus } from '@repo/db/prisma/client';
 
 import { RoadmapsController } from '@/modules/roadmaps/roadmaps.controller';
 import { RoadmapsService } from '@/modules/roadmaps/roadmaps.service';
@@ -12,10 +13,13 @@ describe('RoadmapsController', () => {
     deleteByIdForOwner: jest.fn(),
     generate: jest.fn(),
     getByIdForOwner: jest.fn(),
+    getNodeDetail: jest.fn(),
     getNodeQuiz: jest.fn(),
+    getProgressSummary: jest.fn(),
     listNodes: jest.fn(),
     listUserRoadmaps: jest.fn(),
     submitNodeQuiz: jest.fn(),
+    updateNodeProgress: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -53,6 +57,41 @@ describe('RoadmapsController', () => {
     expect(mockRoadmapsService.listNodes).toHaveBeenCalledWith('user-1', 'roadmap-1', {
       q: 'REST',
     });
+    expect(result).toEqual(mockResponse);
+  });
+
+  it('should call getNodeDetail and return response', async () => {
+    const mockUser = {
+      id: 'user-1',
+      email: 'test@example.com',
+      fullName: 'Test User',
+      role: 'USER',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    };
+    const mockResponse = {
+      node: {
+        id: 'node-1',
+        roadmapId: 'roadmap-1',
+        parentId: 'group-1',
+        skillId: 'skill-1',
+        name: 'REST API',
+        description: null,
+        nodeType: 'REQUIRED',
+        estimatedHours: 6,
+        posX: 140,
+        posY: 240,
+        progress: null,
+      },
+      skill: null,
+      resources: null,
+      prerequisites: [],
+    };
+
+    mockRoadmapsService.getNodeDetail.mockResolvedValue(mockResponse);
+
+    const result = await controller.getNodeDetail(mockUser, 'roadmap-1', 'node-1');
+
+    expect(mockRoadmapsService.getNodeDetail).toHaveBeenCalledWith('user-1', 'roadmap-1', 'node-1');
     expect(result).toEqual(mockResponse);
   });
 
@@ -119,6 +158,34 @@ describe('RoadmapsController', () => {
     });
   });
 
+  describe('getProgressSummary', () => {
+    it('should call getProgressSummary and return response', async () => {
+      const user = {
+        id: 'user-1',
+        email: 'test@example.com',
+        fullName: 'Test User',
+        role: 'USER',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      };
+      const response = {
+        roadmapId: 'roadmap-1',
+        completionPct: 40,
+        streakDays: 3,
+        skillReadinessPct: 50,
+        nodesTotal: 5,
+        nodesCompleted: 2,
+        timelineWarning: null,
+      };
+
+      mockRoadmapsService.getProgressSummary.mockResolvedValue(response);
+
+      const result = await controller.getProgressSummary(user, 'roadmap-1');
+
+      expect(mockRoadmapsService.getProgressSummary).toHaveBeenCalledWith('user-1', 'roadmap-1');
+      expect(result).toEqual(response);
+    });
+  });
+
   describe('remove', () => {
     it('should delete a roadmap for the current user and return no body', async () => {
       const user = {
@@ -158,6 +225,43 @@ describe('RoadmapsController', () => {
 
     expect(mockRoadmapsService.getNodeQuiz).toHaveBeenCalledWith('user-1', 'roadmap-1', 'node-1');
     expect(result).toEqual(mockResponse);
+  });
+
+  describe('updateNodeProgress', () => {
+    it('should call updateNodeProgress and return response', async () => {
+      const mockUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        fullName: 'Test User',
+        role: 'USER',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      };
+      const dto = { status: NodeStatus.COMPLETED };
+      const mockResponse = {
+        progress: {
+          id: 'progress-1',
+          roadmapNodeId: 'node-1',
+          status: NodeStatus.COMPLETED,
+          startedAt: new Date('2026-01-01T00:00:00Z'),
+          completedAt: new Date('2026-01-02T00:00:00Z'),
+          quizScorePct: null,
+          quizPassed: true,
+        },
+        unlockedNodes: ['leaf-2', 'leaf-3'],
+      };
+
+      mockRoadmapsService.updateNodeProgress.mockResolvedValue(mockResponse);
+
+      const result = await controller.updateNodeProgress(mockUser, 'roadmap-1', 'node-1', dto);
+
+      expect(mockRoadmapsService.updateNodeProgress).toHaveBeenCalledWith(
+        'user-1',
+        'roadmap-1',
+        'node-1',
+        dto,
+      );
+      expect(result).toEqual(mockResponse);
+    });
   });
 
   it('should call submitNodeQuiz and return response', async () => {

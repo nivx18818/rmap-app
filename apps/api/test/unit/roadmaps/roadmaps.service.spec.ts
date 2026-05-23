@@ -8,8 +8,12 @@ import {
   AppNotFoundException,
   DeadlineInPastException,
   InternalServerErrorException,
+  InvalidStatusTransitionException,
+  QuizNotPassedException,
   RoadmapGenerationUnavailableException,
+  RoadmapNodeNotFoundException,
   RoadmapNotFoundException,
+  UserNodeProgressNotFoundException,
 } from '@/common/exceptions/app.exceptions';
 import { AiService } from '@/modules/ai/ai.service';
 import { PrismaService } from '@/modules/prisma/prisma.service';
@@ -29,10 +33,20 @@ import {
 
 function makeTxMock() {
   return {
+    dailyActivity: {
+      upsert: jest.fn().mockResolvedValue({}),
+    },
     roadmap: { create: jest.fn().mockResolvedValue(MOCK_ROADMAP) },
-    roadmapNode: { createMany: jest.fn().mockResolvedValue({ count: 19 }) },
-    userNodeProgress: {
+    roadmapNode: {
       createMany: jest.fn().mockResolvedValue({ count: 19 }),
+      findFirst: jest.fn().mockResolvedValue(null),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
+    userNodeProgress: {
+      count: jest.fn().mockResolvedValue(0),
+      createMany: jest.fn().mockResolvedValue({ count: 19 }),
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue(null),
       update: jest.fn(),
       updateMany: jest.fn().mockResolvedValue({ count: 4 }),
     },
@@ -49,6 +63,8 @@ type AsyncMock<TResult = unknown, TArgs extends unknown[] = unknown[]> = jest.Mo
 interface RoadmapNodeQuizSelection {
   id: string;
   nodeType: NodeType;
+  parentId?: string | null;
+  posY?: number;
   skillId: string | null;
 }
 
@@ -62,8 +78,55 @@ interface QuizQuestionRecord {
   correctOption: string;
 }
 
+interface RoadmapNodeDetailSelection {
+  id: string;
+  roadmapId: string;
+  parentId: string | null;
+  skillId: string | null;
+  name: string;
+  description: string | null;
+  nodeType: NodeType;
+  estimatedHours: number | null;
+  posX: number;
+  posY: number;
+  userNodeProgress: Array<{
+    id: string;
+    roadmapNodeId: string;
+    status: NodeStatus;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    quizScorePct: number | null;
+    quizPassed: boolean | null;
+  }>;
+  skill: {
+    id: string;
+    name: string;
+    description: string | null;
+    defaultEstimatedHours: number | null;
+    roleCategory: RoleCategory | null;
+    resources: Array<{
+      id: number;
+      createdAt: Date;
+      title: string;
+      url: string;
+      resourceType: string;
+      isFree: boolean;
+      isPrimary: boolean;
+    }>;
+    prerequisites: Array<{
+      prerequisiteSkillId: string;
+      prerequisiteSkill: { name: string };
+    }>;
+  } | null;
+}
+
+type RoadmapNodeFindFirstSelection = RoadmapNodeQuizSelection | RoadmapNodeDetailSelection;
+
 interface RoadmapsPrismaMock {
   $transaction: AsyncMock<unknown, [unknown]>;
+  dailyActivity: {
+    findMany: AsyncMock<Array<{ activityDate: Date; nodesCompleted: number }>>;
+  };
   quizQuestion: {
     findMany: AsyncMock<QuizQuestionRecord[]>;
   };
@@ -74,7 +137,7 @@ interface RoadmapsPrismaMock {
     findMany: AsyncMock<unknown[]>;
   };
   roadmapNode: {
-    findFirst: AsyncMock<RoadmapNodeQuizSelection | null>;
+    findFirst: AsyncMock<RoadmapNodeFindFirstSelection | null>;
     findMany: AsyncMock<unknown[]>;
   };
   skill: {
@@ -83,12 +146,20 @@ interface RoadmapsPrismaMock {
   skillPrerequisite: {
     findMany: AsyncMock<typeof MOCK_PRISMA_SKILL_PREREQUISITES>;
   };
+  userNodeProgress: {
+    findUnique: AsyncMock<{ status: NodeStatus; quizPassed: boolean | null } | null>;
+  };
 }
 
 const createDecimal = (value: number) => ({
   toNumber: () => value,
   toString: () => value.toString(),
 });
+
+const expectAnyDate = (): Date => expect.any(Date) as Date;
+
+const expectObjectContaining = <T extends object>(value: T): T =>
+  expect.objectContaining(value) as T;
 
 const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
   $transaction: jest.fn<Promise<unknown>, [unknown]>().mockImplementation(async (input) => {
@@ -101,6 +172,9 @@ const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
     const transactionCallback = input as TransactionCallback;
     return transactionCallback(txMock);
   }),
+  dailyActivity: {
+    findMany: jest.fn<Promise<Array<{ activityDate: Date; nodesCompleted: number }>>, unknown[]>(),
+  },
   quizQuestion: {
     findMany: jest.fn<Promise<QuizQuestionRecord[]>, unknown[]>(),
   },
@@ -111,7 +185,7 @@ const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
     findMany: jest.fn<Promise<unknown[]>, unknown[]>(),
   },
   roadmapNode: {
-    findFirst: jest.fn<Promise<RoadmapNodeQuizSelection | null>, unknown[]>(),
+    findFirst: jest.fn<Promise<RoadmapNodeFindFirstSelection | null>, unknown[]>(),
     findMany: jest.fn<Promise<unknown[]>, unknown[]>(),
   },
   skill: {
@@ -121,6 +195,12 @@ const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
     findMany: jest
       .fn<Promise<typeof MOCK_PRISMA_SKILL_PREREQUISITES>, unknown[]>()
       .mockResolvedValue(MOCK_PRISMA_SKILL_PREREQUISITES),
+  },
+  userNodeProgress: {
+    findUnique: jest.fn<
+      Promise<{ status: NodeStatus; quizPassed: boolean | null } | null>,
+      unknown[]
+    >(),
   },
 });
 
@@ -512,7 +592,7 @@ describe('RoadmapsService', () => {
 
       expect(prisma.roadmapNode.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({
+          where: expectObjectContaining({
             roadmapId,
             nodeType: NodeType.GROUP,
             userNodeProgress: {
@@ -550,6 +630,467 @@ describe('RoadmapsService', () => {
           },
         ],
       });
+    });
+  });
+
+  describe('getProgressSummary', () => {
+    const roadmapId = 'roadmap-1';
+    const systemNow = new Date('2026-05-21T12:00:00Z');
+    const makeProgressNode = (
+      id: string,
+      nodeType: NodeType,
+      status: NodeStatus | null,
+      estimatedHours: number | null,
+    ) => ({
+      id,
+      nodeType,
+      estimatedHours,
+      userNodeProgress: status ? [{ status }] : [],
+    });
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      jest.setSystemTime(systemNow);
+      prisma.roadmap.findFirst.mockResolvedValue({
+        generatedAt: new Date('2026-05-20T03:00:00Z'),
+        hoursPerDay: createDecimal(2),
+        id: roadmapId,
+      });
+      prisma.dailyActivity.findMany.mockResolvedValue([]);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('should throw RoadmapNotFoundException when the roadmap is not found', async () => {
+      prisma.roadmap.findFirst.mockResolvedValue(null);
+
+      await expect(service.getProgressSummary(MOCK_USER_ID, roadmapId)).rejects.toThrow(
+        RoadmapNotFoundException,
+      );
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should compute completion and skill readiness percentages', async () => {
+      prisma.roadmapNode.findMany.mockResolvedValue([
+        makeProgressNode('group-1', NodeType.GROUP, NodeStatus.COMPLETED, null),
+        makeProgressNode('required-1', NodeType.REQUIRED, NodeStatus.COMPLETED, 2),
+        makeProgressNode('required-2', NodeType.REQUIRED, NodeStatus.IN_PROGRESS, 8),
+        makeProgressNode('optional-1', NodeType.OPTIONAL, NodeStatus.COMPLETED, 3),
+        makeProgressNode('milestone-1', NodeType.MILESTONE, NodeStatus.LOCKED, null),
+      ]);
+
+      const result = await service.getProgressSummary(MOCK_USER_ID, roadmapId);
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          roadmapId,
+          completionPct: 60,
+          skillReadinessPct: 50,
+          nodesTotal: 5,
+          nodesCompleted: 3,
+          timelineWarning: null,
+        }),
+      );
+    });
+
+    it('should compute streak from consecutive daily activity rows', async () => {
+      prisma.roadmap.findFirst.mockResolvedValue({
+        generatedAt: new Date('2026-05-20T03:00:00Z'),
+        hoursPerDay: null,
+        id: roadmapId,
+      });
+      prisma.roadmapNode.findMany.mockResolvedValue([]);
+      prisma.dailyActivity.findMany.mockResolvedValue([
+        { activityDate: new Date('2026-05-20T00:00:00Z'), nodesCompleted: 1 },
+        { activityDate: new Date('2026-05-19T00:00:00Z'), nodesCompleted: 2 },
+        { activityDate: new Date('2026-05-18T00:00:00Z'), nodesCompleted: 1 },
+        { activityDate: new Date('2026-05-17T00:00:00Z'), nodesCompleted: 0 },
+        { activityDate: new Date('2026-05-16T00:00:00Z'), nodesCompleted: 1 },
+      ]);
+
+      const result = await service.getProgressSummary(MOCK_USER_ID, roadmapId);
+
+      expect(result.streakDays).toBe(3);
+      expect(result.completionPct).toBe(0);
+      expect(result.skillReadinessPct).toBe(0);
+    });
+
+    it('should return a timeline warning when pace deficit is at least 15 percent', async () => {
+      prisma.roadmap.findFirst.mockResolvedValue({
+        generatedAt: new Date('2026-05-19T03:00:00Z'),
+        hoursPerDay: createDecimal(4),
+        id: roadmapId,
+      });
+      prisma.roadmapNode.findMany.mockResolvedValue([
+        makeProgressNode('required-1', NodeType.REQUIRED, NodeStatus.COMPLETED, 9),
+        makeProgressNode('required-2', NodeType.REQUIRED, NodeStatus.IN_PROGRESS, 4),
+      ]);
+
+      const result = await service.getProgressSummary(MOCK_USER_ID, roadmapId);
+
+      expect(result.timelineWarning).toEqual({
+        isBehind: true,
+        paceDeficitPct: 25,
+        estimatedDelayDays: 1,
+        message: 'You are 25% behind pace - projected delay is about 1 day(s).',
+      });
+    });
+
+    it('should return null timeline warning when on track', async () => {
+      prisma.roadmap.findFirst.mockResolvedValue({
+        generatedAt: new Date('2026-05-19T03:00:00Z'),
+        hoursPerDay: createDecimal(4),
+        id: roadmapId,
+      });
+      prisma.roadmapNode.findMany.mockResolvedValue([
+        makeProgressNode('required-1', NodeType.REQUIRED, NodeStatus.COMPLETED, 11),
+        makeProgressNode('required-2', NodeType.REQUIRED, NodeStatus.IN_PROGRESS, 4),
+      ]);
+
+      const result = await service.getProgressSummary(MOCK_USER_ID, roadmapId);
+
+      expect(result.timelineWarning).toBeNull();
+    });
+  });
+
+  describe('getNodeDetail', () => {
+    const nodeId = 'node-1';
+    const roadmapId = 'roadmap-1';
+    const skillId = 'skill-1';
+    const startedAt = new Date('2026-01-01T00:00:00Z');
+
+    const makeNodeDetail = (
+      overrides: Partial<RoadmapNodeDetailSelection> = {},
+    ): RoadmapNodeDetailSelection => ({
+      id: nodeId,
+      roadmapId,
+      parentId: 'group-1',
+      skillId,
+      name: 'REST API',
+      description: 'Build production REST APIs',
+      nodeType: NodeType.REQUIRED,
+      estimatedHours: 6,
+      posX: 140,
+      posY: 240,
+      userNodeProgress: [
+        {
+          id: 'progress-1',
+          roadmapNodeId: nodeId,
+          status: NodeStatus.IN_PROGRESS,
+          startedAt,
+          completedAt: null,
+          quizScorePct: 80,
+          quizPassed: true,
+        },
+      ],
+      skill: {
+        id: skillId,
+        name: 'REST APIs',
+        description: 'Design and build RESTful HTTP APIs.',
+        defaultEstimatedHours: 8,
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+        resources: [
+          {
+            id: 1,
+            createdAt: new Date('2026-01-03T00:00:00Z'),
+            title: 'Primary late',
+            url: 'https://example.com/primary-late',
+            resourceType: 'DOCS',
+            isFree: true,
+            isPrimary: true,
+          },
+          {
+            id: 2,
+            createdAt: new Date('2026-01-01T00:00:00Z'),
+            title: 'Primary early',
+            url: 'https://example.com/primary-early',
+            resourceType: 'COURSE',
+            isFree: false,
+            isPrimary: true,
+          },
+          {
+            id: 3,
+            createdAt: new Date('2026-01-02T00:00:00Z'),
+            title: 'Article',
+            url: 'https://example.com/article',
+            resourceType: 'ARTICLE',
+            isFree: true,
+            isPrimary: false,
+          },
+        ],
+        prerequisites: [
+          {
+            prerequisiteSkillId: 'skill-prereq-1',
+            prerequisiteSkill: { name: 'HTTP Basics' },
+          },
+        ],
+      },
+      ...overrides,
+    });
+
+    it('should return full detail for a leaf node', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(makeNodeDetail());
+
+      const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
+      const findFirstArgs = prisma.roadmapNode.findFirst.mock.calls[0]?.[0] as {
+        where: unknown;
+        select: {
+          skill?: {
+            select?: {
+              resources?: {
+                orderBy?: unknown;
+              };
+            };
+          };
+        };
+      };
+
+      expect(findFirstArgs.where).toEqual({
+        id: nodeId,
+        roadmapId,
+        roadmap: { userId: MOCK_USER_ID },
+      });
+      expect(findFirstArgs.select.skill?.select?.resources?.orderBy).toEqual([
+        { isPrimary: 'desc' },
+        { createdAt: 'asc' },
+        { id: 'asc' },
+      ]);
+      expect(result).toEqual({
+        node: {
+          id: nodeId,
+          roadmapId,
+          parentId: 'group-1',
+          skillId,
+          name: 'REST API',
+          description: 'Build production REST APIs',
+          nodeType: NodeType.REQUIRED,
+          estimatedHours: 6,
+          posX: 140,
+          posY: 240,
+          progress: {
+            id: 'progress-1',
+            roadmapNodeId: nodeId,
+            status: NodeStatus.IN_PROGRESS,
+            startedAt,
+            completedAt: null,
+            quizScorePct: 80,
+            quizPassed: true,
+          },
+        },
+        skill: {
+          id: skillId,
+          name: 'REST APIs',
+          description: 'Design and build RESTful HTTP APIs.',
+          defaultEstimatedHours: 8,
+          roleCategory: RoleCategory.WEB_DEVELOPMENT,
+        },
+        resources: [
+          {
+            id: 2,
+            title: 'Primary early',
+            url: 'https://example.com/primary-early',
+            resourceType: 'COURSE',
+            isFree: false,
+            isPrimary: true,
+          },
+          {
+            id: 1,
+            title: 'Primary late',
+            url: 'https://example.com/primary-late',
+            resourceType: 'DOCS',
+            isFree: true,
+            isPrimary: true,
+          },
+          {
+            id: 3,
+            title: 'Article',
+            url: 'https://example.com/article',
+            resourceType: 'ARTICLE',
+            isFree: true,
+            isPrimary: false,
+          },
+        ],
+        prerequisites: [{ skillId: 'skill-prereq-1', skillName: 'HTTP Basics' }],
+      });
+    });
+
+    it('should order resources with primaries first and createdAt ascending within groups', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(
+        makeNodeDetail({
+          skill: {
+            id: skillId,
+            name: 'REST APIs',
+            description: null,
+            defaultEstimatedHours: null,
+            roleCategory: null,
+            resources: [
+              {
+                id: 4,
+                createdAt: new Date('2026-01-04T00:00:00Z'),
+                title: 'Non-primary late',
+                url: 'https://example.com/non-primary-late',
+                resourceType: 'ARTICLE',
+                isFree: true,
+                isPrimary: false,
+              },
+              {
+                id: 2,
+                createdAt: new Date('2026-01-02T00:00:00Z'),
+                title: 'Primary late',
+                url: 'https://example.com/primary-late',
+                resourceType: 'DOCS',
+                isFree: true,
+                isPrimary: true,
+              },
+              {
+                id: 1,
+                createdAt: new Date('2026-01-01T00:00:00Z'),
+                title: 'Primary early',
+                url: 'https://example.com/primary-early',
+                resourceType: 'COURSE',
+                isFree: false,
+                isPrimary: true,
+              },
+              {
+                id: 3,
+                createdAt: new Date('2026-01-03T00:00:00Z'),
+                title: 'Non-primary early',
+                url: 'https://example.com/non-primary-early',
+                resourceType: 'YOUTUBE',
+                isFree: true,
+                isPrimary: false,
+              },
+            ],
+            prerequisites: [],
+          },
+        }),
+      );
+
+      const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
+
+      expect(result.resources?.map((resource) => resource.id)).toEqual([1, 2, 3, 4]);
+    });
+
+    it('should return at most two primary resources', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(
+        makeNodeDetail({
+          skill: {
+            id: skillId,
+            name: 'REST APIs',
+            description: null,
+            defaultEstimatedHours: null,
+            roleCategory: null,
+            resources: [
+              {
+                id: 1,
+                createdAt: new Date('2026-01-01T00:00:00Z'),
+                title: 'Primary one',
+                url: 'https://example.com/primary-one',
+                resourceType: 'DOCS',
+                isFree: true,
+                isPrimary: true,
+              },
+              {
+                id: 2,
+                createdAt: new Date('2026-01-02T00:00:00Z'),
+                title: 'Primary two',
+                url: 'https://example.com/primary-two',
+                resourceType: 'COURSE',
+                isFree: true,
+                isPrimary: true,
+              },
+              {
+                id: 3,
+                createdAt: new Date('2026-01-03T00:00:00Z'),
+                title: 'Primary three',
+                url: 'https://example.com/primary-three',
+                resourceType: 'YOUTUBE',
+                isFree: true,
+                isPrimary: true,
+              },
+              {
+                id: 4,
+                createdAt: new Date('2026-01-04T00:00:00Z'),
+                title: 'Article',
+                url: 'https://example.com/article',
+                resourceType: 'ARTICLE',
+                isFree: true,
+                isPrimary: false,
+              },
+            ],
+            prerequisites: [],
+          },
+        }),
+      );
+
+      const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
+
+      expect(result.resources?.map((resource) => resource.id)).toEqual([1, 2, 4]);
+      expect(result.resources?.filter((resource) => resource.isPrimary)).toHaveLength(2);
+    });
+
+    it('should return null skill and resources for a group node', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(
+        makeNodeDetail({
+          parentId: null,
+          skillId: null,
+          nodeType: NodeType.GROUP,
+          estimatedHours: null,
+          skill: null,
+          userNodeProgress: [],
+        }),
+      );
+
+      const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
+
+      expect(result.skill).toBeNull();
+      expect(result.resources).toBeNull();
+      expect(result.prerequisites).toEqual([]);
+      expect(result.node.progress).toBeNull();
+    });
+
+    it('should return null skill and resources for a milestone node', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(
+        makeNodeDetail({
+          skillId: null,
+          nodeType: NodeType.MILESTONE,
+          estimatedHours: null,
+          skill: null,
+        }),
+      );
+
+      const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
+
+      expect(result.skill).toBeNull();
+      expect(result.resources).toBeNull();
+      expect(result.prerequisites).toEqual([]);
+    });
+
+    it('should throw RoadmapNodeNotFoundException when the node is not found', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(null);
+
+      await expect(service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId)).rejects.toThrow(
+        RoadmapNodeNotFoundException,
+      );
+    });
+
+    it('should throw RoadmapNodeNotFoundException when the node belongs to another user', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(null);
+
+      await expect(service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId)).rejects.toThrow(
+        RoadmapNodeNotFoundException,
+      );
+      expect(prisma.roadmapNode.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: nodeId,
+            roadmapId,
+            roadmap: { userId: MOCK_USER_ID },
+          },
+        }),
+      );
     });
   });
 
@@ -1239,6 +1780,271 @@ describe('RoadmapsService', () => {
         }),
       ).rejects.toMatchObject({ status: 400 });
       expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateNodeProgress', () => {
+    const nodeId = 'node-1';
+    const roadmapId = 'roadmap-1';
+    const groupId = 'group-1';
+
+    const mockNode: RoadmapNodeQuizSelection = {
+      id: nodeId,
+      nodeType: NodeType.REQUIRED,
+      skillId: null,
+      parentId: groupId,
+    };
+    const mockUpdatedProgress = {
+      id: 'progress-1',
+      roadmapNodeId: nodeId,
+      status: NodeStatus.COMPLETED,
+      startedAt: new Date('2026-01-01T00:00:00Z'),
+      completedAt: new Date('2026-01-02T00:00:00Z'),
+      quizScorePct: null,
+      quizPassed: true,
+    };
+
+    beforeEach(() => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(mockNode);
+      prisma.userNodeProgress.findUnique.mockResolvedValue({
+        status: NodeStatus.IN_PROGRESS,
+        quizPassed: true,
+      });
+      txMock.userNodeProgress.update.mockResolvedValue(mockUpdatedProgress);
+      // Default: 2 required children, 1 completed → no cascade
+      txMock.roadmapNode.findMany.mockResolvedValue([{ id: nodeId }, { id: 'other-leaf' }]);
+      txMock.userNodeProgress.count.mockResolvedValue(1);
+    });
+
+    it('should throw RoadmapNodeNotFoundException when the node is not found', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+          status: NodeStatus.COMPLETED,
+        }),
+      ).rejects.toThrow(RoadmapNodeNotFoundException);
+      expect(prisma.userNodeProgress.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('should throw UserNodeProgressNotFoundException when the progress record is not found', async () => {
+      prisma.userNodeProgress.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+          status: NodeStatus.COMPLETED,
+        }),
+      ).rejects.toThrow(UserNodeProgressNotFoundException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should throw InvalidStatusTransitionException for an invalid transition (COMPLETED → IN_PROGRESS)', async () => {
+      prisma.userNodeProgress.findUnique.mockResolvedValue({
+        status: NodeStatus.COMPLETED,
+        quizPassed: true,
+      });
+
+      await expect(
+        service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+          status: NodeStatus.IN_PROGRESS,
+        }),
+      ).rejects.toThrow(InvalidStatusTransitionException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should throw QuizNotPassedException when completing a leaf without quiz passed', async () => {
+      prisma.userNodeProgress.findUnique.mockResolvedValue({
+        status: NodeStatus.IN_PROGRESS,
+        quizPassed: false,
+      });
+
+      await expect(
+        service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+          status: NodeStatus.COMPLETED,
+        }),
+      ).rejects.toThrow(QuizNotPassedException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('should allow completing a GROUP node without quiz', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.GROUP,
+        skillId: null,
+        parentId: null,
+      });
+      prisma.userNodeProgress.findUnique.mockResolvedValue({
+        status: NodeStatus.IN_PROGRESS,
+        quizPassed: null,
+      });
+      txMock.userNodeProgress.update.mockResolvedValue({
+        ...mockUpdatedProgress,
+        status: NodeStatus.COMPLETED,
+      });
+
+      const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+        status: NodeStatus.COMPLETED,
+      });
+
+      expect(result.progress.status).toBe(NodeStatus.COMPLETED);
+      expect(result.unlockedNodes).toEqual([]);
+      expect(txMock.dailyActivity.upsert).not.toHaveBeenCalled();
+    });
+
+    it('should reject client-driven LOCKED → IN_PROGRESS transitions', async () => {
+      prisma.userNodeProgress.findUnique.mockResolvedValue({
+        status: NodeStatus.LOCKED,
+        quizPassed: null,
+      });
+
+      await expect(
+        service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+          status: NodeStatus.IN_PROGRESS,
+        }),
+      ).rejects.toThrow(InvalidStatusTransitionException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(txMock.dailyActivity.upsert).not.toHaveBeenCalled();
+    });
+
+    it('should upsert daily_activity when a leaf node completes', async () => {
+      await service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+        status: NodeStatus.COMPLETED,
+      });
+
+      expect(txMock.dailyActivity.upsert).toHaveBeenCalledTimes(1);
+      expect(txMock.dailyActivity.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userId_activityDate: { userId: MOCK_USER_ID, activityDate: expectAnyDate() },
+          },
+          create: expectObjectContaining({ nodesCompleted: 1 }),
+          update: { nodesCompleted: { increment: 1 } },
+        }),
+      );
+    });
+
+    it('should return empty unlockedNodes when not all required leaves are done', async () => {
+      // Default beforeEach: 2 required children, count=1 → cascade aborts early
+      const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+        status: NodeStatus.COMPLETED,
+      });
+
+      expect(result.unlockedNodes).toEqual([]);
+      expect(txMock.userNodeProgress.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('should auto-complete the group and unlock next GROUP leaves when all required leaves complete', async () => {
+      txMock.roadmapNode.findMany
+        .mockResolvedValueOnce([{ id: nodeId }]) // required children of group-1 (only 1)
+        .mockResolvedValueOnce([{ id: 'group-2', nodeType: NodeType.GROUP, posY: 200 }]); // next siblings
+
+      txMock.userNodeProgress.count.mockResolvedValue(1); // 1 of 1 done → cascade triggers
+      txMock.roadmapNode.findFirst.mockResolvedValue({ parentId: null, posY: 100 }); // group-1 info
+      txMock.userNodeProgress.findUnique.mockResolvedValueOnce({ status: NodeStatus.IN_PROGRESS }); // group not yet completed
+      txMock.userNodeProgress.findMany.mockResolvedValueOnce([
+        { roadmapNodeId: 'leaf-2' },
+        { roadmapNodeId: 'leaf-3' },
+      ]); // LOCKED leaves of group-2
+
+      const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+        status: NodeStatus.COMPLETED,
+      });
+
+      expect(txMock.userNodeProgress.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId_roadmapNodeId: { userId: MOCK_USER_ID, roadmapNodeId: groupId } },
+          data: expectObjectContaining({ status: NodeStatus.COMPLETED }),
+        }),
+      );
+      expect(txMock.userNodeProgress.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: MOCK_USER_ID, roadmapNodeId: { in: ['leaf-2', 'leaf-3'] } },
+          data: expectObjectContaining({ status: NodeStatus.IN_PROGRESS }),
+        }),
+      );
+      expect(result.unlockedNodes).toEqual(['leaf-2', 'leaf-3']);
+    });
+
+    it('should unlock milestone without unlocking next GROUP when milestone follows the completed group', async () => {
+      const milestoneId = 'milestone-1';
+      const nextGroupId = 'group-2';
+
+      txMock.roadmapNode.findMany
+        .mockResolvedValueOnce([{ id: nodeId }]) // required children of group-1
+        .mockResolvedValueOnce([
+          { id: milestoneId, nodeType: NodeType.MILESTONE, posY: 150 },
+          { id: nextGroupId, nodeType: NodeType.GROUP, posY: 200 },
+        ]); // next siblings: milestone first, then group
+
+      txMock.userNodeProgress.count.mockResolvedValue(1);
+      txMock.roadmapNode.findFirst.mockResolvedValue({ parentId: null, posY: 100 });
+      txMock.userNodeProgress.findUnique.mockResolvedValueOnce({ status: NodeStatus.IN_PROGRESS }); // group not yet completed
+      txMock.userNodeProgress.updateMany.mockResolvedValueOnce({ count: 1 });
+
+      const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+        status: NodeStatus.COMPLETED,
+      });
+
+      expect(txMock.userNodeProgress.update).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId_roadmapNodeId: { userId: MOCK_USER_ID, roadmapNodeId: milestoneId } },
+          data: expectObjectContaining({ status: NodeStatus.COMPLETED }),
+        }),
+      );
+      expect(txMock.userNodeProgress.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            userId: MOCK_USER_ID,
+            roadmapNodeId: milestoneId,
+            status: NodeStatus.LOCKED,
+          },
+          data: expectObjectContaining({ status: NodeStatus.IN_PROGRESS }),
+        }),
+      );
+      expect(txMock.userNodeProgress.findMany).not.toHaveBeenCalled();
+      expect(result.unlockedNodes).toEqual([milestoneId]);
+    });
+
+    it('should unlock next GROUP leaves after completing a milestone', async () => {
+      const milestoneId = 'milestone-1';
+      const nextGroupId = 'group-2';
+
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: milestoneId,
+        nodeType: NodeType.MILESTONE,
+        parentId: null,
+        posY: 150,
+        skillId: null,
+      });
+      txMock.userNodeProgress.update.mockResolvedValue({
+        ...mockUpdatedProgress,
+        roadmapNodeId: milestoneId,
+        status: NodeStatus.COMPLETED,
+      });
+      txMock.roadmapNode.findFirst.mockResolvedValueOnce({ id: nextGroupId });
+      txMock.userNodeProgress.findMany.mockResolvedValueOnce([{ roadmapNodeId: 'leaf-4' }]);
+
+      const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, milestoneId, {
+        status: NodeStatus.COMPLETED,
+      });
+
+      expect(txMock.roadmapNode.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expectObjectContaining({
+            roadmapId,
+            parentId: null,
+            nodeType: NodeType.GROUP,
+            posY: { gt: 150 },
+          }),
+        }),
+      );
+      expect(txMock.userNodeProgress.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: MOCK_USER_ID, roadmapNodeId: { in: ['leaf-4'] } },
+          data: expectObjectContaining({ status: NodeStatus.IN_PROGRESS }),
+        }),
+      );
+      expect(result.unlockedNodes).toEqual(['leaf-4']);
     });
   });
 });

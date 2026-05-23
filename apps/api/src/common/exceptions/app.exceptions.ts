@@ -6,6 +6,7 @@ import {
   HttpStatus,
   NotFoundException,
   UnauthorizedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 
 import { ErrorCode, getErrorMessage } from '../constants/error-codes';
@@ -92,6 +93,15 @@ export class DeadlineInPastException extends BadRequestException {
     super({
       code: ErrorCode.DEADLINE_IN_PAST,
       message: getErrorMessage(ErrorCode.DEADLINE_IN_PAST),
+    });
+  }
+}
+
+export class InvalidStatusTransitionException extends BadRequestException {
+  constructor(from: string, to: string) {
+    super({
+      code: ErrorCode.INVALID_STATUS_TRANSITION,
+      message: `${getErrorMessage(ErrorCode.INVALID_STATUS_TRANSITION)}: ${from} → ${to}`,
     });
   }
 }
@@ -207,6 +217,24 @@ export class RoadmapNotFoundException extends NotFoundException {
   }
 }
 
+export class RoadmapNodeNotFoundException extends NotFoundException {
+  constructor(identifier: number | string) {
+    super({
+      code: ErrorCode.ROADMAP_NODE_NOT_FOUND,
+      message: `${getErrorMessage(ErrorCode.ROADMAP_NODE_NOT_FOUND)}: ${identifier}`,
+    });
+  }
+}
+
+export class UserNodeProgressNotFoundException extends NotFoundException {
+  constructor(roadmapNodeId: number | string) {
+    super({
+      code: ErrorCode.USER_NODE_PROGRESS_NOT_FOUND,
+      message: `${getErrorMessage(ErrorCode.USER_NODE_PROGRESS_NOT_FOUND)}: ${roadmapNodeId}`,
+    });
+  }
+}
+
 export class SkillNotFoundException extends NotFoundException {
   constructor(identifier: number | string) {
     super({
@@ -297,6 +325,19 @@ export class TooManyRequestsException extends HttpException {
   }
 }
 
+// ================================
+// 422 - Unprocessable Entity
+// ================================
+
+export class QuizNotPassedException extends UnprocessableEntityException {
+  constructor() {
+    super({
+      code: ErrorCode.QUIZ_NOT_PASSED,
+      message: getErrorMessage(ErrorCode.QUIZ_NOT_PASSED),
+    });
+  }
+}
+
 // ===========================
 // 500 - Internal Server Error
 // ===========================
@@ -366,6 +407,7 @@ export const ErrorCodeToException = {
   [ErrorCode.INVALID_FULLNAME]: InvalidFullnameException,
   [ErrorCode.MISSING_REQUIRED_FIELD]: MissingRequiredFieldException,
   [ErrorCode.DEADLINE_IN_PAST]: DeadlineInPastException,
+  [ErrorCode.INVALID_STATUS_TRANSITION]: InvalidStatusTransitionException,
   // 401 - Unauthorized
   [ErrorCode.UNAUTHORIZED]: AppUnauthorizedException,
   [ErrorCode.INVALID_ACCESS_TOKEN]: InvalidTokenException,
@@ -379,6 +421,8 @@ export const ErrorCodeToException = {
   [ErrorCode.NOT_FOUND]: AppNotFoundException,
   [ErrorCode.USER_NOT_FOUND]: UserNotFoundException,
   [ErrorCode.ROADMAP_NOT_FOUND]: RoadmapNotFoundException,
+  [ErrorCode.ROADMAP_NODE_NOT_FOUND]: RoadmapNodeNotFoundException,
+  [ErrorCode.USER_NODE_PROGRESS_NOT_FOUND]: UserNodeProgressNotFoundException,
   [ErrorCode.SKILL_NOT_FOUND]: SkillNotFoundException,
   [ErrorCode.ROLE_NOT_FOUND]: RoleNotFoundException,
   [ErrorCode.RESOURCE_NOT_FOUND]: ResourceNotFoundException,
@@ -396,4 +440,6 @@ export const ErrorCodeToException = {
   [ErrorCode.EXTERNAL_SERVICE_ERROR]: ExternalServiceErrorException,
   // 503 - Service Unavailable
   [ErrorCode.ROADMAP_GENERATION_UNAVAILABLE]: RoadmapGenerationUnavailableException,
+  // 422 - Unprocessable Entity
+  [ErrorCode.QUIZ_NOT_PASSED]: QuizNotPassedException,
 } satisfies Record<ErrorCode, new (...args: any[]) => HttpException>;

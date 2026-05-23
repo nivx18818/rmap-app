@@ -7,6 +7,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { AiModule } from './modules/ai/ai.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { RoadmapsModule } from './modules/roadmaps/roadmaps.module';
@@ -23,6 +24,7 @@ import { UserModule } from './modules/user/user.module';
     UserModule,
     OnboardingModule,
     RoadmapsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [

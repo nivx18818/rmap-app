@@ -18,6 +18,45 @@ export const getOnboardingQuizPrompt = (topic: string, roleSlugs: string[]): str
     '[ { "question": "...", "possibleAnswers": ["A", "B", "C", "D"] } ] }',
   ].join('\n');
 
+export const getNodeQuizGenerationPrompt = (skill: {
+  description: null | string;
+  name: string;
+  roleCategory: null | string;
+}): string =>
+  [
+    'You are a developer learning assessment specialist.',
+    `Skill name: "${skill.name}"`,
+    `Skill description: "${skill.description ?? 'No description provided'}"`,
+    `Role category: "${skill.roleCategory ?? 'GENERAL'}"`,
+    '',
+    'TASK:',
+    'Generate exactly 8 beginner/intermediate multiple-choice questions for this skill.',
+    'Each question must check practical understanding, not trivia.',
+    '',
+    'Output JSON only, no markdown fences, with this exact shape:',
+    '{',
+    '  "questions": [',
+    '    {',
+    '      "questionText": "...",',
+    '      "optionA": "...",',
+    '      "optionB": "...",',
+    '      "optionC": "...",',
+    '      "optionD": "...",',
+    '      "correctOption": "A"',
+    '    }',
+    '  ]',
+    '}',
+    '',
+    'Strict rules:',
+    '- Return exactly 8 questions.',
+    '- correctOption MUST be one of "A", "B", "C", or "D".',
+    '- Each question must have exactly one correct answer.',
+    '- Question text values must be unique.',
+    '- Option text values within each question must be distinct.',
+    '- All fields must be non-empty strings.',
+    '- Do not include explanations, markdown fences, comments, or extra keys.',
+  ].join('\n');
+
 export const getRoadmapGenerationPrompt = (input: {
   goal: string;
   roleCategory: string;

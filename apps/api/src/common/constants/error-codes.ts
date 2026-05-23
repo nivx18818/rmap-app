@@ -41,12 +41,15 @@ export enum ErrorCode {
   TOO_MANY_REQUESTS = 42902,
   // 422 - Unprocessable Entity
   QUIZ_NOT_PASSED = 42200,
+  QUIZ_NODE_TYPE_INVALID = 42201,
+  QUIZ_NODE_NOT_IN_PROGRESS = 42202,
   // 500 - Internal Server Error
   INTERNAL_SERVER_ERROR = 50000,
   DATABASE_ERROR = 50001,
   EXTERNAL_SERVICE_ERROR = 50002,
   // 503 - Service Unavailable
   ROADMAP_GENERATION_UNAVAILABLE = 50300,
+  NODE_QUIZ_GENERATION_UNAVAILABLE = 50301,
 }
 
 export const ErrorMessages: Record<ErrorCode, string> = {
@@ -87,6 +90,8 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.TOO_MANY_REQUESTS]: 'Too many requests',
   // 422 - Unprocessable Entity
   [ErrorCode.QUIZ_NOT_PASSED]: 'Quiz must be passed before completing this node',
+  [ErrorCode.QUIZ_NODE_TYPE_INVALID]: 'Quiz is only available for required or optional leaf nodes',
+  [ErrorCode.QUIZ_NODE_NOT_IN_PROGRESS]: 'Quiz is only available for in-progress roadmap nodes',
   // 500 - Internal Server Error
   [ErrorCode.INTERNAL_SERVER_ERROR]: 'An unexpected error occurred',
   [ErrorCode.DATABASE_ERROR]: 'Database operation failed',
@@ -94,6 +99,8 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   // 503 - Service Unavailable
   [ErrorCode.ROADMAP_GENERATION_UNAVAILABLE]:
     'Roadmap generation is temporarily unavailable. Please try again later and explore default templates while waiting.',
+  [ErrorCode.NODE_QUIZ_GENERATION_UNAVAILABLE]:
+    'Quiz generation is temporarily unavailable. Please try again in a few moments.',
 };
 
 export function getErrorMessage(code: ErrorCode): string {

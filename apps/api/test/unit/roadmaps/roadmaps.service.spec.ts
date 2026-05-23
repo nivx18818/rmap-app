@@ -2,13 +2,13 @@
 import type { TestingModule } from '@nestjs/testing';
 
 import { Test } from '@nestjs/testing';
-import { NodeStatus, NodeType, RoleCategory } from '@repo/db/prisma/client';
+import { NodeStatus, NodeType, QuizGenerationStatus, RoleCategory } from '@repo/db/prisma/client';
 
 import {
   AppNotFoundException,
   DeadlineInPastException,
-  InternalServerErrorException,
   InvalidStatusTransitionException,
+  NodeQuizGenerationUnavailableException,
   QuizNotPassedException,
   RoadmapGenerationUnavailableException,
   RoadmapNodeNotFoundException,
@@ -69,6 +69,13 @@ interface RoadmapNodeQuizSelection {
   userNodeProgress?: Array<{
     status: NodeStatus;
   }>;
+  skill?: {
+    id: string;
+    name: string;
+    description: string | null;
+    roleCategory: RoleCategory | null;
+    quizGenerationStatus: QuizGenerationStatus;
+  } | null;
 }
 
 interface QuizQuestionRecord {
@@ -131,6 +138,9 @@ interface RoadmapsPrismaMock {
     findMany: AsyncMock<Array<{ activityDate: Date; nodesCompleted: number }>>;
   };
   quizQuestion: {
+    count: AsyncMock<number>;
+    createMany: AsyncMock<{ count: number }>;
+    deleteMany: AsyncMock<{ count: number }>;
     findMany: AsyncMock<QuizQuestionRecord[]>;
   };
   roadmap: {
@@ -145,6 +155,8 @@ interface RoadmapsPrismaMock {
   };
   skill: {
     findMany: AsyncMock<typeof MOCK_SKILLS>;
+    update: AsyncMock<Record<string, unknown>>;
+    updateMany: AsyncMock<{ count: number }>;
   };
   skillPrerequisite: {
     findMany: AsyncMock<typeof MOCK_PRISMA_SKILL_PREREQUISITES>;
@@ -158,6 +170,16 @@ const createDecimal = (value: number) => ({
   toNumber: () => value,
   toString: () => value.toString(),
 });
+
+const makeGeneratedQuizQuestions = () =>
+  Array.from({ length: 8 }, (_, index) => ({
+    questionText: `Generated question ${index + 1}?`,
+    optionA: `Generated option A ${index + 1}`,
+    optionB: `Generated option B ${index + 1}`,
+    optionC: `Generated option C ${index + 1}`,
+    optionD: `Generated option D ${index + 1}`,
+    correctOption: 'A' as const,
+  }));
 
 const expectAnyDate = (): Date => expect.any(Date) as Date;
 
@@ -179,6 +201,9 @@ const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
     findMany: jest.fn<Promise<Array<{ activityDate: Date; nodesCompleted: number }>>, unknown[]>(),
   },
   quizQuestion: {
+    count: jest.fn<Promise<number>, unknown[]>(),
+    createMany: jest.fn<Promise<{ count: number }>, unknown[]>(),
+    deleteMany: jest.fn<Promise<{ count: number }>, unknown[]>(),
     findMany: jest.fn<Promise<QuizQuestionRecord[]>, unknown[]>(),
   },
   roadmap: {
@@ -193,6 +218,8 @@ const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
   },
   skill: {
     findMany: jest.fn<Promise<typeof MOCK_SKILLS>, unknown[]>().mockResolvedValue(MOCK_SKILLS),
+    update: jest.fn<Promise<Record<string, unknown>>, unknown[]>(),
+    updateMany: jest.fn<Promise<{ count: number }>, unknown[]>(),
   },
   skillPrerequisite: {
     findMany: jest
@@ -228,6 +255,7 @@ describe('RoadmapsService', () => {
         {
           provide: AiService,
           useValue: {
+            generateNodeQuiz: jest.fn(),
             generateRoadmap: jest.fn().mockResolvedValue(JSON.stringify(MOCK_AI_OUTPUT)),
           },
         },
@@ -1345,7 +1373,14 @@ describe('RoadmapsService', () => {
     const nodeId = 'node-1';
     const roadmapId = 'roadmap-1';
     const skillId = 'skill-1';
-    const mockQuestions = Array.from({ length: 5 }, (_, index) => ({
+    const mockSkill = {
+      id: skillId,
+      name: 'HTTP & REST',
+      description: 'Design HTTP APIs',
+      roleCategory: RoleCategory.WEB_DEVELOPMENT,
+      quizGenerationStatus: QuizGenerationStatus.READY,
+    };
+    const mockQuestions = Array.from({ length: 8 }, (_, index) => ({
       id: `question-${index + 1}`,
       questionText: 'Which HTTP method is idempotent but not safe?',
       optionA: 'GET',
@@ -1355,13 +1390,19 @@ describe('RoadmapsService', () => {
       correctOption: 'C',
     }));
 
+    beforeEach(() => {
+      jest.spyOn(Math, 'random').mockReturnValue(0.999);
+    });
+
     it('should return exactly 5 public quiz questions for a leaf node', async () => {
       prisma.roadmapNode.findFirst.mockResolvedValue({
         id: nodeId,
         nodeType: NodeType.REQUIRED,
         skillId,
+        skill: mockSkill,
         userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
       });
+      prisma.quizQuestion.count.mockResolvedValue(mockQuestions.length);
       prisma.quizQuestion.findMany.mockResolvedValue(mockQuestions);
 
       const result = await service.getNodeQuiz(MOCK_USER_ID, roadmapId, nodeId);
@@ -1376,6 +1417,15 @@ describe('RoadmapsService', () => {
           id: true,
           nodeType: true,
           skillId: true,
+          skill: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              roleCategory: true,
+              quizGenerationStatus: true,
+            },
+          },
           userNodeProgress: {
             where: { userId: MOCK_USER_ID },
             select: { status: true },
@@ -1394,13 +1444,14 @@ describe('RoadmapsService', () => {
           optionD: true,
         },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        take: 5,
       });
       expect(JSON.stringify(result)).not.toContain('correctOption');
+      expect(aiService.generateNodeQuiz).not.toHaveBeenCalled();
+      expect(prisma.skill.updateMany).not.toHaveBeenCalled();
       expect(result).toEqual({
         nodeId,
         skillId,
-        questions: mockQuestions.map((question) => ({
+        questions: mockQuestions.slice(0, 5).map((question) => ({
           id: question.id,
           questionText: question.questionText,
           optionA: question.optionA,
@@ -1416,14 +1467,126 @@ describe('RoadmapsService', () => {
         id: nodeId,
         nodeType: NodeType.OPTIONAL,
         skillId,
+        skill: mockSkill,
         userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
       });
+      prisma.quizQuestion.count.mockResolvedValue(mockQuestions.length);
       prisma.quizQuestion.findMany.mockResolvedValue(mockQuestions);
 
       const result = await service.getNodeQuiz(MOCK_USER_ID, roadmapId, nodeId);
 
       expect(result.questions).toHaveLength(5);
       expect(result.questions[0]?.id).toBe('question-1');
+    });
+
+    it('should generate and store 8 questions when fewer than 5 exist', async () => {
+      const generatedQuestions = makeGeneratedQuizQuestions();
+      const storedGeneratedQuestions = generatedQuestions.map((question, index) => ({
+        id: `generated-question-${index + 1}`,
+        ...question,
+      }));
+
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.REQUIRED,
+        skillId,
+        skill: {
+          ...mockSkill,
+          quizGenerationStatus: QuizGenerationStatus.NOT_GENERATED,
+        },
+        userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
+      });
+      prisma.quizQuestion.count.mockResolvedValueOnce(0).mockResolvedValueOnce(8);
+      prisma.quizQuestion.findMany.mockResolvedValue(storedGeneratedQuestions);
+      prisma.quizQuestion.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.quizQuestion.createMany.mockResolvedValue({ count: 8 });
+      prisma.skill.update.mockResolvedValue({});
+      prisma.skill.updateMany.mockResolvedValue({ count: 1 });
+      aiService.generateNodeQuiz.mockResolvedValue(generatedQuestions);
+
+      const result = await service.getNodeQuiz(MOCK_USER_ID, roadmapId, nodeId);
+
+      expect(prisma.skill.updateMany).toHaveBeenCalledWith({
+        where: {
+          id: skillId,
+          quizGenerationStatus: { not: QuizGenerationStatus.GENERATING },
+        },
+        data: {
+          quizGeneratedAt: null,
+          quizGenerationStartedAt: expectAnyDate(),
+          quizGenerationStatus: QuizGenerationStatus.GENERATING,
+        },
+      });
+      expect(aiService.generateNodeQuiz).toHaveBeenCalledWith({
+        description: mockSkill.description,
+        name: mockSkill.name,
+        roleCategory: mockSkill.roleCategory,
+      });
+      expect(prisma.quizQuestion.deleteMany).toHaveBeenCalledWith({ where: { skillId } });
+      const createManyCall = prisma.quizQuestion.createMany.mock.calls[0]?.[0] as
+        | { data: unknown[] }
+        | undefined;
+      expect(createManyCall?.data).toHaveLength(8);
+      expect(prisma.skill.update).toHaveBeenCalledWith({
+        where: { id: skillId },
+        data: {
+          quizGeneratedAt: expectAnyDate(),
+          quizGenerationStartedAt: null,
+          quizGenerationStatus: QuizGenerationStatus.READY,
+        },
+      });
+      expect(result.questions).toHaveLength(5);
+    });
+
+    it('should wait for existing generation instead of calling AI twice', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.REQUIRED,
+        skillId,
+        skill: {
+          ...mockSkill,
+          quizGenerationStatus: QuizGenerationStatus.GENERATING,
+        },
+        userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
+      });
+      prisma.quizQuestion.count
+        .mockResolvedValueOnce(0)
+        .mockResolvedValueOnce(mockQuestions.length);
+      prisma.quizQuestion.findMany.mockResolvedValue(mockQuestions);
+
+      const result = await service.getNodeQuiz(MOCK_USER_ID, roadmapId, nodeId);
+
+      expect(result.questions).toHaveLength(5);
+      expect(aiService.generateNodeQuiz).not.toHaveBeenCalled();
+      expect(prisma.skill.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('should mark skill generation failed when AI generation fails', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.REQUIRED,
+        skillId,
+        skill: {
+          ...mockSkill,
+          quizGenerationStatus: QuizGenerationStatus.NOT_GENERATED,
+        },
+        userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
+      });
+      prisma.quizQuestion.count.mockResolvedValue(0);
+      prisma.skill.update.mockResolvedValue({});
+      prisma.skill.updateMany.mockResolvedValue({ count: 1 });
+      aiService.generateNodeQuiz.mockRejectedValue(new NodeQuizGenerationUnavailableException());
+
+      await expect(service.getNodeQuiz(MOCK_USER_ID, roadmapId, nodeId)).rejects.toThrow(
+        NodeQuizGenerationUnavailableException,
+      );
+      expect(prisma.skill.update).toHaveBeenCalledWith({
+        where: { id: skillId },
+        data: {
+          quizGenerationStartedAt: null,
+          quizGenerationStatus: QuizGenerationStatus.FAILED,
+        },
+      });
     });
 
     it('should throw 404 when node is not found in the roadmap', async () => {
@@ -1475,20 +1638,6 @@ describe('RoadmapsService', () => {
         status: 422,
       });
       expect(prisma.quizQuestion.findMany).not.toHaveBeenCalled();
-    });
-
-    it('should throw 500 when the seeded quiz catalog has fewer than 5 questions', async () => {
-      prisma.roadmapNode.findFirst.mockResolvedValue({
-        id: nodeId,
-        nodeType: NodeType.REQUIRED,
-        skillId,
-        userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
-      });
-      prisma.quizQuestion.findMany.mockResolvedValue(mockQuestions.slice(0, 4));
-
-      await expect(service.getNodeQuiz(MOCK_USER_ID, roadmapId, nodeId)).rejects.toThrow(
-        InternalServerErrorException,
-      );
     });
   });
 
@@ -1561,13 +1710,16 @@ describe('RoadmapsService', () => {
         },
       });
       expect(prisma.quizQuestion.findMany).toHaveBeenCalledWith({
-        where: { skillId },
+        where: {
+          id: {
+            in: ['question-1', 'question-2', 'question-3', 'question-4', 'question-5'],
+          },
+          skillId,
+        },
         select: {
           id: true,
           correctOption: true,
         },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        take: 5,
       });
       expect(txMock.userNodeProgress.update).toHaveBeenCalledWith({
         where: {
@@ -1769,12 +1921,12 @@ describe('RoadmapsService', () => {
       expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
     });
 
-    it('should throw 500 when the seeded quiz catalog has fewer than 5 questions', async () => {
+    it('should throw 400 when submitted questions do not all match the node skill', async () => {
       prisma.quizQuestion.findMany.mockResolvedValue(mockQuestions.slice(0, 4));
 
       await expect(
         service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, submitDto),
-      ).rejects.toThrow(InternalServerErrorException);
+      ).rejects.toMatchObject({ status: 400 });
       expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
     });
 
@@ -1812,6 +1964,8 @@ describe('RoadmapsService', () => {
     });
 
     it('should throw 400 for unknown question ids', async () => {
+      prisma.quizQuestion.findMany.mockResolvedValue(mockQuestions.slice(0, 4));
+
       await expect(
         service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, {
           answers: [

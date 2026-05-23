@@ -37,6 +37,13 @@ enum NodeStatus {
   COMPLETED
 }
 
+enum QuizGenerationStatus {
+  NOT_GENERATED
+  GENERATING
+  READY
+  FAILED
+}
+
 enum UserRole {
   USER
   ADMIN

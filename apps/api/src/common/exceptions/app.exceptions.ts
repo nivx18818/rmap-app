@@ -338,6 +338,24 @@ export class QuizNotPassedException extends UnprocessableEntityException {
   }
 }
 
+export class QuizNodeTypeInvalidException extends UnprocessableEntityException {
+  constructor() {
+    super({
+      code: ErrorCode.QUIZ_NODE_TYPE_INVALID,
+      message: getErrorMessage(ErrorCode.QUIZ_NODE_TYPE_INVALID),
+    });
+  }
+}
+
+export class QuizNodeNotInProgressException extends UnprocessableEntityException {
+  constructor() {
+    super({
+      code: ErrorCode.QUIZ_NODE_NOT_IN_PROGRESS,
+      message: getErrorMessage(ErrorCode.QUIZ_NODE_NOT_IN_PROGRESS),
+    });
+  }
+}
+
 // ===========================
 // 500 - Internal Server Error
 // ===========================
@@ -398,6 +416,18 @@ export class RoadmapGenerationUnavailableException extends HttpException {
   }
 }
 
+export class NodeQuizGenerationUnavailableException extends HttpException {
+  constructor() {
+    super(
+      {
+        code: ErrorCode.NODE_QUIZ_GENERATION_UNAVAILABLE,
+        message: getErrorMessage(ErrorCode.NODE_QUIZ_GENERATION_UNAVAILABLE),
+      },
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
+  }
+}
+
 export const ErrorCodeToException = {
   // 400 - Bad Request
   [ErrorCode.BAD_REQUEST]: AppBadRequestException,
@@ -440,6 +470,9 @@ export const ErrorCodeToException = {
   [ErrorCode.EXTERNAL_SERVICE_ERROR]: ExternalServiceErrorException,
   // 503 - Service Unavailable
   [ErrorCode.ROADMAP_GENERATION_UNAVAILABLE]: RoadmapGenerationUnavailableException,
+  [ErrorCode.NODE_QUIZ_GENERATION_UNAVAILABLE]: NodeQuizGenerationUnavailableException,
   // 422 - Unprocessable Entity
   [ErrorCode.QUIZ_NOT_PASSED]: QuizNotPassedException,
+  [ErrorCode.QUIZ_NODE_TYPE_INVALID]: QuizNodeTypeInvalidException,
+  [ErrorCode.QUIZ_NODE_NOT_IN_PROGRESS]: QuizNodeNotInProgressException,
 } satisfies Record<ErrorCode, new (...args: any[]) => HttpException>;

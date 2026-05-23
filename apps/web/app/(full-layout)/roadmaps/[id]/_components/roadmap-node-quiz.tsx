@@ -3,15 +3,18 @@
 import type { Route } from 'next';
 import type { ReactNode } from 'react';
 
+import { Alert01Icon, Refresh01Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { SectionContainer } from '@repo/design-system/components/common/section-container';
 import { Badge } from '@repo/design-system/components/ui/badge';
 import { Button } from '@repo/design-system/components/ui/button';
 import { Separator } from '@repo/design-system/components/ui/separator';
-import { Skeleton } from '@repo/design-system/components/ui/skeleton';
 import { cn } from '@repo/design-system/lib/utils';
+import { isAxiosError } from 'axios';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import { LoadingState } from '@/components/shared/loading-state';
 import { roadmapService } from '@/services/roadmap.service';
 
 import type { RoadmapNodeDetail } from '../_types/roadmap-node-detail.types';
@@ -31,28 +34,18 @@ interface RoadmapNodeQuizProps {
 }
 
 const QUIZ_LOAD_ERROR_MESSAGE = 'Unable to load this quiz.';
+const QUIZ_GENERATION_ERROR_MESSAGE =
+  'We could not prepare this quiz right now. Please try again in a few moments.';
 const QUIZ_SUBMIT_ERROR_MESSAGE = 'Unable to submit this quiz. Please try again.';
-
-function RoadmapNodeQuizSkeleton() {
-  return (
-    <div className="flex flex-col gap-4">
-      <Skeleton className="h-8 w-64" />
-      <Skeleton className="h-5 w-96 max-w-full" />
-      <div className="flex flex-col gap-3">
-        {Array.from({ length: 3 }).map((_, index) => (
-          <Skeleton key={index} className="h-36 w-full" />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 function RoadmapNodeQuizMessage({
   badge,
+  children,
   message,
   title,
 }: {
   badge?: ReactNode;
+  children?: ReactNode;
   message: string;
   title: string;
 }) {
@@ -61,8 +54,31 @@ function RoadmapNodeQuizMessage({
       {badge}
       <h1 className="font-heading text-foreground text-2xl font-semibold">{title}</h1>
       <p className="text-muted-foreground text-sm">{message}</p>
+      {children}
     </div>
   );
+}
+
+function RoadmapNodeQuizRetryMessage({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="bg-destructive/10 text-destructive mb-6 flex h-16 w-16 items-center justify-center rounded-full">
+        <HugeiconsIcon className="h-8 w-8" icon={Alert01Icon} />
+      </div>
+      <h2 className="text-xl font-medium">Quiz Temporarily Unavailable</h2>
+      <p className="text-muted-foreground mt-2 max-w-md">{QUIZ_GENERATION_ERROR_MESSAGE}</p>
+      <Button size="lg" className="mt-8 gap-2" onClick={onRetry}>
+        <HugeiconsIcon icon={Refresh01Icon} />
+        Try Again
+      </Button>
+    </div>
+  );
+}
+
+function isRetryableQuizLoadError(error: unknown): boolean {
+  if (!isAxiosError(error)) return false;
+
+  return error.code === 'ECONNABORTED' || error.response?.status === 503;
 }
 
 export function RoadmapNodeQuiz({ nodeId, roadmapId }: RoadmapNodeQuizProps) {
@@ -73,7 +89,9 @@ export function RoadmapNodeQuiz({ nodeId, roadmapId }: RoadmapNodeQuizProps) {
   const [answers, setAnswers] = useState<RoadmapNodeQuizAnswers>({});
   const [submitResult, setSubmitResult] = useState<SubmitRoadmapNodeQuizResult | null>(null);
   const [loadErrorMessage, setLoadErrorMessage] = useState<string | null>(null);
+  const [isRetryableLoadError, setIsRetryableLoadError] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const roadmapHref = `/roadmaps/${roadmapId}?nodeId=${nodeId}` as Route<string>;
   const status = nodeDetail?.progress?.status ?? 'LOCKED';
   const isSkillNode = nodeDetail ? isSkillNodeType(nodeDetail.nodeType) : false;
@@ -93,6 +111,7 @@ export function RoadmapNodeQuiz({ nodeId, roadmapId }: RoadmapNodeQuizProps) {
       setSubmitResult(null);
       setFormError(null);
       setLoadErrorMessage(null);
+      setIsRetryableLoadError(false);
 
       try {
         const detail = await roadmapService.getNodeDetail(roadmapId, nodeId);
@@ -109,10 +128,14 @@ export function RoadmapNodeQuiz({ nodeId, roadmapId }: RoadmapNodeQuizProps) {
         if (isCancelled) return;
 
         setQuiz(quizResponse);
-      } catch {
+      } catch (error) {
         if (isCancelled) return;
 
-        setLoadErrorMessage(QUIZ_LOAD_ERROR_MESSAGE);
+        const isRetryableError = isRetryableQuizLoadError(error);
+        setIsRetryableLoadError(isRetryableError);
+        setLoadErrorMessage(
+          isRetryableError ? QUIZ_GENERATION_ERROR_MESSAGE : QUIZ_LOAD_ERROR_MESSAGE,
+        );
       } finally {
         if (!isCancelled) setIsLoading(false);
       }
@@ -123,7 +146,7 @@ export function RoadmapNodeQuiz({ nodeId, roadmapId }: RoadmapNodeQuizProps) {
     return () => {
       isCancelled = true;
     };
-  }, [nodeId, roadmapId]);
+  }, [loadAttempt, nodeId, roadmapId]);
 
   const handleSubmit = async () => {
     if (!nodeDetail || !quiz) return;
@@ -159,7 +182,12 @@ export function RoadmapNodeQuiz({ nodeId, roadmapId }: RoadmapNodeQuizProps) {
         />
 
         {isLoading ? (
-          <RoadmapNodeQuizSkeleton />
+          <LoadingState
+            message="Preparing your quiz..."
+            description="Our AI is creating skill-check questions for this topic. This usually takes a few seconds."
+          />
+        ) : loadErrorMessage && isRetryableLoadError ? (
+          <RoadmapNodeQuizRetryMessage onRetry={() => setLoadAttempt((attempt) => attempt + 1)} />
         ) : loadErrorMessage ? (
           <RoadmapNodeQuizMessage title="Quiz unavailable" message={loadErrorMessage} />
         ) : !nodeDetail ? (

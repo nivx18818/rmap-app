@@ -1005,51 +1005,6 @@ const prerequisites: [string, string][] = [
   ['DevOps', 'CI / CD'],
 ];
 
-function makeQuizQuestions(skill: SkillSeed) {
-  return [
-    {
-      q: `What is the practical purpose of ${skill.name} in backend development?`,
-      a: 'To replace all testing and documentation',
-      b: skill.desc,
-      c: 'To make frontend styling easier',
-      d: 'To avoid reviewing production behavior',
-      correct: 'B',
-    },
-    {
-      q: `When should you apply ${skill.name}?`,
-      a: 'Whenever the requirement and tradeoffs match the problem being solved',
-      b: 'Only because the tool is popular',
-      c: 'Only after deployment is complete',
-      d: 'Only when the database is not used',
-      correct: 'A',
-    },
-    {
-      q: `What is a good way to practice ${skill.name}?`,
-      a: 'Memorize terminology without building anything',
-      b: 'Skip errors and edge cases',
-      c: 'Build a small backend feature, test it, and document the tradeoffs',
-      d: 'Use it in every feature regardless of fit',
-      correct: 'C',
-    },
-    {
-      q: `What should you check before using ${skill.name} in a product backend?`,
-      a: 'Only whether it works locally once',
-      b: 'Security, reliability, operational cost, maintainability, and user impact',
-      c: 'Whether it removes the need for logs',
-      d: 'Whether it avoids code review',
-      correct: 'B',
-    },
-    {
-      q: `Which outcome shows basic readiness in ${skill.name}?`,
-      a: 'You can explain the concept, implement a focused example, test it, and identify failure cases',
-      b: 'You can copy a snippet without understanding it',
-      c: 'You can ignore documentation',
-      d: 'You can deploy without monitoring',
-      correct: 'A',
-    },
-  ];
-}
-
 async function main() {
   log('Seeding database...');
 
@@ -1114,21 +1069,7 @@ async function main() {
 
   log(`Created ${backendSkills.length} primary resources`);
 
-  for (const skill of backendSkills) {
-    const skillId = skillMap.get(skill.name);
-    if (!skillId) continue;
-
-    for (const question of makeQuizQuestions(skill)) {
-      await pool.query(
-        `INSERT INTO quiz_questions
-          (id, skill_id, question_text, option_a, option_b, option_c, option_d, correct_option, created_at)
-         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, NOW())`,
-        [skillId, question.q, question.a, question.b, question.c, question.d, question.correct],
-      );
-    }
-  }
-
-  log(`Created ${backendSkills.length * 5} quiz questions`);
+  log('Quiz questions will be generated lazily on first request');
 
   await prisma.$disconnect();
   await pool.end();

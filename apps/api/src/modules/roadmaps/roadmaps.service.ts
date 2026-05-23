@@ -1,7 +1,8 @@
-import { Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   NodeStatus,
   NodeType,
+  QuizGenerationStatus,
   ResourceType,
   type Prisma,
   type Roadmap,
@@ -13,6 +14,9 @@ import {
   DeadlineInPastException,
   InternalServerErrorException,
   InvalidStatusTransitionException,
+  NodeQuizGenerationUnavailableException,
+  QuizNodeNotInProgressException,
+  QuizNodeTypeInvalidException,
   QuizNotPassedException,
   RoadmapGenerationUnavailableException,
   RoadmapNodeNotFoundException,
@@ -30,6 +34,7 @@ import type { SubmitQuizDto } from './dto/submit-quiz.dto';
 import type { UpdateNodeProgressDto } from './dto/update-node-progress.dto';
 import type { AiNode, AiRoadmapOutput, FlatNode } from './types/ai-roadmap.types';
 import type {
+  QuizQuestionPublic,
   QuizOption,
   RoadmapNodeQuizResponse,
   SubmitQuizResponse,
@@ -45,7 +50,7 @@ import type {
   TimelineWarningResponse,
 } from './types/roadmap-progress.types';
 
-import { AiService } from '../ai/ai.service';
+import { AiService, type GeneratedNodeQuizQuestion } from '../ai/ai.service';
 import { DagreLayoutService } from './dagre-layout.service';
 
 /** Number of milliseconds in a day. */
@@ -57,6 +62,9 @@ const FEASIBILITY_THRESHOLD = 0.15;
 const PACE_WARNING_THRESHOLD_PCT = 15;
 const LEAF_NODE_TYPES: NodeType[] = [NodeType.REQUIRED, NodeType.OPTIONAL];
 const NODE_QUIZ_QUESTION_COUNT = 5;
+const NODE_QUIZ_BANK_QUESTION_COUNT = 8;
+const QUIZ_GENERATION_POLL_TIMEOUT_MS = 45_000;
+const QUIZ_GENERATION_POLL_INTERVAL_MS = 1_500;
 const QUIZ_PASSING_SCORE_PCT = 60;
 const QUIZ_REVIEW_SUGGESTION = 'You should review this part before continuing.';
 const NODE_DETAIL_RESOURCE_LIMIT = 2;
@@ -457,6 +465,15 @@ export class RoadmapsService {
         id: true,
         nodeType: true,
         skillId: true,
+        skill: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            roleCategory: true,
+            quizGenerationStatus: true,
+          },
+        },
         userNodeProgress: {
           where: { userId },
           select: { status: true },
@@ -470,47 +487,23 @@ export class RoadmapsService {
     }
 
     if (!LEAF_NODE_TYPES.includes(node.nodeType) || !node.skillId) {
-      throw new UnprocessableEntityException({
-        code: 42200,
-        message: 'Quiz is only available for required or optional leaf nodes',
-      });
+      throw new QuizNodeTypeInvalidException();
     }
 
     this.assertQuizNodeInProgress(node.userNodeProgress[0]?.status ?? NodeStatus.LOCKED);
 
-    const questions = await this.prisma.quizQuestion.findMany({
-      where: { skillId: node.skillId },
-      select: {
-        id: true,
-        questionText: true,
-        optionA: true,
-        optionB: true,
-        optionC: true,
-        optionD: true,
-      },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      take: NODE_QUIZ_QUESTION_COUNT,
-    });
-
-    if (questions.length !== NODE_QUIZ_QUESTION_COUNT) {
-      this.logger.error(
-        `Expected ${NODE_QUIZ_QUESTION_COUNT} quiz questions for skill ` +
-          `${node.skillId}, got ${questions.length}`,
-      );
-      throw new InternalServerErrorException('Quiz question catalog is incomplete for this skill');
+    if (!node.skill) {
+      throw new InternalServerErrorException('Skill catalog entry is missing for this node');
     }
+
+    const storedQuestions = await this.findReadyPublicQuizQuestions(node.skillId);
+    const questions =
+      storedQuestions ?? (await this.generateOrWaitForNodeQuizQuestions(node.skill));
 
     return {
       nodeId: node.id,
       skillId: node.skillId,
-      questions: questions.map((question) => ({
-        id: question.id,
-        questionText: question.questionText,
-        optionA: question.optionA,
-        optionB: question.optionB,
-        optionC: question.optionC,
-        optionD: question.optionD,
-      })),
+      questions,
     };
   }
 
@@ -543,46 +536,44 @@ export class RoadmapsService {
     }
 
     if (!LEAF_NODE_TYPES.includes(node.nodeType) || !node.skillId) {
-      throw new UnprocessableEntityException({
-        code: 42200,
-        message: 'Quiz is only available for required or optional leaf nodes',
-      });
+      throw new QuizNodeTypeInvalidException();
     }
 
     this.assertQuizNodeInProgress(node.userNodeProgress[0]?.status ?? NodeStatus.LOCKED);
 
+    this.assertStrictQuizSubmission(dto.answers);
+
+    const submittedQuestionIds = dto.answers.map((answer) => answer.questionId);
     const questions = await this.prisma.quizQuestion.findMany({
-      where: { skillId: node.skillId },
+      where: {
+        id: { in: submittedQuestionIds },
+        skillId: node.skillId,
+      },
       select: {
         id: true,
         correctOption: true,
       },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      take: NODE_QUIZ_QUESTION_COUNT,
     });
 
-    if (questions.length !== NODE_QUIZ_QUESTION_COUNT) {
-      this.logger.error(
-        `Expected ${NODE_QUIZ_QUESTION_COUNT} quiz questions for skill ` +
-          `${node.skillId}, got ${questions.length}`,
-      );
-      throw new InternalServerErrorException('Quiz question catalog is incomplete for this skill');
-    }
+    const questionById = new Map(questions.map((question) => [question.id, question]));
 
-    this.assertStrictQuizSubmission(
-      dto.answers,
-      questions.map((question) => question.id),
-    );
+    if (
+      questions.length !== NODE_QUIZ_QUESTION_COUNT ||
+      submittedQuestionIds.some((questionId) => !questionById.has(questionId))
+    ) {
+      throw new AppBadRequestException('Quiz submission contains unknown question answers');
+    }
 
     const answerByQuestionId = new Map(
       dto.answers.map((answer) => [answer.questionId, answer.selectedOption.toUpperCase()]),
     );
-    const results = questions.map((question) => {
-      const selectedOption = answerByQuestionId.get(question.id)!;
+    const results = dto.answers.map((answer) => {
+      const question = questionById.get(answer.questionId)!;
+      const selectedOption = answerByQuestionId.get(answer.questionId)!;
       const correctOption = question.correctOption.toUpperCase();
 
       return {
-        questionId: question.id,
+        questionId: answer.questionId,
         selectedOption: toQuizOption(selectedOption),
         correctOption: toQuizOption(correctOption),
         isCorrect: selectedOption === correctOption,
@@ -1174,10 +1165,199 @@ export class RoadmapsService {
     return trimmed;
   }
 
-  private assertStrictQuizSubmission(
-    answers: SubmitQuizDto['answers'],
-    expectedQuestionIds: string[],
-  ): void {
+  private async findReadyPublicQuizQuestions(
+    skillId: string,
+  ): Promise<QuizQuestionPublic[] | null> {
+    const questionCount = await this.prisma.quizQuestion.count({ where: { skillId } });
+
+    if (questionCount < NODE_QUIZ_QUESTION_COUNT) {
+      return null;
+    }
+
+    const questions = await this.prisma.quizQuestion.findMany({
+      where: { skillId },
+      select: {
+        id: true,
+        questionText: true,
+        optionA: true,
+        optionB: true,
+        optionC: true,
+        optionD: true,
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+
+    if (questions.length < NODE_QUIZ_QUESTION_COUNT) {
+      return null;
+    }
+
+    return this.pickRandomQuizQuestions(
+      questions.map((question) => ({
+        id: question.id,
+        questionText: question.questionText,
+        optionA: question.optionA,
+        optionB: question.optionB,
+        optionC: question.optionC,
+        optionD: question.optionD,
+      })),
+    );
+  }
+
+  private async generateOrWaitForNodeQuizQuestions(skill: {
+    description: null | string;
+    id: string;
+    name: string;
+    quizGenerationStatus: QuizGenerationStatus;
+    roleCategory: null | string;
+  }): Promise<QuizQuestionPublic[]> {
+    if (skill.quizGenerationStatus === QuizGenerationStatus.GENERATING) {
+      return this.waitForNodeQuizQuestions(skill.id);
+    }
+
+    const generationGuard = await this.prisma.skill.updateMany({
+      where: {
+        id: skill.id,
+        quizGenerationStatus: { not: QuizGenerationStatus.GENERATING },
+      },
+      data: {
+        quizGeneratedAt: null,
+        quizGenerationStartedAt: new Date(),
+        quizGenerationStatus: QuizGenerationStatus.GENERATING,
+      },
+    });
+
+    if (generationGuard.count === 0) {
+      return this.waitForNodeQuizQuestions(skill.id);
+    }
+
+    try {
+      await this.generateAndStoreNodeQuiz(skill);
+      const questions = await this.findReadyPublicQuizQuestions(skill.id);
+
+      if (!questions) {
+        throw new Error('Generated node quiz was not available after persistence');
+      }
+
+      return questions;
+    } catch (err) {
+      await this.markNodeQuizGenerationFailed(skill.id);
+      this.logger.error(`Failed to generate node quiz for skill ${skill.id}`, err);
+      throw new NodeQuizGenerationUnavailableException();
+    }
+  }
+
+  private async generateAndStoreNodeQuiz(skill: {
+    description: null | string;
+    id: string;
+    name: string;
+    roleCategory: null | string;
+  }): Promise<void> {
+    const generatedQuestions = await this.aiService.generateNodeQuiz({
+      description: skill.description,
+      name: skill.name,
+      roleCategory: skill.roleCategory,
+    });
+    this.assertGeneratedNodeQuiz(generatedQuestions);
+
+    await this.prisma.$transaction([
+      this.prisma.quizQuestion.deleteMany({ where: { skillId: skill.id } }),
+      this.prisma.quizQuestion.createMany({
+        data: generatedQuestions.map((question) => ({
+          skillId: skill.id,
+          questionText: question.questionText,
+          optionA: question.optionA,
+          optionB: question.optionB,
+          optionC: question.optionC,
+          optionD: question.optionD,
+          correctOption: question.correctOption,
+        })),
+      }),
+      this.prisma.skill.update({
+        where: { id: skill.id },
+        data: {
+          quizGeneratedAt: new Date(),
+          quizGenerationStartedAt: null,
+          quizGenerationStatus: QuizGenerationStatus.READY,
+        },
+      }),
+    ]);
+  }
+
+  private assertGeneratedNodeQuiz(questions: GeneratedNodeQuizQuestion[]): void {
+    if (questions.length !== NODE_QUIZ_BANK_QUESTION_COUNT) {
+      throw new Error(`Expected ${NODE_QUIZ_BANK_QUESTION_COUNT} generated quiz questions`);
+    }
+
+    for (const question of questions) {
+      const fields = [
+        question.questionText,
+        question.optionA,
+        question.optionB,
+        question.optionC,
+        question.optionD,
+        question.correctOption,
+      ];
+
+      if (!fields.every((field) => field.trim().length > 0)) {
+        throw new Error('Generated quiz question contains an empty field');
+      }
+
+      if (!['A', 'B', 'C', 'D'].includes(question.correctOption)) {
+        throw new Error('Generated quiz question contains an invalid correct option');
+      }
+    }
+  }
+
+  private async waitForNodeQuizQuestions(skillId: string): Promise<QuizQuestionPublic[]> {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt <= QUIZ_GENERATION_POLL_TIMEOUT_MS) {
+      const questions = await this.findReadyPublicQuizQuestions(skillId);
+
+      if (questions) {
+        return questions;
+      }
+
+      await this.delay(QUIZ_GENERATION_POLL_INTERVAL_MS);
+    }
+
+    throw new NodeQuizGenerationUnavailableException();
+  }
+
+  private async markNodeQuizGenerationFailed(skillId: string): Promise<void> {
+    try {
+      await this.prisma.skill.update({
+        where: { id: skillId },
+        data: {
+          quizGenerationStartedAt: null,
+          quizGenerationStatus: QuizGenerationStatus.FAILED,
+        },
+      });
+    } catch (err) {
+      this.logger.error(`Failed to mark node quiz generation failed for skill ${skillId}`, err);
+    }
+  }
+
+  private pickRandomQuizQuestions<T>(questions: T[]): T[] {
+    const shuffledQuestions = [...questions];
+
+    for (let index = shuffledQuestions.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      const question = shuffledQuestions[index]!;
+      shuffledQuestions[index] = shuffledQuestions[swapIndex]!;
+      shuffledQuestions[swapIndex] = question;
+    }
+
+    return shuffledQuestions.slice(0, NODE_QUIZ_QUESTION_COUNT);
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }
+
+  private assertStrictQuizSubmission(answers: SubmitQuizDto['answers']): void {
     if (answers.length !== NODE_QUIZ_QUESTION_COUNT) {
       throw new AppBadRequestException('Quiz submission must include exactly 5 answers');
     }
@@ -1188,24 +1368,12 @@ export class RoadmapsService {
     if (uniqueSubmittedQuestionIds.size !== submittedQuestionIds.length) {
       throw new AppBadRequestException('Quiz submission contains duplicate question answers');
     }
-
-    const expectedQuestionIdSet = new Set(expectedQuestionIds);
-    const hasOnlyExpectedQuestions = submittedQuestionIds.every((questionId) =>
-      expectedQuestionIdSet.has(questionId),
-    );
-
-    if (!hasOnlyExpectedQuestions) {
-      throw new AppBadRequestException('Quiz submission contains unknown question answers');
-    }
   }
 
   private assertQuizNodeInProgress(status: NodeStatus): void {
     if (status === NodeStatus.IN_PROGRESS) return;
 
-    throw new UnprocessableEntityException({
-      code: 42201,
-      message: 'Quiz is only available for in-progress roadmap nodes',
-    });
+    throw new QuizNodeNotInProgressException();
   }
 
   async updateNodeProgress(

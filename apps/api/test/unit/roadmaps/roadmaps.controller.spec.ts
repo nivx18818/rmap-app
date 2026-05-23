@@ -13,11 +13,13 @@ describe('RoadmapsController', () => {
     deleteByIdForOwner: jest.fn(),
     generate: jest.fn(),
     getByIdForOwner: jest.fn(),
+    getLatestMilestoneSubmission: jest.fn(),
     getNodeDetail: jest.fn(),
     getNodeQuiz: jest.fn(),
     getProgressSummary: jest.fn(),
     listNodes: jest.fn(),
     listUserRoadmaps: jest.fn(),
+    submitMilestoneSubmission: jest.fn(),
     submitNodeQuiz: jest.fn(),
     updateNodeProgress: jest.fn(),
   };
@@ -85,6 +87,7 @@ describe('RoadmapsController', () => {
       skill: null,
       resources: null,
       prerequisites: [],
+      latestSubmission: null,
     };
 
     mockRoadmapsService.getNodeDetail.mockResolvedValue(mockResponse);
@@ -290,12 +293,13 @@ describe('RoadmapsController', () => {
       nodeProgress: {
         id: 'progress-1',
         roadmapNodeId: 'node-1',
-        status: 'IN_PROGRESS',
+        status: 'COMPLETED',
         startedAt: null,
-        completedAt: null,
+        completedAt: new Date('2026-01-02T00:00:00Z'),
         quizScorePct: 100,
         quizPassed: true,
       },
+      unlockedNodes: ['leaf-2'],
       suggestion: null,
     };
 
@@ -308,6 +312,66 @@ describe('RoadmapsController', () => {
       'roadmap-1',
       'node-1',
       dto,
+    );
+    expect(result).toEqual(mockResponse);
+  });
+
+  it('should call submitMilestoneSubmission and return response', async () => {
+    const mockUser = {
+      id: 'user-1',
+      email: 'test@example.com',
+      fullName: 'Test User',
+      role: 'USER',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    };
+    const dto = {
+      repoUrl: 'https://github.com/acme/api-project',
+      testCommand: 'npm test',
+    };
+    const mockResponse = {
+      submission: {
+        id: 'submission-1',
+        repoUrl: dto.repoUrl,
+        testCommand: dto.testCommand,
+        status: 'RUNNING',
+        outputLog: null,
+        attemptNumber: 1,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        completedAt: null,
+      },
+    };
+
+    mockRoadmapsService.submitMilestoneSubmission.mockResolvedValue(mockResponse);
+
+    const result = await controller.submitMilestoneSubmission(mockUser, 'roadmap-1', 'node-1', dto);
+
+    expect(mockRoadmapsService.submitMilestoneSubmission).toHaveBeenCalledWith(
+      'user-1',
+      'roadmap-1',
+      'node-1',
+      dto,
+    );
+    expect(result).toEqual(mockResponse);
+  });
+
+  it('should call getLatestMilestoneSubmission and return response', async () => {
+    const mockUser = {
+      id: 'user-1',
+      email: 'test@example.com',
+      fullName: 'Test User',
+      role: 'USER',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    };
+    const mockResponse = { submission: null };
+
+    mockRoadmapsService.getLatestMilestoneSubmission.mockResolvedValue(mockResponse);
+
+    const result = await controller.getLatestMilestoneSubmission(mockUser, 'roadmap-1', 'node-1');
+
+    expect(mockRoadmapsService.getLatestMilestoneSubmission).toHaveBeenCalledWith(
+      'user-1',
+      'roadmap-1',
+      'node-1',
     );
     expect(result).toEqual(mockResponse);
   });

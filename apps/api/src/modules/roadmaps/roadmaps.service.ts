@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+  MilestoneSubmissionStatus,
   NodeStatus,
   NodeType,
   QuizGenerationStatus,
@@ -7,13 +8,20 @@ import {
   type Prisma,
   type Roadmap,
 } from '@repo/db/prisma/client';
+import { spawn } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import {
-  AppNotFoundException,
   AppBadRequestException,
   DeadlineInPastException,
   InternalServerErrorException,
   InvalidStatusTransitionException,
+  MilestoneSubmissionInProgressException,
+  MilestoneSubmissionInvalidCommandException,
+  MilestoneSubmissionInvalidUrlException,
+  MilestoneTestsNotPassedException,
   NodeQuizGenerationUnavailableException,
   QuizNodeNotInProgressException,
   QuizNodeTypeInvalidException,
@@ -30,6 +38,7 @@ import type { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
 import type { ListRoadmapsQueryDto } from './dto/list-roadmaps-query.dto';
 import type { RoadmapNodesFilterDto } from './dto/roadmap-nodes-filter.dto';
 import type { PaginatedRoadmapsResponseDto, RoadmapResponseDto } from './dto/roadmap-response.dto';
+import type { SubmitMilestoneSubmissionDto } from './dto/submit-milestone-submission.dto';
 import type { SubmitQuizDto } from './dto/submit-quiz.dto';
 import type { UpdateNodeProgressDto } from './dto/update-node-progress.dto';
 import type { AiNode, AiRoadmapOutput, FlatNode } from './types/ai-roadmap.types';
@@ -41,6 +50,9 @@ import type {
 } from './types/roadmap-node-quiz.types';
 import type {
   NodeDetailResponse,
+  LatestMilestoneSubmissionResponse,
+  MilestoneSubmissionEnvelopeResponse,
+  MilestoneSubmissionResponse,
   RoadmapNodeWithUserProgressResponse,
   RoadmapNodesListResponse,
   UpdateNodeProgressResponse,
@@ -68,6 +80,19 @@ const QUIZ_GENERATION_POLL_INTERVAL_MS = 1_500;
 const QUIZ_PASSING_SCORE_PCT = 60;
 const QUIZ_REVIEW_SUGGESTION = 'You should review this part before continuing.';
 const NODE_DETAIL_RESOURCE_LIMIT = 2;
+const DEFAULT_MILESTONE_TEST_COMMAND = 'npm test';
+const MILESTONE_EXECUTION_TIMEOUT_MS = 120_000;
+const MILESTONE_OUTPUT_LOG_LIMIT = 20_000;
+const MILESTONE_SANDBOX_IMAGE = 'node:22-alpine';
+const MILESTONE_SANDBOX_MEMORY = '512m';
+const MILESTONE_SANDBOX_CPUS = '1';
+const GITHUB_REPO_URL_PATTERN = /^https:\/\/github\.com\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
+const MILESTONE_TEST_COMMAND_PATTERN = /^npm (test|run [a-zA-Z0-9_-]+)$/;
+const ESCAPE_CHARACTER = String.fromCharCode(27);
+const ANSI_ESCAPE_PATTERN = new RegExp(
+  `${ESCAPE_CHARACTER}(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])`,
+  'g',
+);
 
 const RESOURCE_TYPE_PRIORITY = {
   [ResourceType.YOUTUBE]: 0,
@@ -96,6 +121,17 @@ const ROADMAP_SELECT = {
   updatedAt: true,
   userId: true,
 } satisfies Prisma.RoadmapSelect;
+
+const MILESTONE_SUBMISSION_SELECT = {
+  id: true,
+  repoUrl: true,
+  testCommand: true,
+  status: true,
+  outputLog: true,
+  attemptNumber: true,
+  createdAt: true,
+  completedAt: true,
+} satisfies Prisma.MilestoneSubmissionSelect;
 
 type SelectedRoadmap = Pick<Roadmap, keyof typeof ROADMAP_SELECT>;
 
@@ -135,6 +171,27 @@ type RoadmapProgressNodeRecord = {
   }>;
 };
 
+type DailyActivityRecord = {
+  activityDate: Date;
+  nodesCompleted: number;
+};
+
+type MilestoneSubmissionRecord = {
+  id: string;
+  repoUrl: string;
+  testCommand: string;
+  status: MilestoneSubmissionStatus;
+  outputLog: string | null;
+  attemptNumber: number;
+  createdAt: Date;
+  completedAt: Date | null;
+};
+
+type DockerCommandResult = {
+  exitCode: number | null;
+  output: string;
+  timedOut: boolean;
+};
 const toNumberOrNull = (value: Prisma.Decimal | number | null) =>
   value === null ? null : Number(value);
 
@@ -356,6 +413,12 @@ export class RoadmapsService {
             quizPassed: true,
           },
         },
+        milestoneSubmissions: {
+          where: { userId },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          select: MILESTONE_SUBMISSION_SELECT,
+          take: 1,
+        },
         skill: {
           select: {
             id: true,
@@ -400,6 +463,10 @@ export class RoadmapsService {
     }
 
     const nodeResponse = this.formatNodeWithProgress(node);
+    const latestSubmission =
+      node.nodeType === NodeType.MILESTONE
+        ? this.formatMilestoneSubmission(node.milestoneSubmissions[0] ?? null)
+        : null;
 
     if (!LEAF_NODE_TYPES.includes(node.nodeType) || !node.skill) {
       return {
@@ -407,6 +474,7 @@ export class RoadmapsService {
         skill: null,
         resources: null,
         prerequisites: [],
+        latestSubmission,
       };
     }
 
@@ -447,6 +515,7 @@ export class RoadmapsService {
         skillId: prerequisite.prerequisiteSkillId,
         skillName: prerequisite.prerequisiteSkill.name,
       })),
+      latestSubmission,
     };
   }
 
@@ -483,7 +552,7 @@ export class RoadmapsService {
     });
 
     if (!node) {
-      throw new AppNotFoundException('Roadmap node not found');
+      throw new RoadmapNodeNotFoundException(nodeId);
     }
 
     if (!LEAF_NODE_TYPES.includes(node.nodeType) || !node.skillId) {
@@ -532,7 +601,7 @@ export class RoadmapsService {
     });
 
     if (!node) {
-      throw new AppNotFoundException('Roadmap node not found');
+      throw new RoadmapNodeNotFoundException(nodeId);
     }
 
     if (!LEAF_NODE_TYPES.includes(node.nodeType) || !node.skillId) {
@@ -584,8 +653,9 @@ export class RoadmapsService {
     const scorePct = (correctCount / totalQuestions) * 100;
     const passed = scorePct >= QUIZ_PASSING_SCORE_PCT;
 
-    const updatedProgress = await this.prisma.$transaction(async (tx) =>
-      tx.userNodeProgress.update({
+    const { unlockedNodes, updatedProgress } = await this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const updatedNodeProgress = await tx.userNodeProgress.update({
         where: {
           userId_roadmapNodeId: {
             userId,
@@ -593,6 +663,8 @@ export class RoadmapsService {
           },
         },
         data: {
+          status: passed ? NodeStatus.COMPLETED : NodeStatus.IN_PROGRESS,
+          ...(passed ? { completedAt: now } : {}),
           quizScorePct: scorePct,
           quizPassed: passed,
         },
@@ -605,8 +677,14 @@ export class RoadmapsService {
           quizScorePct: true,
           quizPassed: true,
         },
-      }),
-    );
+      });
+
+      const unlockedNodeIds = passed
+        ? await this.applyCompletionSideEffects(userId, node.id, roadmapId, now, tx)
+        : [];
+
+      return { unlockedNodes: unlockedNodeIds, updatedProgress: updatedNodeProgress };
+    });
 
     return {
       scorePct,
@@ -623,8 +701,130 @@ export class RoadmapsService {
         quizScorePct: toNumberOrNull(updatedProgress.quizScorePct),
         quizPassed: updatedProgress.quizPassed,
       },
+      unlockedNodes,
       suggestion: passed ? null : QUIZ_REVIEW_SUGGESTION,
     };
+  }
+
+  async submitMilestoneSubmission(
+    userId: string,
+    roadmapId: string,
+    nodeId: string,
+    dto: SubmitMilestoneSubmissionDto,
+  ): Promise<MilestoneSubmissionEnvelopeResponse> {
+    const repoUrl = dto.repoUrl.trim();
+    const testCommand = dto.testCommand?.trim() || DEFAULT_MILESTONE_TEST_COMMAND;
+
+    this.assertMilestoneSubmissionPayload(repoUrl, testCommand);
+
+    const node = await this.prisma.roadmapNode.findFirst({
+      where: {
+        id: nodeId,
+        roadmapId,
+        roadmap: { userId },
+      },
+      select: {
+        id: true,
+        nodeType: true,
+        userNodeProgress: {
+          where: { userId },
+          select: { status: true },
+          take: 1,
+        },
+      },
+    });
+
+    if (!node) {
+      throw new RoadmapNodeNotFoundException(nodeId);
+    }
+
+    if (node.nodeType !== NodeType.MILESTONE) {
+      throw new AppBadRequestException('Only milestone nodes can receive project submissions');
+    }
+
+    const currentStatus = node.userNodeProgress[0]?.status ?? NodeStatus.LOCKED;
+
+    if (currentStatus === NodeStatus.LOCKED) {
+      throw new InvalidStatusTransitionException(currentStatus, NodeStatus.IN_PROGRESS);
+    }
+
+    if (currentStatus === NodeStatus.COMPLETED) {
+      throw new AppBadRequestException('Completed milestones cannot receive new submissions');
+    }
+
+    const submission = await this.prisma.$transaction(async (tx) => {
+      const runningSubmission = await tx.milestoneSubmission.findFirst({
+        where: {
+          roadmapNodeId: node.id,
+          status: MilestoneSubmissionStatus.RUNNING,
+          userId,
+        },
+        select: { id: true },
+      });
+
+      if (runningSubmission) {
+        throw new MilestoneSubmissionInProgressException();
+      }
+
+      const latestSubmission = await tx.milestoneSubmission.findFirst({
+        where: {
+          roadmapNodeId: node.id,
+          userId,
+        },
+        orderBy: [{ attemptNumber: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }],
+        select: { attemptNumber: true },
+      });
+
+      return tx.milestoneSubmission.create({
+        data: {
+          attemptNumber: (latestSubmission?.attemptNumber ?? 0) + 1,
+          repoUrl,
+          roadmapNodeId: node.id,
+          status: MilestoneSubmissionStatus.RUNNING,
+          testCommand,
+          userId,
+        },
+        select: MILESTONE_SUBMISSION_SELECT,
+      });
+    });
+
+    this.queueMilestoneSubmissionExecution(submission.id);
+
+    return { submission: this.formatMilestoneSubmission(submission) };
+  }
+
+  async getLatestMilestoneSubmission(
+    userId: string,
+    roadmapId: string,
+    nodeId: string,
+  ): Promise<LatestMilestoneSubmissionResponse> {
+    const node = await this.prisma.roadmapNode.findFirst({
+      where: {
+        id: nodeId,
+        roadmapId,
+        roadmap: { userId },
+      },
+      select: { id: true, nodeType: true },
+    });
+
+    if (!node) {
+      throw new RoadmapNodeNotFoundException(nodeId);
+    }
+
+    if (node.nodeType !== NodeType.MILESTONE) {
+      throw new AppBadRequestException('Only milestone nodes have project submissions');
+    }
+
+    const submission = await this.prisma.milestoneSubmission.findFirst({
+      where: {
+        roadmapNodeId: node.id,
+        userId,
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: MILESTONE_SUBMISSION_SELECT,
+    });
+
+    return { submission: this.formatMilestoneSubmission(submission) };
   }
 
   /**
@@ -786,16 +986,23 @@ export class RoadmapsService {
         })),
       });
 
-      // First group + first required node → IN_PROGRESS
+      // First group + all leaf nodes inside it → IN_PROGRESS
       const firstGroup = flatNodes.find((n) => n.nodeType === 'GROUP');
-      const firstRequiredInGroup = firstGroup
-        ? flatNodes.find((n) => n.tempParentId === firstGroup.tempId && n.nodeType === 'REQUIRED')
-        : undefined;
-      const firstRequired =
-        firstRequiredInGroup ?? flatNodes.find((n) => n.nodeType === 'REQUIRED');
-      const inProgressIds = [firstGroup?.realId, firstRequired?.realId].filter(
-        (id): id is string => !!id,
+      const firstGroupLeafIds = firstGroup
+        ? flatNodes
+            .filter(
+              (n) =>
+                n.tempParentId === firstGroup.tempId &&
+                (n.nodeType === 'REQUIRED' || n.nodeType === 'OPTIONAL'),
+            )
+            .map((n) => n.realId)
+        : [];
+      const firstLeaf = flatNodes.find(
+        (n) => n.nodeType === 'REQUIRED' || n.nodeType === 'OPTIONAL',
       );
+      const inProgressIds = (
+        firstGroup ? [firstGroup.realId, ...firstGroupLeafIds] : [firstLeaf?.realId]
+      ).filter((id): id is string => !!id);
 
       if (inProgressIds.length > 0) {
         await tx.userNodeProgress.updateMany({
@@ -1058,6 +1265,339 @@ export class RoadmapsService {
           }
         : null,
     };
+  }
+
+  private formatMilestoneSubmission(
+    submission: MilestoneSubmissionRecord,
+  ): MilestoneSubmissionResponse;
+  private formatMilestoneSubmission(submission: null): null;
+  private formatMilestoneSubmission(
+    submission: MilestoneSubmissionRecord | null,
+  ): MilestoneSubmissionResponse | null;
+  private formatMilestoneSubmission(
+    submission: MilestoneSubmissionRecord | null,
+  ): MilestoneSubmissionResponse | null {
+    if (!submission) {
+      return null;
+    }
+
+    return {
+      id: submission.id,
+      repoUrl: submission.repoUrl,
+      testCommand: submission.testCommand,
+      status: submission.status,
+      outputLog: submission.outputLog,
+      attemptNumber: submission.attemptNumber,
+      createdAt: submission.createdAt.toISOString(),
+      completedAt: submission.completedAt?.toISOString() ?? null,
+    };
+  }
+
+  private assertMilestoneSubmissionPayload(repoUrl: string, testCommand: string): void {
+    if (!GITHUB_REPO_URL_PATTERN.test(repoUrl)) {
+      throw new MilestoneSubmissionInvalidUrlException();
+    }
+
+    if (!MILESTONE_TEST_COMMAND_PATTERN.test(testCommand)) {
+      throw new MilestoneSubmissionInvalidCommandException();
+    }
+  }
+
+  private parseMilestoneTestCommand(testCommand: string): string[] {
+    if (testCommand === DEFAULT_MILESTONE_TEST_COMMAND) {
+      return ['npm', 'test'];
+    }
+
+    const npmRunMatch = /^npm run ([a-zA-Z0-9_-]+)$/.exec(testCommand);
+    if (!npmRunMatch) {
+      throw new MilestoneSubmissionInvalidCommandException();
+    }
+
+    return ['npm', 'run', npmRunMatch[1]!];
+  }
+
+  private async assertMilestoneCompletionAllowed(
+    userId: string,
+    roadmapNodeId: string,
+    forceComplete: boolean,
+  ): Promise<void> {
+    const latestSubmission = await this.prisma.milestoneSubmission.findFirst({
+      where: { roadmapNodeId, userId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: { status: true },
+    });
+
+    if (latestSubmission?.status === MilestoneSubmissionStatus.PASSED) {
+      return;
+    }
+
+    if (latestSubmission?.status === MilestoneSubmissionStatus.ERROR && forceComplete) {
+      return;
+    }
+
+    if (latestSubmission?.status === MilestoneSubmissionStatus.ERROR) {
+      throw new MilestoneTestsNotPassedException(
+        'Milestone test execution errored. Retry submission or force completion after manual review.',
+      );
+    }
+
+    throw new MilestoneTestsNotPassedException();
+  }
+
+  private queueMilestoneSubmissionExecution(submissionId: string): void {
+    void this.executeMilestoneSubmission(submissionId).catch((error: unknown) => {
+      this.logger.error(`Unexpected milestone submission execution error: ${submissionId}`, error);
+    });
+  }
+
+  private async executeMilestoneSubmission(submissionId: string): Promise<void> {
+    const submission = await this.prisma.milestoneSubmission.findUnique({
+      where: { id: submissionId },
+      select: {
+        id: true,
+        repoUrl: true,
+        testCommand: true,
+      },
+    });
+
+    if (!submission) {
+      return;
+    }
+
+    const startedAt = Date.now();
+    const workspacePath = await mkdtemp(join(tmpdir(), 'rmap-milestone-'));
+    let outputLog = '';
+
+    try {
+      const cloneResult = await this.runDockerCommand(
+        this.buildCloneDockerArgs(submission.id, submission.repoUrl, workspacePath),
+        this.remainingMilestoneExecutionMs(startedAt),
+        this.buildMilestoneContainerName(submission.id, 'clone'),
+      );
+      outputLog = this.appendOutputLog(outputLog, this.formatStageOutput('clone', cloneResult));
+
+      if (cloneResult.timedOut || cloneResult.exitCode !== 0) {
+        await this.completeMilestoneSubmission(
+          submission.id,
+          MilestoneSubmissionStatus.ERROR,
+          outputLog,
+        );
+        return;
+      }
+
+      const installResult = await this.runDockerCommand(
+        this.buildInstallDockerArgs(submission.id, workspacePath),
+        this.remainingMilestoneExecutionMs(startedAt),
+        this.buildMilestoneContainerName(submission.id, 'install'),
+      );
+      outputLog = this.appendOutputLog(outputLog, this.formatStageOutput('install', installResult));
+
+      if (installResult.timedOut) {
+        await this.completeMilestoneSubmission(
+          submission.id,
+          MilestoneSubmissionStatus.ERROR,
+          outputLog,
+        );
+        return;
+      }
+
+      if (installResult.exitCode !== 0) {
+        await this.completeMilestoneSubmission(
+          submission.id,
+          MilestoneSubmissionStatus.FAILED,
+          outputLog,
+        );
+        return;
+      }
+
+      const testResult = await this.runDockerCommand(
+        this.buildTestDockerArgs(submission.id, workspacePath, submission.testCommand),
+        this.remainingMilestoneExecutionMs(startedAt),
+        this.buildMilestoneContainerName(submission.id, 'test'),
+      );
+      outputLog = this.appendOutputLog(outputLog, this.formatStageOutput('test', testResult));
+
+      const finalStatus =
+        testResult.timedOut || testResult.exitCode === null
+          ? MilestoneSubmissionStatus.ERROR
+          : testResult.exitCode === 0
+            ? MilestoneSubmissionStatus.PASSED
+            : MilestoneSubmissionStatus.FAILED;
+
+      await this.completeMilestoneSubmission(submission.id, finalStatus, outputLog);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown milestone execution error';
+      outputLog = this.appendOutputLog(outputLog, `\n[error]\n${message}\n`);
+
+      await this.completeMilestoneSubmission(
+        submission.id,
+        MilestoneSubmissionStatus.ERROR,
+        outputLog,
+      );
+    } finally {
+      await rm(workspacePath, { force: true, recursive: true });
+    }
+  }
+
+  private buildCloneDockerArgs(
+    submissionId: string,
+    repoUrl: string,
+    workspacePath: string,
+  ): string[] {
+    return [
+      'run',
+      '--rm',
+      '--name',
+      this.buildMilestoneContainerName(submissionId, 'clone'),
+      '--memory',
+      MILESTONE_SANDBOX_MEMORY,
+      '--cpus',
+      MILESTONE_SANDBOX_CPUS,
+      '-e',
+      `REPO_URL=${repoUrl}`,
+      '-v',
+      `${workspacePath}:/workspace`,
+      MILESTONE_SANDBOX_IMAGE,
+      'sh',
+      '-c',
+      'apk add --no-cache git && git clone --depth 1 "$REPO_URL" /workspace/app',
+    ];
+  }
+
+  private buildInstallDockerArgs(submissionId: string, workspacePath: string): string[] {
+    return [
+      'run',
+      '--rm',
+      '--name',
+      this.buildMilestoneContainerName(submissionId, 'install'),
+      '--memory',
+      MILESTONE_SANDBOX_MEMORY,
+      '--cpus',
+      MILESTONE_SANDBOX_CPUS,
+      '-v',
+      `${workspacePath}:/workspace`,
+      '-w',
+      '/workspace/app',
+      MILESTONE_SANDBOX_IMAGE,
+      'npm',
+      'install',
+    ];
+  }
+
+  private buildTestDockerArgs(
+    submissionId: string,
+    workspacePath: string,
+    testCommand: string,
+  ): string[] {
+    return [
+      'run',
+      '--rm',
+      '--name',
+      this.buildMilestoneContainerName(submissionId, 'test'),
+      '--memory',
+      MILESTONE_SANDBOX_MEMORY,
+      '--cpus',
+      MILESTONE_SANDBOX_CPUS,
+      '--network',
+      'none',
+      '-v',
+      `${workspacePath}:/workspace`,
+      '-w',
+      '/workspace/app',
+      MILESTONE_SANDBOX_IMAGE,
+      ...this.parseMilestoneTestCommand(testCommand),
+    ];
+  }
+
+  private buildMilestoneContainerName(submissionId: string, stage: string): string {
+    return `rmap-milestone-${submissionId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24)}-${stage}`;
+  }
+
+  private remainingMilestoneExecutionMs(startedAt: number): number {
+    return Math.max(1, MILESTONE_EXECUTION_TIMEOUT_MS - (Date.now() - startedAt));
+  }
+
+  private async runDockerCommand(
+    args: string[],
+    timeoutMs: number,
+    containerName: string,
+  ): Promise<DockerCommandResult> {
+    const result = await new Promise<DockerCommandResult>((resolve, reject) => {
+      const child = spawn('docker', args, { windowsHide: true });
+      let output = '';
+      let timedOut = false;
+
+      const timeout = setTimeout(() => {
+        timedOut = true;
+        child.kill();
+      }, timeoutMs);
+
+      child.stdout.on('data', (chunk: Buffer) => {
+        output = this.appendOutputLog(output, chunk.toString('utf8'));
+      });
+
+      child.stderr.on('data', (chunk: Buffer) => {
+        output = this.appendOutputLog(output, chunk.toString('utf8'));
+      });
+
+      child.on('error', (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      });
+
+      child.on('close', (exitCode) => {
+        clearTimeout(timeout);
+        resolve({ exitCode, output, timedOut });
+      });
+    });
+
+    if (result.timedOut) {
+      await this.forceRemoveMilestoneContainer(containerName);
+    }
+
+    return result;
+  }
+
+  private async forceRemoveMilestoneContainer(containerName: string): Promise<void> {
+    await new Promise<void>((resolve) => {
+      const child = spawn('docker', ['rm', '-f', containerName], { windowsHide: true });
+      child.on('error', () => resolve());
+      child.on('close', () => resolve());
+    });
+  }
+
+  private async completeMilestoneSubmission(
+    submissionId: string,
+    status: MilestoneSubmissionStatus,
+    outputLog: string,
+  ): Promise<void> {
+    await this.prisma.milestoneSubmission.update({
+      where: { id: submissionId },
+      data: {
+        completedAt: new Date(),
+        outputLog: this.sanitizeMilestoneOutputLog(outputLog),
+        status,
+      },
+    });
+  }
+
+  private formatStageOutput(stage: string, result: DockerCommandResult): string {
+    const status = result.timedOut ? 'timed out' : `exit code ${result.exitCode ?? 'unknown'}`;
+    return `\n[${stage}: ${status}]\n${result.output}`;
+  }
+
+  private appendOutputLog(currentLog: string, nextOutput: string): string {
+    return this.sanitizeMilestoneOutputLog(`${currentLog}${nextOutput}`);
+  }
+
+  private sanitizeMilestoneOutputLog(outputLog: string): string {
+    const sanitized = outputLog.replace(ANSI_ESCAPE_PATTERN, '');
+
+    if (sanitized.length <= MILESTONE_OUTPUT_LOG_LIMIT) {
+      return sanitized;
+    }
+
+    return sanitized.slice(sanitized.length - MILESTONE_OUTPUT_LOG_LIMIT);
   }
 
   private isNodeCompleted(node: RoadmapProgressNodeRecord): boolean {
@@ -1411,6 +1951,14 @@ export class RoadmapsService {
       }
     }
 
+    if (node.nodeType === NodeType.MILESTONE && dto.status === NodeStatus.COMPLETED) {
+      if (currentProgress.quizPassed !== null) {
+        throw new AppBadRequestException('Milestone nodes skip quiz validation');
+      }
+
+      await this.assertMilestoneCompletionAllowed(userId, nodeId, dto.forceComplete === true);
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const now = new Date();
 
@@ -1432,41 +1980,10 @@ export class RoadmapsService {
         },
       });
 
-      const unlockedNodes: string[] = [];
-
-      if (dto.status === NodeStatus.COMPLETED) {
-        if (LEAF_NODE_TYPES.includes(node.nodeType)) {
-          const today = new Date(now);
-          today.setUTCHours(0, 0, 0, 0);
-
-          await tx.dailyActivity.upsert({
-            where: { userId_activityDate: { userId, activityDate: today } },
-            create: { userId, activityDate: today, nodesCompleted: 1 },
-            update: { nodesCompleted: { increment: 1 } },
-          });
-
-          if (node.parentId) {
-            await this.cascadeGroupCompletion(
-              tx,
-              userId,
-              roadmapId,
-              node.parentId,
-              now,
-              unlockedNodes,
-            );
-          }
-        } else if (node.nodeType === NodeType.MILESTONE) {
-          await this.unlockNextGroupAfterMilestone(
-            tx,
-            userId,
-            roadmapId,
-            node.parentId,
-            node.posY,
-            now,
-            unlockedNodes,
-          );
-        }
-      }
+      const unlockedNodes =
+        dto.status === NodeStatus.COMPLETED
+          ? await this.applyCompletionSideEffects(userId, nodeId, roadmapId, now, tx)
+          : [];
 
       return {
         progress: {
@@ -1481,6 +1998,49 @@ export class RoadmapsService {
         unlockedNodes,
       };
     });
+  }
+
+  private async applyCompletionSideEffects(
+    userId: string,
+    roadmapNodeId: string,
+    roadmapId: string,
+    now: Date,
+    tx: Awaited<Parameters<Parameters<typeof this.prisma.$transaction>[0]>[0]>,
+  ): Promise<string[]> {
+    const unlockedNodes: string[] = [];
+    const node = await tx.roadmapNode.findFirst({
+      where: { id: roadmapNodeId, roadmapId },
+      select: { nodeType: true, parentId: true, posY: true },
+    });
+
+    if (!node) return unlockedNodes;
+
+    if (LEAF_NODE_TYPES.includes(node.nodeType)) {
+      const today = new Date(now);
+      today.setUTCHours(0, 0, 0, 0);
+
+      await tx.dailyActivity.upsert({
+        where: { userId_activityDate: { userId, activityDate: today } },
+        create: { userId, activityDate: today, nodesCompleted: 1 },
+        update: { nodesCompleted: { increment: 1 } },
+      });
+
+      if (node.parentId) {
+        await this.cascadeGroupCompletion(tx, userId, roadmapId, node.parentId, now, unlockedNodes);
+      }
+    } else if (node.nodeType === NodeType.MILESTONE) {
+      await this.unlockNextGroupAfterMilestone(
+        tx,
+        userId,
+        roadmapId,
+        node.parentId,
+        node.posY,
+        now,
+        unlockedNodes,
+      );
+    }
+
+    return unlockedNodes;
   }
 
   private async cascadeGroupCompletion(
@@ -1526,6 +2086,8 @@ export class RoadmapsService {
       where: { userId_roadmapNodeId: { userId, roadmapNodeId: groupId } },
       data: { status: NodeStatus.COMPLETED, completedAt: now },
     });
+
+    await this.unlockGroupLeaves(tx, userId, groupId, now, unlockedNodes);
 
     const nextSiblings = await tx.roadmapNode.findMany({
       where: {

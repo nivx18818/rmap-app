@@ -205,7 +205,7 @@ export function RoadmapNodeQuiz({ nodeId, roadmapId }: RoadmapNodeQuizProps) {
             }
             message="Quizzes are only available for required and optional skill nodes."
           />
-        ) : status !== 'IN_PROGRESS' ? (
+        ) : status !== 'IN_PROGRESS' && !submitResult ? (
           <RoadmapNodeQuizMessage
             title="Quiz unavailable"
             badge={
@@ -229,8 +229,8 @@ export function RoadmapNodeQuiz({ nodeId, roadmapId }: RoadmapNodeQuizProps) {
                   {nodeDetail.name} quiz
                 </h1>
                 <p className="text-muted-foreground text-sm leading-6">
-                  Answer all {quiz.questions.length} questions. A score of 60% or higher saves your
-                  passing result and enables completion in the roadmap drawer.
+                  Answer all {quiz.questions.length} questions. A score of 60% or higher
+                  automatically completes this node and unlocks what comes next.
                 </p>
               </div>
             </div>
@@ -313,28 +313,38 @@ export function RoadmapNodeQuiz({ nodeId, roadmapId }: RoadmapNodeQuizProps) {
                 ) : null}
                 <Separator />
                 <div className="flex flex-wrap gap-2">
-                  <Button render={<Link href={roadmapHref}>Return to roadmap</Link>} />
-                  <Button
-                    variant="outline"
-                    type="button"
-                    onClick={() => {
-                      setAnswers({});
-                      setSubmitResult(null);
-                      setFormError(null);
-                    }}
-                  >
-                    Retake quiz
-                  </Button>
+                  {submitResult.passed ? (
+                    <Button render={<Link href={roadmapHref}>Back to roadmap</Link>} />
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          setAnswers({});
+                          setSubmitResult(null);
+                          setFormError(null);
+                        }}
+                      >
+                        Take the quiz again
+                      </Button>
+                      <Button
+                        variant="outline"
+                        render={<Link href={roadmapHref}>Back to roadmap</Link>}
+                      />
+                    </>
+                  )}
                 </div>
               </div>
             ) : null}
 
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" disabled={!canSubmit} onClick={handleSubmit}>
-                {isSubmitting ? 'Submitting...' : 'Submit quiz'}
-              </Button>
-              <Button variant="outline" render={<Link href={roadmapHref}>Cancel</Link>} />
-            </div>
+            {!submitResult ? (
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" disabled={!canSubmit} onClick={handleSubmit}>
+                  {isSubmitting ? 'Submitting...' : 'Submit quiz'}
+                </Button>
+                <Button variant="outline" render={<Link href={roadmapHref}>Cancel</Link>} />
+              </div>
+            ) : null}
           </div>
         ) : (
           <RoadmapNodeQuizMessage

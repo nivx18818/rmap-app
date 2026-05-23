@@ -34,6 +34,7 @@ export interface SubmitRoadmapNodeQuizResult {
   scorePct: number;
   suggestion: string | null;
   totalQuestions: number;
+  unlockedNodes: string[];
 }
 
 export type RoadmapNodeQuizAnswers = Record<string, QuizOption>;

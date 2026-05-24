@@ -36,7 +36,7 @@ export function buildParentChildEdges(roadmapNodes: RoadmapNode[]): Edge[] {
       style: { stroke: '#000000', strokeWidth: 2 },
       target: node.id,
       targetHandle: childIsLeft ? 'right-target' : 'left-target',
-      type: 'smoothstep',
+      type: 'bezier',
     };
   });
 }

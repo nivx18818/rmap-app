@@ -13,6 +13,7 @@ import {
   RoadmapNotFoundException,
   UserNodeProgressNotFoundException,
 } from '@/common/exceptions/app.exceptions';
+import { calculateStreakDays, type StreakActivityRecord } from '@/common/utils/streak-days.util';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
 import type { GenerateRoadmapDto } from './dto/generate-roadmap.dto';
@@ -110,11 +111,6 @@ type RoadmapProgressNodeRecord = {
   userNodeProgress: Array<{
     status: NodeStatus;
   }>;
-};
-
-type DailyActivityRecord = {
-  activityDate: Date;
-  nodesCompleted: number;
 };
 
 const toNumberOrNull = (value: Prisma.Decimal | number | null) =>
@@ -289,7 +285,7 @@ export class RoadmapsService {
     return {
       roadmapId: roadmap.id,
       completionPct: this.calculatePercent(nodesCompleted, nodesTotal),
-      streakDays: this.calculateStreakDays(dailyActivities),
+      streakDays: calculateStreakDays(dailyActivities as StreakActivityRecord[]),
       skillReadinessPct: this.calculatePercent(
         requiredLeafNodesCompleted,
         requiredLeafNodes.length,
@@ -1043,30 +1039,6 @@ export class RoadmapsService {
     }
 
     return this.roundToOne((completed / total) * 100);
-  }
-
-  private calculateStreakDays(dailyActivities: DailyActivityRecord[], now = new Date()): number {
-    const activeDateKeys = new Set(
-      dailyActivities
-        .filter((activity) => activity.nodesCompleted > 0)
-        .map((activity) => this.toUtcDateKey(activity.activityDate)),
-    );
-    const todayKey = this.toUtcDateKey(now);
-    const startDate = new Date(this.toUtcMidnightMs(now));
-
-    if (!activeDateKeys.has(todayKey)) {
-      startDate.setUTCDate(startDate.getUTCDate() - 1);
-    }
-
-    let streakDays = 0;
-    const cursor = new Date(startDate);
-
-    while (activeDateKeys.has(this.toUtcDateKey(cursor))) {
-      streakDays += 1;
-      cursor.setUTCDate(cursor.getUTCDate() - 1);
-    }
-
-    return streakDays;
   }
 
   private calculateTimelineWarning(

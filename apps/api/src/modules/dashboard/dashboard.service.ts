@@ -4,6 +4,7 @@ import { NodeStatus, NodeType, type Prisma, type UserRole } from '@repo/db/prism
 import type { TimelineWarningResponse } from '@/modules/roadmaps/types/roadmap-progress.types';
 
 import { UserNotFoundException } from '@/common/exceptions/app.exceptions';
+import { calculateStreakDays } from '@/common/utils/streak-days.util';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
 import type {
@@ -87,7 +88,7 @@ export class DashboardService {
       throw new UserNotFoundException(userId);
     }
 
-    const streakDays = this.calculateStreakDays(user.dailyActivity);
+    const streakDays = calculateStreakDays(user.dailyActivity);
     const activeRoadmap = user.roadmaps[0]
       ? this.formatRoadmapProgressSummary(user.roadmaps[0], streakDays)
       : null;
@@ -161,30 +162,6 @@ export class DashboardService {
         nodes_completed: nodesCompletedByDate.get(dateKey) ?? 0,
       };
     });
-  }
-
-  private calculateStreakDays(dailyActivities: DailyActivityRecord[], now = new Date()): number {
-    const activeDateKeys = new Set(
-      dailyActivities
-        .filter((activity) => activity.nodesCompleted > 0)
-        .map((activity) => this.toUtcDateKey(activity.activityDate)),
-    );
-    const todayKey = this.toUtcDateKey(now);
-    const startDate = new Date(this.toUtcMidnightMs(now));
-
-    if (!activeDateKeys.has(todayKey)) {
-      startDate.setUTCDate(startDate.getUTCDate() - 1);
-    }
-
-    let streakDays = 0;
-    const cursor = new Date(startDate);
-
-    while (activeDateKeys.has(this.toUtcDateKey(cursor))) {
-      streakDays += 1;
-      cursor.setUTCDate(cursor.getUTCDate() - 1);
-    }
-
-    return streakDays;
   }
 
   private calculateTimelineWarning(

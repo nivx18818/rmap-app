@@ -1,11 +1,12 @@
 'use client';
 
 import { SectionContainer } from '@repo/design-system/components/common/section-container';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { useRoadmapFlowState } from '../_hooks/use-roadmap-flow-state';
 import { useRoadmapGraphData } from '../_hooks/use-roadmap-graph-data';
 import { useRoadmapNodeSelection } from '../_hooks/use-roadmap-node-selection';
+import { canOpenRoadmapNodeDetail } from '../_utils/roadmap-node.utils';
 import { RoadmapFilterBar } from './roadmap-filter-bar';
 import { RoadmapGraphState } from './roadmap-graph-state';
 import { RoadmapNodeDetailDrawer } from './roadmap-node-detail-drawer';
@@ -48,13 +49,27 @@ export function RoadmapGraph({ roadmapId, roadmapTitle }: RoadmapGraphProps) {
       shouldCompactAxis: false,
       title: roadmapTitle,
     });
+  const selectedRoadmapNode = useMemo(
+    () =>
+      selectedNodeId ? baseRoadmapNodes.find((node) => node.id === selectedNodeId) : undefined,
+    [baseRoadmapNodes, selectedNodeId],
+  );
+  const effectiveSelectedNodeId =
+    selectedRoadmapNode && canOpenRoadmapNodeDetail(selectedRoadmapNode) ? selectedNodeId : null;
+
+  useEffect(() => {
+    if (selectedNodeId && selectedRoadmapNode && !canOpenRoadmapNodeDetail(selectedRoadmapNode)) {
+      clearSelectedNode();
+    }
+  }, [clearSelectedNode, selectedNodeId, selectedRoadmapNode]);
+
   const selectedNodes = useMemo(
     () =>
       nodes.map((node) => ({
         ...node,
-        selected: Boolean(node.data.node && node.data.node.id === selectedNodeId),
+        selected: Boolean(node.data.node && node.data.node.id === effectiveSelectedNodeId),
       })),
-    [nodes, selectedNodeId],
+    [effectiveSelectedNodeId, nodes],
   );
 
   return (
@@ -122,7 +137,7 @@ export function RoadmapGraph({ roadmapId, roadmapTitle }: RoadmapGraphProps) {
       <RoadmapNodeDetailDrawer
         onProgressUpdated={refreshRoadmapNodes}
         roadmapId={roadmapId}
-        selectedNodeId={selectedNodeId}
+        selectedNodeId={effectiveSelectedNodeId}
         onOpenChange={(isOpen) => {
           if (!isOpen) clearSelectedNode();
         }}

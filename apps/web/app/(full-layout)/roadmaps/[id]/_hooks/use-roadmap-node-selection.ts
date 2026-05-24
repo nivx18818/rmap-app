@@ -23,9 +23,10 @@ export function useRoadmapNodeSelection() {
     },
     [pathname, router, searchParams],
   );
+  const clearSelectedNode = useCallback(() => updateSelectedNodeId(null), [updateSelectedNodeId]);
 
   return {
-    clearSelectedNode: () => updateSelectedNodeId(null),
+    clearSelectedNode,
     selectNode: updateSelectedNodeId,
     selectedNodeId,
   };

@@ -11,6 +11,7 @@ import {
 } from '@repo/db/prisma/client';
 
 import {
+  AppBadRequestException,
   DeadlineInPastException,
   InvalidStatusTransitionException,
   MilestoneSubmissionInProgressException,
@@ -360,17 +361,37 @@ describe('RoadmapsService', () => {
       expect(result.timelineWarning).toBeNull();
     });
 
+    it('should use generated leaf hours, not the full role catalog, for feasibility', async () => {
+      prisma.skill.findMany.mockResolvedValueOnce([
+        ...MOCK_SKILLS,
+        {
+          id: 'skill-unused',
+          name: 'Unused Advanced Topic',
+          defaultEstimatedHours: 500,
+        },
+      ]);
+
+      const result = await service.generate(MOCK_USER_ID, {
+        ...MOCK_DTO,
+        deadlineDate: new Date(Date.now() + 60 * 86_400_000).toISOString().slice(0, 10),
+        hoursPerDay: 2,
+      });
+
+      expect(result.timelineWarning).toBeNull();
+    });
+
     it('should return a timelineWarning when pace is >15% behind', async () => {
-      // MOCK_SKILLS total = 24h, use a very near deadline + low hours/day
+      // Generated leaf estimate is intentionally too large for this near deadline.
       const result = await service.generate(MOCK_USER_ID, {
         ...MOCK_DTO,
         deadlineDate: new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10), // 2 days out
-        hoursPerDay: 0.5, // only 1h available → way behind 24h
+        hoursPerDay: 0.5,
       });
       expect(result.timelineWarning).not.toBeNull();
       expect(result.timelineWarning!.isBehind).toBe(true);
       expect(result.timelineWarning!.paceDeficitPct).toBeGreaterThan(0);
       expect(result.timelineWarning!.estimatedDelayDays).toBeGreaterThan(0);
+      expect(result.timelineWarning!.message).toContain('generated roadmap estimate');
     });
   });
 
@@ -853,7 +874,7 @@ describe('RoadmapsService', () => {
 
     it('should return a timeline warning when pace deficit is at least 15 percent', async () => {
       prisma.roadmap.findFirst.mockResolvedValue({
-        generatedAt: new Date('2026-05-19T03:00:00Z'),
+        generatedAt: new Date('2026-05-18T03:00:00Z'),
         hoursPerDay: createDecimal(4),
         id: roadmapId,
       });
@@ -870,6 +891,22 @@ describe('RoadmapsService', () => {
         estimatedDelayDays: 1,
         message: 'You are 25% behind pace - projected delay is about 1 day(s).',
       });
+    });
+
+    it('should return null timeline warning on the generated calendar day', async () => {
+      prisma.roadmap.findFirst.mockResolvedValue({
+        generatedAt: new Date('2026-05-21T03:00:00Z'),
+        hoursPerDay: createDecimal(4),
+        id: roadmapId,
+      });
+      prisma.roadmapNode.findMany.mockResolvedValue([
+        makeProgressNode('required-1', NodeType.REQUIRED, NodeStatus.IN_PROGRESS, 8),
+        makeProgressNode('required-2', NodeType.REQUIRED, NodeStatus.LOCKED, 6),
+      ]);
+
+      const result = await service.getProgressSummary(MOCK_USER_ID, roadmapId);
+
+      expect(result.timelineWarning).toBeNull();
     });
 
     it('should return null timeline warning when on track', async () => {
@@ -2450,33 +2487,21 @@ describe('RoadmapsService', () => {
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
-    it('should allow completing a GROUP node without quiz', async () => {
+    it('should reject direct GROUP progress updates', async () => {
       prisma.roadmapNode.findFirst.mockResolvedValue({
         id: nodeId,
         nodeType: NodeType.GROUP,
         skillId: null,
         parentId: null,
       });
-      prisma.userNodeProgress.findUnique.mockResolvedValue({
-        status: NodeStatus.IN_PROGRESS,
-        quizPassed: null,
-      });
-      txMock.userNodeProgress.update.mockResolvedValue({
-        ...mockUpdatedProgress,
-        status: NodeStatus.COMPLETED,
-      });
-      txMock.roadmapNode.findFirst.mockResolvedValue({
-        nodeType: NodeType.GROUP,
-        parentId: null,
-        posY: 50,
-      });
 
-      const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
-        status: NodeStatus.COMPLETED,
-      });
-
-      expect(result.progress.status).toBe(NodeStatus.COMPLETED);
-      expect(result.unlockedNodes).toEqual([]);
+      await expect(
+        service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
+          status: NodeStatus.COMPLETED,
+        }),
+      ).rejects.toThrow(AppBadRequestException);
+      expect(prisma.userNodeProgress.findUnique).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(txMock.dailyActivity.upsert).not.toHaveBeenCalled();
     });
 

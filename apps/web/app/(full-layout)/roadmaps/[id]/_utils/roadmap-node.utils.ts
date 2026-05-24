@@ -16,6 +16,12 @@ export function isSkillNode(node: RoadmapNode): boolean {
   return isSkillNodeType(node.nodeType);
 }
 
+export function canOpenRoadmapNodeDetail(node: RoadmapNode): boolean {
+  return (
+    node.nodeType === 'REQUIRED' || node.nodeType === 'OPTIONAL' || node.nodeType === 'MILESTONE'
+  );
+}
+
 export function getNodeStatus(node: RoadmapNode): ProgressStatus {
   return node.progress?.status ?? 'LOCKED';
 }

@@ -6,6 +6,7 @@ import { ReactFlow } from '@xyflow/react';
 
 import type { RoadmapFlowNode, RoadmapNodeTypes } from '../_types/roadmap-flow.types';
 
+import { canOpenRoadmapNodeDetail } from '../_utils/roadmap-node.utils';
 import {
   RoadmapGroupNode,
   RoadmapMilestoneNode,
@@ -67,7 +68,7 @@ export function RoadmapSkillTree({
         nodeTypes={nodeTypes}
         onEdgesChange={edgeChanges}
         onNodeClick={(_, node) => {
-          if (!node.data.node) return;
+          if (!node.data.node || !canOpenRoadmapNodeDetail(node.data.node)) return;
           onNodeSelect?.(node.data.node.id);
         }}
         onNodesChange={nodeChanges}

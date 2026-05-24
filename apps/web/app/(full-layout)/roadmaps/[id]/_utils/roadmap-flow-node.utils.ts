@@ -14,7 +14,7 @@ import {
   getRoadmapNodeSize,
   getTitleNodePosition,
 } from './roadmap-flow-layout.utils';
-import { getNodeStatus, isSkillNode } from './roadmap-node.utils';
+import { canOpenRoadmapNodeDetail, getNodeStatus, isSkillNode } from './roadmap-node.utils';
 
 interface BuildFlowNodesOptions {
   compactAxis?: boolean;
@@ -110,6 +110,7 @@ export function buildFlowNodes(
       draggable: false,
       id: node.id,
       position: { x: node.posX, y: node.posY },
+      selectable: canOpenRoadmapNodeDetail(node),
       type: getFlowNodeKind(node),
       zIndex: node.nodeType === 'GROUP' ? 0 : 1,
     };

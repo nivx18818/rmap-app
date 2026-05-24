@@ -831,9 +831,9 @@ export class RoadmapsService {
    * Orchestrates roadmap generation end-to-end:
    * 1. Validate deadline
    * 2. Load role skill map from DB
-   * 3. Feasibility check → optional timelineWarning
-   * 4. Call Gemini AI
-   * 5. Flatten AI tree + match skillIds
+   * 3. Call Gemini AI
+   * 4. Flatten AI tree + match skillIds
+   * 5. Feasibility check on generated leaf estimates → optional timelineWarning
    * 6. Compute Dagre layout
    * 7. Persist roadmap + nodes + user_node_progress in one transaction
    * 8. Return { roadmap, timelineWarning }
@@ -867,34 +867,6 @@ export class RoadmapsService {
         prerequisiteSkill: { select: { name: true } },
       },
     });
-
-    // Feasibility check
-    const totalHours = skills.reduce((sum, s) => sum + Number(s.defaultEstimatedHours ?? 0), 0);
-    const nowMs = Date.now();
-    const days = Math.max(1, Math.ceil((deadline.getTime() - nowMs) / MS_PER_DAY));
-    const availableHours = days * dto.hoursPerDay;
-
-    let timelineWarning: {
-      isBehind: boolean;
-      paceDeficitPct: number;
-      estimatedDelayDays: number;
-      message: string;
-    } | null = null;
-
-    if (totalHours > availableHours * (1 + FEASIBILITY_THRESHOLD)) {
-      const deficit = totalHours - availableHours;
-      const paceDeficitPct = Math.round((deficit / totalHours) * 1000) / 10;
-      const estimatedDelayDays = Math.ceil(deficit / dto.hoursPerDay);
-      timelineWarning = {
-        isBehind: true,
-        paceDeficitPct,
-        estimatedDelayDays,
-        message: `You may not finish on time — estimated ${estimatedDelayDays} day(s) behind deadline.`,
-      };
-      this.logger.warn(
-        `Timeline warning for user ${userId}: ${paceDeficitPct}% behind, ~${estimatedDelayDays} days delay`,
-      );
-    }
 
     // Call Gemini
     // Quiz answers are forwarded verbatim; never stored.
@@ -932,6 +904,27 @@ export class RoadmapsService {
     // Flatten AI tree and preserve AI parent-child relationships
     const counter = { n: 0 };
     const flatNodes = this.flattenTree(aiOutput.nodes, null, counter);
+
+    const totalGeneratedLeafHours = flatNodes.reduce(
+      (total, node) =>
+        node.nodeType === 'REQUIRED' || node.nodeType === 'OPTIONAL'
+          ? total + (node.estimatedHours ?? 0)
+          : total,
+      0,
+    );
+    const timelineWarning = this.calculateGenerationTimelineWarning(
+      deadline,
+      dto.hoursPerDay,
+      totalGeneratedLeafHours,
+    );
+
+    if (timelineWarning) {
+      this.logger.warn(
+        `Generated roadmap timeline warning for user ${userId}: ` +
+          `${timelineWarning.paceDeficitPct}% over estimate, ` +
+          `~${timelineWarning.estimatedDelayDays} additional days needed`,
+      );
+    }
 
     // Resolve realParentId using tempId → realId map
     const tempToReal = new Map(flatNodes.map((n) => [n.tempId, n.realId]));
@@ -1612,6 +1605,63 @@ export class RoadmapsService {
     return this.roundToOne((completed / total) * 100);
   }
 
+  private calculateStreakDays(dailyActivities: DailyActivityRecord[], now = new Date()): number {
+    const activeDateKeys = new Set(
+      dailyActivities
+        .filter((activity) => activity.nodesCompleted > 0)
+        .map((activity) => this.toUtcDateKey(activity.activityDate)),
+    );
+    const todayKey = this.toUtcDateKey(now);
+    const startDate = new Date(this.toUtcMidnightMs(now));
+
+    if (!activeDateKeys.has(todayKey)) {
+      startDate.setUTCDate(startDate.getUTCDate() - 1);
+    }
+
+    let streakDays = 0;
+    const cursor = new Date(startDate);
+
+    while (activeDateKeys.has(this.toUtcDateKey(cursor))) {
+      streakDays += 1;
+      cursor.setUTCDate(cursor.getUTCDate() - 1);
+    }
+
+    return streakDays;
+  }
+
+  private calculateGenerationTimelineWarning(
+    deadline: Date,
+    hoursPerDay: number,
+    totalEstimatedHours: number,
+    now = new Date(),
+  ): TimelineWarningResponse | null {
+    if (hoursPerDay <= 0 || totalEstimatedHours <= 0) {
+      return null;
+    }
+
+    const daysUntilDeadline = Math.max(
+      1,
+      Math.ceil((deadline.getTime() - now.getTime()) / MS_PER_DAY),
+    );
+    const availableHours = daysUntilDeadline * hoursPerDay;
+
+    if (totalEstimatedHours <= availableHours * (1 + FEASIBILITY_THRESHOLD)) {
+      return null;
+    }
+
+    const hoursDeficit = totalEstimatedHours - availableHours;
+    const paceDeficitPct = this.roundToOne((hoursDeficit / totalEstimatedHours) * 100);
+    const estimatedDelayDays = Math.ceil(hoursDeficit / hoursPerDay);
+
+    return {
+      isBehind: true,
+      paceDeficitPct,
+      estimatedDelayDays,
+      message:
+        `The generated roadmap estimate may not fit your deadline: about ` +
+        `${estimatedDelayDays} additional study day(s) needed.`,
+    };
+  }
   private calculateTimelineWarning(
     generatedAt: Date,
     hoursPerDay: number | null,
@@ -1622,12 +1672,14 @@ export class RoadmapsService {
       return null;
     }
 
-    const daysElapsed =
-      Math.max(
-        1,
-        Math.floor((this.toUtcMidnightMs(now) - this.toUtcMidnightMs(generatedAt)) / MS_PER_DAY) +
-          1,
-      ) || 1;
+    const daysElapsed = Math.floor(
+      (this.toUtcMidnightMs(now) - this.toUtcMidnightMs(generatedAt)) / MS_PER_DAY,
+    );
+
+    if (daysElapsed <= 0) {
+      return null;
+    }
+
     const plannedHoursElapsed = daysElapsed * hoursPerDay;
 
     if (plannedHoursElapsed <= 0) {
@@ -1929,6 +1981,10 @@ export class RoadmapsService {
 
     if (!node) {
       throw new RoadmapNodeNotFoundException(nodeId);
+    }
+
+    if (node.nodeType === NodeType.GROUP) {
+      throw new AppBadRequestException('Group nodes are structural and cannot be manually updated');
     }
 
     const currentProgress = await this.prisma.userNodeProgress.findUnique({

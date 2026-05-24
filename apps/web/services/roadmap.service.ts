@@ -20,6 +20,7 @@ import type {
   RoadmapNodesFilter,
   RoadmapNodesResponse,
 } from '@/app/(full-layout)/roadmaps/[id]/_types/roadmap-node.types';
+import type { RoadmapProgressSummary } from '@/app/(full-layout)/roadmaps/[id]/_types/roadmap-progress.types';
 import type {
   GenerateRoadmapPayload,
   GenerateRoadmapResponse,
@@ -100,6 +101,13 @@ export const roadmapService = {
     const response = await axiosInstance.get<RoadmapNodesResponse>(
       ENDPOINTS.roadmaps.nodes(roadmapId),
       { params },
+    );
+    return response.data;
+  },
+
+  getProgressSummary: async (roadmapId: string) => {
+    const response = await axiosInstance.get<RoadmapProgressSummary>(
+      ENDPOINTS.roadmaps.progress(roadmapId),
     );
     return response.data;
   },

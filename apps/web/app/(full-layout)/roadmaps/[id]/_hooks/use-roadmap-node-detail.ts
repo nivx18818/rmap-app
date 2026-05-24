@@ -1,5 +1,6 @@
 'use client';
 
+import { toast } from '@repo/design-system/lib/toast';
 import { useCallback, useEffect, useState } from 'react';
 
 import { roadmapService } from '@/services/roadmap.service';
@@ -81,9 +82,16 @@ export function useRoadmapNodeDetail({
             ? { ...currentNodeDetail, progress: response.progress }
             : currentNodeDetail,
         );
+        toast.success('Node completed', {
+          description:
+            response.unlockedNodes.length > 0
+              ? `${response.unlockedNodes.length} new node${response.unlockedNodes.length === 1 ? '' : 's'} unlocked.`
+              : 'Roadmap progress updated.',
+        });
         onProgressUpdated?.();
       } catch {
         setActionErrorMessage(MARK_COMPLETE_ERROR_MESSAGE);
+        toast.error(MARK_COMPLETE_ERROR_MESSAGE);
       } finally {
         setIsMarkingComplete(false);
       }

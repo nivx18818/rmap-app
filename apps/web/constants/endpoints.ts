@@ -23,6 +23,7 @@ export const ENDPOINTS = {
       `/roadmaps/${roadmapId}/nodes/${nodeId}/progress`,
     nodeQuiz: (roadmapId: string, nodeId: string) => `/roadmaps/${roadmapId}/nodes/${nodeId}/quiz`,
     nodes: (roadmapId: string) => `/roadmaps/${roadmapId}/nodes`,
+    progress: (roadmapId: string) => `/roadmaps/${roadmapId}/progress`,
     submitNodeQuiz: (roadmapId: string, nodeId: string) =>
       `/roadmaps/${roadmapId}/nodes/${nodeId}/quiz/submit`,
   },

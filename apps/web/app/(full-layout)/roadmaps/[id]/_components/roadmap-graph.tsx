@@ -1,7 +1,7 @@
 'use client';
 
 import { SectionContainer } from '@repo/design-system/components/common/section-container';
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useRoadmapFlowState } from '../_hooks/use-roadmap-flow-state';
 import { useRoadmapGraphData } from '../_hooks/use-roadmap-graph-data';
@@ -14,11 +14,12 @@ import { RoadmapSkillTree } from './roadmap-skill-tree';
 import { RoadmapStackList } from './roadmap-stack-list';
 
 interface RoadmapGraphProps {
+  onProgressUpdated?: () => void;
   roadmapId: string;
   roadmapTitle: string;
 }
 
-export function RoadmapGraph({ roadmapId, roadmapTitle }: RoadmapGraphProps) {
+export function RoadmapGraph({ onProgressUpdated, roadmapId, roadmapTitle }: RoadmapGraphProps) {
   const {
     baseRoadmapNodes,
     debouncedQuery,
@@ -62,6 +63,11 @@ export function RoadmapGraph({ roadmapId, roadmapTitle }: RoadmapGraphProps) {
       clearSelectedNode();
     }
   }, [clearSelectedNode, selectedNodeId, selectedRoadmapNode]);
+
+  const handleProgressUpdated = useCallback(() => {
+    refreshRoadmapNodes();
+    onProgressUpdated?.();
+  }, [onProgressUpdated, refreshRoadmapNodes]);
 
   const selectedNodes = useMemo(
     () =>
@@ -135,7 +141,7 @@ export function RoadmapGraph({ roadmapId, roadmapTitle }: RoadmapGraphProps) {
       ) : null}
 
       <RoadmapNodeDetailDrawer
-        onProgressUpdated={refreshRoadmapNodes}
+        onProgressUpdated={handleProgressUpdated}
         roadmapId={roadmapId}
         selectedNodeId={effectiveSelectedNodeId}
         onOpenChange={(isOpen) => {

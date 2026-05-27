@@ -226,6 +226,7 @@ export function RoadmapNodeQuiz({ nodeId, roadmapId }: RoadmapNodeQuizProps) {
 
         {isLoading ? (
           <LoadingState
+            className="min-h-[calc(100vh-14rem)] justify-center"
             message="Preparing your quiz..."
             description="Our AI is creating skill-check questions for this topic. This usually takes a few seconds."
           />

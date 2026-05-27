@@ -1,13 +1,21 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { NodeStatus, NodeType, type Prisma, type UserRole } from '@repo/db/prisma/client';
 
 import type { TimelineWarningResponse } from '@/modules/roadmaps/types/roadmap-progress.types';
 
 import { UserNotFoundException } from '@/common/exceptions/app.exceptions';
-import { calculateStreakDays } from '@/common/utils/streak-days.util';
+import {
+  calculateLongestStreakDays,
+  calculateStreakDays,
+  fillDailyActivityRange,
+  subtractUtcDays,
+  toUtcMidnightDate,
+} from '@/common/utils/streak-days.util';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
+import type { ActivityQueryDto } from './dto/activity-query.dto';
 import type {
+  ActivitySummaryResponse,
   DailyActivityEntryResponse,
   DashboardResponse,
 } from './types/dashboard-response.types';
@@ -43,6 +51,35 @@ const toNumberOrNull = (value: Prisma.Decimal | number | null) =>
 @Injectable()
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async getActivitySummary(
+    userId: string,
+    query: ActivityQueryDto = {},
+  ): Promise<ActivitySummaryResponse> {
+    const { from, to } = this.resolveActivityRange(query);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        dailyActivity: {
+          orderBy: [{ activityDate: 'desc' }, { id: 'asc' }],
+          select: {
+            activityDate: true,
+            nodesCompleted: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new UserNotFoundException(userId);
+    }
+
+    return {
+      streakDays: calculateStreakDays(user.dailyActivity),
+      longestStreak: calculateLongestStreakDays(user.dailyActivity),
+      activity: fillDailyActivityRange(user.dailyActivity, from, to),
+    };
+  }
 
   async getDashboard(userId: string): Promise<DashboardResponse> {
     const user = await this.prisma.user.findUnique({
@@ -94,23 +131,23 @@ export class DashboardService {
       : null;
 
     return {
-      user_profile: {
+      user: {
         id: user.id,
         email: user.email,
         fullName: user.fullName,
         role: this.formatRole(user.role),
         createdAt: user.createdAt.toISOString(),
       },
-      active_roadmap: activeRoadmap,
-      streak_days: streakDays,
-      activity_recent: this.formatRecentActivity(user.dailyActivity),
+      activeRoadmap,
+      streakDays,
+      activityRecent: this.formatRecentActivity(user.dailyActivity),
     };
   }
 
   private formatRoadmapProgressSummary(
     roadmap: DashboardRoadmapRecord,
     streakDays: number,
-  ): DashboardResponse['active_roadmap'] {
+  ): DashboardResponse['activeRoadmap'] {
     const nodesTotal = roadmap.nodes.length;
     const completedNodes = roadmap.nodes.filter((node) => this.isNodeCompleted(node));
     const nodesCompleted = completedNodes.length;
@@ -145,23 +182,10 @@ export class DashboardService {
     dailyActivities: DailyActivityRecord[],
     now = new Date(),
   ): DailyActivityEntryResponse[] {
-    const nodesCompletedByDate = new Map(
-      dailyActivities.map((activity) => [
-        this.toUtcDateKey(activity.activityDate),
-        activity.nodesCompleted,
-      ]),
-    );
-    const todayMidnightMs = this.toUtcMidnightMs(now);
+    const to = toUtcMidnightDate(now);
+    const from = subtractUtcDays(to, DASHBOARD_ACTIVITY_DAYS - 1);
 
-    return Array.from({ length: DASHBOARD_ACTIVITY_DAYS }, (_, index) => {
-      const date = new Date(todayMidnightMs - (DASHBOARD_ACTIVITY_DAYS - 1 - index) * MS_PER_DAY);
-      const dateKey = this.toUtcDateKey(date);
-
-      return {
-        activity_date: dateKey,
-        nodes_completed: nodesCompletedByDate.get(dateKey) ?? 0,
-      };
-    });
+    return fillDailyActivityRange(dailyActivities, from, to);
   }
 
   private calculateTimelineWarning(
@@ -221,8 +245,25 @@ export class DashboardService {
     return Math.round(value * 10) / 10;
   }
 
-  private toUtcDateKey(date: Date): string {
-    return date.toISOString().slice(0, 10);
+  private resolveActivityRange(query: ActivityQueryDto): { from: Date; to: Date } {
+    const to = query.to ? this.parseDateOnly(query.to) : toUtcMidnightDate(new Date());
+    const from = query.from ? this.parseDateOnly(query.from) : subtractUtcDays(to, 29);
+
+    if (from.getTime() > to.getTime()) {
+      throw new BadRequestException('Invalid activity date range');
+    }
+
+    return { from, to };
+  }
+
+  private parseDateOnly(value: string): Date {
+    const date = new Date(`${value}T00:00:00.000Z`);
+
+    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+      throw new BadRequestException('Invalid activity date');
+    }
+
+    return date;
   }
 
   private toUtcMidnightMs(date: Date): number {

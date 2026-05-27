@@ -1,6 +1,7 @@
 import type { TestingModule } from '@nestjs/testing';
 import type { NodeStatus, NodeType, UserRole } from '@repo/db/prisma/client';
 
+import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { NodeStatus as NodeStatusValue, NodeType as NodeTypeValue } from '@repo/db/prisma/client';
 
@@ -116,7 +117,114 @@ describe('DashboardService', () => {
     );
   });
 
-  it('should return active_roadmap null when the user has no roadmap', async () => {
+  it('should query the current user activity payload', async () => {
+    prisma.user.findUnique.mockResolvedValue(createUserRecord());
+
+    await service.getActivitySummary(MOCK_USER_ID);
+
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: MOCK_USER_ID },
+      select: {
+        dailyActivity: {
+          orderBy: [{ activityDate: 'desc' }, { id: 'asc' }],
+          select: {
+            activityDate: true,
+            nodesCompleted: true,
+          },
+        },
+      },
+    });
+  });
+
+  it('should return empty activity state with a zero-filled default range', async () => {
+    prisma.user.findUnique.mockResolvedValue(createUserRecord());
+
+    const result = await service.getActivitySummary(MOCK_USER_ID);
+
+    expect(result.streakDays).toBe(0);
+    expect(result.longestStreak).toBe(0);
+    expect(result.activity).toHaveLength(30);
+    expect(result.activity[0]).toEqual({
+      activityDate: '2026-04-21',
+      nodesCompleted: 0,
+    });
+    expect(result.activity[29]).toEqual({
+      activityDate: '2026-05-20',
+      nodesCompleted: 0,
+    });
+  });
+
+  it('should return populated activity with current and longest streaks', async () => {
+    prisma.user.findUnique.mockResolvedValue(
+      createUserRecord({
+        dailyActivity: [
+          { activityDate: new Date('2026-05-20T00:00:00Z'), nodesCompleted: 2 },
+          { activityDate: new Date('2026-05-19T00:00:00Z'), nodesCompleted: 1 },
+          { activityDate: new Date('2026-05-18T00:00:00Z'), nodesCompleted: 0 },
+          { activityDate: new Date('2026-05-16T00:00:00Z'), nodesCompleted: 1 },
+          { activityDate: new Date('2026-05-15T00:00:00Z'), nodesCompleted: 3 },
+          { activityDate: new Date('2026-05-14T00:00:00Z'), nodesCompleted: 1 },
+        ],
+      }),
+    );
+
+    const result = await service.getActivitySummary(MOCK_USER_ID, {
+      from: '2026-05-14',
+      to: '2026-05-20',
+    });
+
+    expect(result.streakDays).toBe(2);
+    expect(result.longestStreak).toBe(3);
+    expect(result.activity).toEqual([
+      { activityDate: '2026-05-14', nodesCompleted: 1 },
+      { activityDate: '2026-05-15', nodesCompleted: 3 },
+      { activityDate: '2026-05-16', nodesCompleted: 1 },
+      { activityDate: '2026-05-17', nodesCompleted: 0 },
+      { activityDate: '2026-05-18', nodesCompleted: 0 },
+      { activityDate: '2026-05-19', nodesCompleted: 1 },
+      { activityDate: '2026-05-20', nodesCompleted: 2 },
+    ]);
+  });
+
+  it('should default activity from date to 30 days before a custom to date', async () => {
+    prisma.user.findUnique.mockResolvedValue(createUserRecord());
+
+    const result = await service.getActivitySummary(MOCK_USER_ID, { to: '2026-05-10' });
+
+    expect(result.activity).toHaveLength(30);
+    expect(result.activity[0]?.activityDate).toBe('2026-04-11');
+    expect(result.activity[29]?.activityDate).toBe('2026-05-10');
+  });
+
+  it('should reject invalid activity ranges', async () => {
+    await expect(
+      service.getActivitySummary(MOCK_USER_ID, {
+        from: '2026-05-21',
+        to: '2026-05-20',
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('should reject invalid activity date values', async () => {
+    await expect(
+      service.getActivitySummary(MOCK_USER_ID, {
+        from: '2026-02-30',
+        to: '2026-05-20',
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('should throw UserNotFoundException when the activity user is missing', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(service.getActivitySummary(MOCK_USER_ID)).rejects.toThrow(UserNotFoundException);
+  });
+
+  it('should return activeRoadmap null when the user has no roadmap', async () => {
     prisma.user.findUnique.mockResolvedValue(
       createUserRecord({
         dailyActivity: [{ activityDate: new Date('2026-05-19T00:00:00Z'), nodesCompleted: 1 }],
@@ -125,16 +233,16 @@ describe('DashboardService', () => {
 
     const result = await service.getDashboard(MOCK_USER_ID);
 
-    expect(result.active_roadmap).toBeNull();
-    expect(result.streak_days).toBe(1);
-    expect(result.activity_recent).toHaveLength(30);
-    expect(result.activity_recent[0]).toEqual({
-      activity_date: '2026-04-21',
-      nodes_completed: 0,
+    expect(result.activeRoadmap).toBeNull();
+    expect(result.streakDays).toBe(1);
+    expect(result.activityRecent).toHaveLength(30);
+    expect(result.activityRecent[0]).toEqual({
+      activityDate: '2026-04-21',
+      nodesCompleted: 0,
     });
-    expect(result.activity_recent[29]).toEqual({
-      activity_date: '2026-05-20',
-      nodes_completed: 0,
+    expect(result.activityRecent[29]).toEqual({
+      activityDate: '2026-05-20',
+      nodesCompleted: 0,
     });
   });
 
@@ -184,7 +292,7 @@ describe('DashboardService', () => {
 
     const result = await service.getDashboard(MOCK_USER_ID);
 
-    expect(result.active_roadmap).toEqual({
+    expect(result.activeRoadmap).toEqual({
       roadmapId: 'roadmap-1',
       completionPct: 75,
       streakDays: 2,
@@ -193,7 +301,7 @@ describe('DashboardService', () => {
       nodesCompleted: 3,
       timelineWarning: null,
     });
-    expect(result.streak_days).toBe(2);
+    expect(result.streakDays).toBe(2);
   });
 
   it('should skip today when today has no completed nodes and count from yesterday', async () => {
@@ -211,7 +319,7 @@ describe('DashboardService', () => {
 
     const result = await service.getDashboard(MOCK_USER_ID);
 
-    expect(result.streak_days).toBe(2);
+    expect(result.streakDays).toBe(2);
   });
 
   it('should throw UserNotFoundException when user is missing', async () => {

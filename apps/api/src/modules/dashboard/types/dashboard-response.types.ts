@@ -9,13 +9,19 @@ export interface DashboardUserProfileResponse {
 }
 
 export interface DailyActivityEntryResponse {
-  activity_date: string;
-  nodes_completed: number;
+  activityDate: string;
+  nodesCompleted: number;
+}
+
+export interface ActivitySummaryResponse {
+  streakDays: number;
+  longestStreak: number;
+  activity: DailyActivityEntryResponse[];
 }
 
 export interface DashboardResponse {
-  user_profile: DashboardUserProfileResponse;
-  active_roadmap: RoadmapProgressSummaryResponse | null;
-  streak_days: number;
-  activity_recent: DailyActivityEntryResponse[];
+  user: DashboardUserProfileResponse;
+  activeRoadmap: RoadmapProgressSummaryResponse | null;
+  streakDays: number;
+  activityRecent: DailyActivityEntryResponse[];
 }

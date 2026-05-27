@@ -1,9 +1,10 @@
 'use client';
 
+import type { Variants } from 'framer-motion';
 import type { Route } from 'next';
 import type { ReactNode } from 'react';
 
-import { Alert01Icon, Refresh01Icon } from '@hugeicons/core-free-icons';
+import { Alert01Icon, ArrowLeftIcon, Refresh01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { SectionContainer } from '@repo/design-system/components/common/section-container';
 import { Badge } from '@repo/design-system/components/ui/badge';
@@ -11,16 +12,20 @@ import { Button } from '@repo/design-system/components/ui/button';
 import { Separator } from '@repo/design-system/components/ui/separator';
 import { cn } from '@repo/design-system/lib/utils';
 import { isAxiosError } from 'axios';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import { HeroGradient } from '@/components/shared/hero-gradient';
 import { LoadingState } from '@/components/shared/loading-state';
+import { MaskBackground } from '@/components/shared/mask-background';
+import { RainbowBar } from '@/components/shared/rainbow-bar';
 import { roadmapService } from '@/services/roadmap.service';
 
 import type { RoadmapNodeDetail } from '../_types/roadmap-node-detail.types';
 import type {
-  RoadmapNodeQuiz as RoadmapNodeQuizData,
   RoadmapNodeQuizAnswers,
+  RoadmapNodeQuiz as RoadmapNodeQuizData,
   SubmitRoadmapNodeQuizResult,
 } from '../_types/roadmap-node-quiz.types';
 
@@ -37,6 +42,24 @@ const QUIZ_LOAD_ERROR_MESSAGE = 'Unable to load this quiz.';
 const QUIZ_GENERATION_ERROR_MESSAGE =
   'We could not prepare this quiz right now. Please try again in a few moments.';
 const QUIZ_SUBMIT_ERROR_MESSAGE = 'Unable to submit this quiz. Please try again.';
+
+const containerVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.6,
+      staggerChildren: 0.1,
+      ease: [0.21, 0.47, 0.32, 0.98],
+    },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0 },
+};
 
 function RoadmapNodeQuizMessage({
   badge,
@@ -174,12 +197,32 @@ export function RoadmapNodeQuiz({ nodeId, roadmapId }: RoadmapNodeQuizProps) {
 
   return (
     <main className="min-h-screen pt-28 pb-16">
+      <MaskBackground />
+      <HeroGradient />
+      <RainbowBar />
+
       <SectionContainer className="relative z-10 flex flex-col gap-6">
-        <Button
-          variant="link"
-          className="w-fit px-0"
-          render={<Link href={roadmapHref}>Back to roadmap</Link>}
-        />
+        <motion.div
+          className="flex w-full flex-col gap-5 sm:gap-6"
+          initial="hidden"
+          animate="visible"
+          variants={containerVariants}
+        >
+          <motion.div
+            className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+            variants={itemVariants}
+          >
+            <Link
+              className="text-primary hover:text-primary-active group inline-flex items-center gap-2 self-start font-medium transition-all hover:-translate-x-1"
+              href={roadmapHref}
+            >
+              <div className="bg-primary/5 group-hover:bg-primary/10 flex size-8 items-center justify-center rounded-full transition-colors">
+                <HugeiconsIcon className="size-4" icon={ArrowLeftIcon} />
+              </div>
+              <span>Back to roadmap</span>
+            </Link>
+          </motion.div>
+        </motion.div>
 
         {isLoading ? (
           <LoadingState

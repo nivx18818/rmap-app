@@ -17,6 +17,7 @@ export interface RoadmapResponseDto {
   id: string;
   isTemplate: boolean;
   roleCategory: RoleCategory;
+  startedAt: null | string;
   title: string;
   updatedAt: string;
   userId: null | string;

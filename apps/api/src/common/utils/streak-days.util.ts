@@ -12,7 +12,7 @@ const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
 export const toUtcDateKey = (date: Date): string => date.toISOString().slice(0, 10);
 
-const toUtcMidnightMs = (date: Date): number =>
+export const toUtcMidnightMs = (date: Date): number =>
   Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 
 export const calculateStreakDays = (
@@ -99,3 +99,4 @@ export const subtractUtcDays = (date: Date, days: number): Date =>
   new Date(toUtcMidnightMs(date) - days * MS_PER_DAY);
 
 export const toUtcMidnightDate = (date: Date): Date => new Date(toUtcMidnightMs(date));
+

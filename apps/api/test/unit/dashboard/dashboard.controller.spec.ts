@@ -2,22 +2,19 @@ import type { TestingModule } from '@nestjs/testing';
 
 import { Test } from '@nestjs/testing';
 
-import { ActivityController } from '@/modules/dashboard/activity.controller';
 import { DashboardController } from '@/modules/dashboard/dashboard.controller';
 import { DashboardService } from '@/modules/dashboard/dashboard.service';
 
 describe('DashboardController', () => {
-  let activityController: ActivityController;
   let controller: DashboardController;
 
   const mockDashboardService = {
-    getActivitySummary: jest.fn(),
     getDashboard: jest.fn(),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [ActivityController, DashboardController],
+      controllers: [DashboardController],
       providers: [
         {
           provide: DashboardService,
@@ -26,7 +23,6 @@ describe('DashboardController', () => {
       ],
     }).compile();
 
-    activityController = module.get<ActivityController>(ActivityController);
     controller = module.get<DashboardController>(DashboardController);
   });
 
@@ -43,16 +39,34 @@ describe('DashboardController', () => {
       createdAt: new Date('2026-01-01T00:00:00Z'),
     };
     const response = {
-      user: {
+      user_profile: {
         id: user.id,
         email: user.email,
         fullName: user.fullName,
         role: 'user',
         createdAt: user.createdAt.toISOString(),
       },
-      activeRoadmap: null,
+      activeRoadmaps: [],
+      userRoadmaps: [],
       streakDays: 0,
       activityRecent: [],
+      summary: {
+        totalRoadmaps: 0,
+        activeRoadmaps: 0,
+        completedRoadmaps: 0,
+        totalSkills: 0,
+        completedSkills: 0,
+        inProgressSkills: 0,
+        lockedSkills: 0,
+        currentStreak: 0,
+      },
+      skillCategories: [],
+      roadmapStatus: {
+        behindPace: 0,
+        onTrack: 0,
+        completed: 0,
+        notStarted: 0,
+      },
     };
 
     mockDashboardService.getDashboard.mockResolvedValue(response);
@@ -60,33 +74,6 @@ describe('DashboardController', () => {
     const result = await controller.getDashboard(user);
 
     expect(mockDashboardService.getDashboard).toHaveBeenCalledWith('user-1');
-    expect(result).toEqual(response);
-  });
-
-  it('should call getActivitySummary and return response', async () => {
-    const user = {
-      id: 'user-1',
-      email: 'test@example.com',
-      fullName: 'Test User',
-      role: 'USER',
-      createdAt: new Date('2026-01-01T00:00:00Z'),
-    };
-    const query = { from: '2026-05-18', to: '2026-05-20' };
-    const response = {
-      streakDays: 2,
-      longestStreak: 4,
-      activity: [
-        { activityDate: '2026-05-18', nodesCompleted: 0 },
-        { activityDate: '2026-05-19', nodesCompleted: 1 },
-        { activityDate: '2026-05-20', nodesCompleted: 2 },
-      ],
-    };
-
-    mockDashboardService.getActivitySummary.mockResolvedValue(response);
-
-    const result = await activityController.getMyActivity(user, query);
-
-    expect(mockDashboardService.getActivitySummary).toHaveBeenCalledWith('user-1', query);
     expect(result).toEqual(response);
   });
 });

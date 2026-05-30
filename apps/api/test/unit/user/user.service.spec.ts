@@ -43,7 +43,15 @@ describe('UserService', () => {
 
   describe('findByEmail', () => {
     it('should return a user if found', async () => {
-      const mockUser = { id: '1', email: 'test@example.com' };
+      const mockUser = {
+        id: '1',
+        email: 'test@example.com',
+        fullName: 'Test',
+        passwordHash: 'hash',
+        role: 'USER' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
       mockCtx.prisma.user.findUnique.mockResolvedValue(mockUser);
 
       const result = await service.findByEmail('test@example.com');
@@ -57,7 +65,15 @@ describe('UserService', () => {
 
   describe('findById', () => {
     it('should return a user if found', async () => {
-      const mockUser = { id: '1', email: 'test@example.com' };
+      const mockUser = {
+        id: '1',
+        email: 'test@example.com',
+        fullName: 'Test',
+        passwordHash: 'hash',
+        role: 'USER' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
       mockCtx.prisma.user.findUnique.mockResolvedValue(mockUser);
 
       const result = await service.findById('1');
@@ -72,7 +88,13 @@ describe('UserService', () => {
   describe('create', () => {
     it('should successfully create a user', async () => {
       const createUserDto = { email: 'test@example.com', passwordHash: 'hash', fullName: 'Test' };
-      const mockUser = { id: '1', ...createUserDto };
+      const mockUser = {
+        id: '1',
+        ...createUserDto,
+        role: 'USER' as const,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
       mockCtx.prisma.user.create.mockResolvedValue(mockUser);
 
       const result = await service.create(createUserDto);
@@ -104,8 +126,10 @@ describe('UserService', () => {
         id: '1',
         email: 'test@example.com',
         fullName: 'New Name',
-        role: 'USER',
+        role: 'USER' as const,
         createdAt: new Date('2025-04-24T07:00:00Z'),
+        passwordHash: 'hash',
+        updatedAt: new Date(),
       };
       mockCtx.prisma.user.update.mockResolvedValue(mockUser);
 

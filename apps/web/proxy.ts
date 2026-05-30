@@ -6,7 +6,7 @@ export function proxy(request: NextRequest) {
   const token = request.cookies.get('access_token')?.value;
   const { pathname } = request.nextUrl;
 
-  const protectedRoutes = ['/roadmaps/generate'];
+  const protectedRoutes = ['/dashboard', '/roadmaps/generate'];
   const authRoutes = ['/sign-in', '/sign-up'];
 
   const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
@@ -26,5 +26,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/roadmaps/:path*', '/sign-in', '/sign-up'],
+  matcher: ['/dashboard', '/roadmaps/:path*', '/sign-in', '/sign-up'],
 };

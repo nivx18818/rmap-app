@@ -3,7 +3,7 @@ import { Header } from '@/components/layouts/header';
 
 export default function Home(props: LayoutProps<'/'>) {
   return (
-    <div className="bg-background relative min-h-screen overflow-x-hidden">
+    <div className="bg-background relative flex min-h-screen flex-col overflow-x-hidden">
       <Header />
       {props.children}
       <Footer />

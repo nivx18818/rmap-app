@@ -4,23 +4,16 @@ import {
   Card,
   CardAction,
   CardContent,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@repo/design-system/components/ui/card';
 
-import type { DashboardActiveRoadmap, DashboardSummary } from '../_types/dashboard.types';
-import type { RoadmapDetail } from '../../../(full-layout)/roadmaps/[id]/_types/roadmap-detail.types';
+import type { DashboardSummary } from '../_types/dashboard.types';
 
 import { clampPercent, NUMBER_FORMATTER } from '../_utils/formatters';
-import { DashboardRoadmapActions } from './dashboard-roadmap-actions';
 
 interface DashboardOverallProgressProps {
-  activeRoadmaps: DashboardActiveRoadmap[];
-  onSelectRoadmap: (roadmapId: string) => void;
-  selectedRoadmapId: null | string;
   summary: DashboardSummary;
-  userRoadmaps: RoadmapDetail[];
 }
 
 const PROGRESS_STROKE_WIDTH = 11;
@@ -56,13 +49,7 @@ function ProgressLegend({
   );
 }
 
-export function DashboardOverallProgress({
-  activeRoadmaps,
-  onSelectRoadmap,
-  selectedRoadmapId,
-  summary,
-  userRoadmaps,
-}: DashboardOverallProgressProps) {
+export function DashboardOverallProgress({ summary }: DashboardOverallProgressProps) {
   const totalSkills = summary.totalSkills;
   const completedPercent = getPercent(summary.completedSkills, totalSkills);
   const inProgressPercent = getPercent(summary.inProgressSkills, totalSkills);
@@ -168,14 +155,6 @@ export function DashboardOverallProgress({
           Keep learning. You&apos;re making steady progress.🎉
         </p>
       </CardContent>
-      <CardFooter className="bg-transparent">
-        <DashboardRoadmapActions
-          activeRoadmaps={activeRoadmaps}
-          userRoadmaps={userRoadmaps}
-          selectedRoadmapId={selectedRoadmapId}
-          onSelectRoadmap={onSelectRoadmap}
-        />
-      </CardFooter>
     </Card>
   );
 }

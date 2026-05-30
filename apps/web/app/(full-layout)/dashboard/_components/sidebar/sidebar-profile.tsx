@@ -1,15 +1,15 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@repo/design-system/components/ui/avatar';
 import { Card, CardContent } from '@repo/design-system/components/ui/card';
 
-import type { DashboardUserProfile } from '../../_types/dashboard.types';
+import type { Dashboard } from '../../_types/dashboard.types';
 
 import { getInitials } from '../../_utils/formatters';
 
 interface SidebarProfileProps {
-  profile: DashboardUserProfile;
+  userProfile: Dashboard['userProfile'];
 }
 
-export function SidebarProfile({ profile }: SidebarProfileProps) {
+export function SidebarProfile({ userProfile: profile }: SidebarProfileProps) {
   return (
     <Card className="rounded-lg py-4">
       <CardContent>

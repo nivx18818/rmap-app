@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 
-import type { DashboardActiveRoadmap } from '../_types/dashboard.types';
+import type { DashboardRoadmap } from '../_types/dashboard.types';
 
-export type FilterValue = 'active' | 'behind' | 'completed' | 'recent';
+export type StatusFilter = 'active' | 'behind' | 'completed' | 'recent';
+export type TypeFilter = 'ai' | 'all' | 'template';
 
-export function getFilteredRoadmaps(roadmaps: DashboardActiveRoadmap[], filter: FilterValue) {
+function filterByStatus(roadmaps: DashboardRoadmap[], filter: StatusFilter) {
   if (filter === 'behind') {
     return roadmaps.filter((roadmap) => roadmap.timelineWarning?.isBehind);
   }
@@ -16,6 +17,27 @@ export function getFilteredRoadmaps(roadmaps: DashboardActiveRoadmap[], filter: 
   }
 
   return roadmaps;
+}
+
+function filterByType(roadmaps: DashboardRoadmap[], filter: TypeFilter) {
+  if (filter === 'template') {
+    return roadmaps.filter((roadmap) => roadmap.isTemplate);
+  }
+
+  if (filter === 'ai') {
+    return roadmaps.filter((roadmap) => !roadmap.isTemplate);
+  }
+
+  return roadmaps;
+}
+
+function sortByDeadline(roadmaps: DashboardRoadmap[]) {
+  return [...roadmaps].sort((a, b) => {
+    // If no deadline, put it at the end
+    if (!a.deadlineDate) return 1;
+    if (!b.deadlineDate) return -1;
+    return new Date(a.deadlineDate).getTime() - new Date(b.deadlineDate).getTime();
+  });
 }
 
 export function buildPageNumbers(currentPage: number, totalPages: number): (number | 'ellipsis')[] {
@@ -39,11 +61,17 @@ export function buildPageNumbers(currentPage: number, totalPages: number): (numb
   return pages;
 }
 
-export function useRoadmapTable(roadmaps: DashboardActiveRoadmap[], pageSize: number) {
-  const [filter, setFilter] = useState<FilterValue>('recent');
+export function useRoadmapTable(roadmaps: DashboardRoadmap[], pageSize = 10) {
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('recent');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [currentPage, setCurrentPage] = useState(1);
 
-  const filteredRoadmaps = useMemo(() => getFilteredRoadmaps(roadmaps, filter), [filter, roadmaps]);
+  const filteredRoadmaps = useMemo(() => {
+    const byStatus = filterByStatus(roadmaps, statusFilter);
+    const byType = filterByType(byStatus, typeFilter);
+
+    return sortByDeadline(byType);
+  }, [statusFilter, typeFilter, roadmaps]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRoadmaps.length / pageSize));
 
@@ -53,8 +81,13 @@ export function useRoadmapTable(roadmaps: DashboardActiveRoadmap[], pageSize: nu
     return filteredRoadmaps.slice(start, start + pageSize);
   }, [filteredRoadmaps, currentPage, pageSize]);
 
-  function handleFilterChange(value: string) {
-    setFilter(value as FilterValue);
+  function handleStatusFilterChange(value: string) {
+    setStatusFilter(value as StatusFilter);
+    setCurrentPage(1);
+  }
+
+  function handleTypeFilterChange(value: string) {
+    setTypeFilter(value as TypeFilter);
     setCurrentPage(1);
   }
 
@@ -65,13 +98,15 @@ export function useRoadmapTable(roadmaps: DashboardActiveRoadmap[], pageSize: nu
   const pageNumbers = buildPageNumbers(currentPage, totalPages);
 
   return {
-    filter,
+    statusFilter,
+    typeFilter,
     currentPage,
     totalPages,
     pagedRoadmaps,
     pageNumbers,
     filteredRoadmapsLength: filteredRoadmaps.length,
-    handleFilterChange,
+    handleStatusFilterChange,
+    handleTypeFilterChange,
     handlePageChange,
   };
 }

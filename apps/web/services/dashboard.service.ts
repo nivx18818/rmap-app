@@ -13,7 +13,6 @@ function buildDefaultAvatar(seedSource: string) {
 }
 
 function mapDashboardResponse(response: DashboardApiResponse): Dashboard {
-  const activeRoadmaps = response.activeRoadmaps;
   const fullName = response.userProfile.fullName || 'User';
   const email = response.userProfile.email;
   const mapActivity = (activity: DashboardApiResponse['activityRecent'][number]) => ({
@@ -30,9 +29,8 @@ function mapDashboardResponse(response: DashboardApiResponse): Dashboard {
       id: response.userProfile.id,
       role: response.userProfile.role,
     },
-    activeRoadmap: activeRoadmaps[0] ?? null,
-    activeRoadmaps,
-    userRoadmaps: response.userRoadmaps,
+    activeRoadmap: response.roadmaps.find((roadmap) => roadmap.startedAt !== null) ?? null,
+    roadmaps: response.roadmaps,
     streakDays: response.streakDays,
     activityRecent: response.activityRecent.map(mapActivity),
     summary: response.summary,

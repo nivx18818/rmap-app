@@ -1,67 +1,6 @@
-import type { RoadmapDetail } from '../../../(full-layout)/roadmaps/[id]/_types/roadmap-detail.types';
-import type { RoadmapProgressSummary } from '../../../(full-layout)/roadmaps/[id]/_types/roadmap-progress.types';
-
-export interface DashboardUserProfileApiResponse {
-  avatarUrl?: null | string;
-  id: string;
-  email: string;
-  fullName: string;
-  role: string;
-  createdAt: string;
-}
-
-export interface DailyActivityEntryApiResponse {
-  activityDate: string;
-  nodesCompleted: number;
-}
-
-export interface DashboardSummaryApiResponse {
-  totalRoadmaps: number;
-  activeRoadmaps: number;
-  completedRoadmaps: number;
-  totalSkills: number;
-  completedSkills: number;
-  inProgressSkills: number;
-  lockedSkills: number;
-  currentStreak: number;
-}
-
-export interface DashboardSkillCategoryApiResponse {
-  category: string;
-  label: string;
-  totalSkills: number;
-}
-
-export interface DashboardRoadmapStatusApiResponse {
-  behindPace: number;
-  onTrack: number;
-  completed: number;
-  notStarted: number;
-}
-
-export interface DashboardActiveRoadmap extends RoadmapProgressSummary {
-  deadlineDate: null | string;
-  estimatedWeeks: null | number;
-  goalName: null | string;
-  isTemplate: boolean;
-  roleCategory: string;
-  startedAt: null | string;
-  title: string;
-}
-
-export interface DashboardApiResponse {
-  userProfile: DashboardUserProfileApiResponse;
-  activeRoadmaps: DashboardActiveRoadmap[];
-  userRoadmaps: RoadmapDetail[];
-  streakDays: number;
-  activityRecent: DailyActivityEntryApiResponse[];
-  summary: DashboardSummaryApiResponse;
-  skillCategories: DashboardSkillCategoryApiResponse[];
-  roadmapStatus: DashboardRoadmapStatusApiResponse;
-}
+import type { TimelineWarning } from '../../../(full-layout)/roadmaps/[id]/_types/roadmap-progress.types';
 
 export interface DashboardUserProfile {
-  avatarUrl: string;
   id: string;
   email: string;
   fullName: string;
@@ -86,7 +25,18 @@ export interface DashboardSummary {
 }
 
 export interface DashboardSkillCategory {
-  category: string;
+  category:
+    | 'AI_ENGINEERING'
+    | 'CLOUD_COMPUTING'
+    | 'CYBER_SECURITY'
+    | 'DATA_SCIENCE'
+    | 'DATABASES'
+    | 'DEVOPS'
+    | 'MOBILE_DEVELOPMENT'
+    | 'PROGRAMMING_LANGUAGES'
+    | 'SOFTWARE_ENGINEERING'
+    | 'SYSTEM_DESIGN'
+    | 'WEB_DEVELOPMENT';
   label: string;
   totalSkills: number;
 }
@@ -98,11 +48,40 @@ export interface DashboardRoadmapStatus {
   notStarted: number;
 }
 
+export interface DashboardRoadmap {
+  roadmapId: string;
+  deadlineDate: null | string;
+  description: null | string;
+  estimatedWeeks: null | number;
+  goalName: null | string;
+  isTemplate: boolean;
+  roleCategory: DashboardSkillCategory['category'];
+  startedAt: null | string;
+  title: string;
+  completionPct: number;
+  streakDays: number;
+  skillReadinessPct: number;
+  nodesTotal: number;
+  nodesCompleted: number;
+  timelineWarning: TimelineWarning | null;
+}
+
+export interface DashboardApiResponse {
+  userProfile: DashboardUserProfile & { avatarUrl: string | null };
+  roadmaps: DashboardRoadmap[];
+  streakDays: number;
+  activityRecent: DailyActivityEntry[];
+  summary: DashboardSummary;
+  skillCategories: DashboardSkillCategory[];
+  roadmapStatus: DashboardRoadmapStatus;
+}
+
 export interface Dashboard {
-  userProfile: DashboardUserProfile;
-  activeRoadmap: DashboardActiveRoadmap | null;
-  activeRoadmaps: DashboardActiveRoadmap[];
-  userRoadmaps: RoadmapDetail[];
+  userProfile: DashboardUserProfile & {
+    avatarUrl: string;
+  };
+  activeRoadmap: DashboardRoadmap | null;
+  roadmaps: DashboardRoadmap[];
   streakDays: number;
   activityRecent: DailyActivityEntry[];
   summary: DashboardSummary;

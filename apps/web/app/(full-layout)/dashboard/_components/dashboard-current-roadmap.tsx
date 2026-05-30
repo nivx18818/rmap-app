@@ -13,11 +13,11 @@ import {
   Target02Icon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { AnimatedIconSwap } from '@repo/design-system/components/common/animated-icon-swap';
 import { Badge } from '@repo/design-system/components/ui/badge';
 import { Button } from '@repo/design-system/components/ui/button';
 import {
   Card,
+  CardAction,
   CardContent,
   CardFooter,
   CardHeader,
@@ -25,7 +25,7 @@ import {
 } from '@repo/design-system/components/ui/card';
 import Link from 'next/link';
 
-import type { DashboardActiveRoadmap } from '../_types/dashboard.types';
+import type { DashboardRoadmap } from '../_types/dashboard.types';
 
 import {
   clampPercent,
@@ -35,7 +35,7 @@ import {
 } from '../_utils/formatters';
 
 interface DashboardCurrentRoadmapProps {
-  roadmap: DashboardActiveRoadmap | null;
+  roadmap: DashboardRoadmap | null;
 }
 
 function Metric({
@@ -110,6 +110,18 @@ export function DashboardCurrentRoadmap({ roadmap }: DashboardCurrentRoadmapProp
     <Card className="h-full rounded-lg">
       <CardHeader>
         <CardTitle>Current roadmap</CardTitle>
+        <CardAction>
+          <Button
+            size="sm"
+            variant="default"
+            render={
+              <Link href={`/roadmaps/${roadmap.roadmapId}` as Route<string>}>
+                View
+                <HugeiconsIcon className="opacity-100" icon={ArrowRight02FreeIcons} />
+              </Link>
+            }
+          />
+        </CardAction>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={roadmap.isTemplate ? 'secondary' : 'default'}>
             {roadmap.isTemplate ? 'Template' : 'AI roadmap'}
@@ -165,21 +177,6 @@ export function DashboardCurrentRoadmap({ roadmap }: DashboardCurrentRoadmapProp
           />
         </div>
       </CardContent>
-      <CardFooter className="justify-end bg-transparent">
-        <Button
-          className="group/btn w-full min-w-40 sm:w-fit"
-          render={
-            <Link href={`/roadmaps/${roadmap.roadmapId}` as Route<string>}>
-              View roadmap
-              <AnimatedIconSwap
-                className="opacity-100"
-                icon={Route01Icon}
-                hoverIcon={ArrowRight02FreeIcons}
-              />
-            </Link>
-          }
-        />
-      </CardFooter>
     </Card>
   );
 }

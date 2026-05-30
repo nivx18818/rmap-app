@@ -3,8 +3,8 @@ import type {
   DashboardRoadmapStatus,
   DashboardSkillCategory,
   DashboardSummary,
-  DashboardUserProfile,
 } from '../../_types/dashboard.types';
+import type { Dashboard } from '../../_types/dashboard.types';
 
 import { SidebarLearningStats } from './sidebar-learning-stats';
 import { SidebarProfile } from './sidebar-profile';
@@ -14,7 +14,7 @@ import { SidebarSkillCategories } from './sidebar-skill-categories';
 
 export interface DashboardSidebarContentProps {
   activityRecent: DailyActivityEntry[];
-  profile: DashboardUserProfile;
+  userProfile: Dashboard['userProfile'];
   roadmapStatus: DashboardRoadmapStatus;
   skillCategories: DashboardSkillCategory[];
   summary: DashboardSummary;
@@ -22,14 +22,14 @@ export interface DashboardSidebarContentProps {
 
 export function SidebarContent({
   activityRecent,
-  profile,
+  userProfile,
   roadmapStatus,
   skillCategories,
   summary,
 }: DashboardSidebarContentProps) {
   return (
     <>
-      <SidebarProfile profile={profile} />
+      <SidebarProfile userProfile={userProfile} />
       <SidebarLearningStats summary={summary} />
       <SidebarRecentActivity activityRecent={activityRecent} summary={summary} />
       <SidebarSkillCategories skillCategories={skillCategories} />

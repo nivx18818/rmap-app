@@ -99,4 +99,3 @@ export const subtractUtcDays = (date: Date, days: number): Date =>
   new Date(toUtcMidnightMs(date) - days * MS_PER_DAY);
 
 export const toUtcMidnightDate = (date: Date): Date => new Date(toUtcMidnightMs(date));
-

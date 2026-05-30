@@ -14,6 +14,12 @@ export interface DailyActivityEntryResponse {
   nodesCompleted: number;
 }
 
+export interface ActivitySummaryResponse {
+  streakDays: number;
+  longestStreak: number;
+  activity: DailyActivityEntryResponse[];
+}
+
 export interface DashboardSummaryResponse {
   totalRoadmaps: number;
   activeRoadmaps: number;

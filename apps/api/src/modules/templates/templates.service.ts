@@ -168,6 +168,7 @@ export class TemplatesService {
       id: roadmap.id,
       isTemplate: roadmap.isTemplate,
       roleCategory: roadmap.roleCategory,
+      startedAt: null,
       title: roadmap.title,
       updatedAt: roadmap.updatedAt.toISOString(),
       userId: roadmap.userId,

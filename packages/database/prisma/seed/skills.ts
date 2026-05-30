@@ -142,6 +142,10 @@ async function seedSkills(skills: MergedSkill[]) {
 
 export async function seedSkillsMain() {
   log('=== Seed Skills ===');
+  log('Clearing existing skills and resources...');
+  await prisma.resource.deleteMany({});
+  await prisma.skill.deleteMany({});
+
   log('Parsing roadmaps...');
 
   const batches = parseAllRoadmapsSkills();

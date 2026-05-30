@@ -1,5 +1,7 @@
 import type { MilestoneSubmissionStatus, NodeStatus, NodeType } from '@repo/db/prisma/client';
 
+import type { RoadmapResponseDto } from '../dto/roadmap-response.dto';
+
 export interface UserNodeProgressResponse {
   id: string;
   roadmapNodeId: string;
@@ -79,5 +81,10 @@ export interface NodeDetailResponse {
 
 export interface UpdateNodeProgressResponse {
   progress: UserNodeProgressResponse;
+  unlockedNodes: string[];
+}
+
+export interface StartRoadmapResponse {
+  roadmap: RoadmapResponseDto;
   unlockedNodes: string[];
 }

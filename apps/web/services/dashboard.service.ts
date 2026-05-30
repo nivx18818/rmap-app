@@ -13,34 +13,31 @@ function buildDefaultAvatar(seedSource: string) {
 }
 
 function mapDashboardResponse(response: DashboardApiResponse): Dashboard {
-  const activeRoadmaps = response.active_roadmap;
-  const fullName = response.user_profile.fullName ?? response.user_profile.full_name ?? 'User';
-  const email = response.user_profile.email;
-  const mapActivity = (activity: DashboardApiResponse['activity_recent'][number]) => ({
-    activityDate: activity.activity_date,
-    nodesCompleted: activity.nodes_completed,
+  const activeRoadmaps = response.activeRoadmaps;
+  const fullName = response.userProfile.fullName || 'User';
+  const email = response.userProfile.email;
+  const mapActivity = (activity: DashboardApiResponse['activityRecent'][number]) => ({
+    activityDate: activity.activityDate,
+    nodesCompleted: activity.nodesCompleted,
   });
 
   return {
     userProfile: {
-      avatarUrl:
-        response.user_profile.avatarUrl ??
-        response.user_profile.avatar_url ??
-        buildDefaultAvatar(fullName || email),
-      createdAt: response.user_profile.createdAt ?? response.user_profile.created_at ?? '',
+      avatarUrl: response.userProfile.avatarUrl ?? buildDefaultAvatar(fullName || email),
+      createdAt: response.userProfile.createdAt ?? '',
       email,
       fullName,
-      id: response.user_profile.id,
-      role: response.user_profile.role,
+      id: response.userProfile.id,
+      role: response.userProfile.role,
     },
     activeRoadmap: activeRoadmaps[0] ?? null,
     activeRoadmaps,
-    userRoadmaps: response.user_roadmap,
-    streakDays: response.streak_days,
-    activityRecent: response.activity_recent.map(mapActivity),
+    userRoadmaps: response.userRoadmaps,
+    streakDays: response.streakDays,
+    activityRecent: response.activityRecent.map(mapActivity),
     summary: response.summary,
-    skillCategories: response.skill_categories,
-    roadmapStatus: response.roadmap_status,
+    skillCategories: response.skillCategories,
+    roadmapStatus: response.roadmapStatus,
   };
 }
 

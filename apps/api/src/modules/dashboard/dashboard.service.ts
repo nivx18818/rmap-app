@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   NodeStatus,
   NodeType,
@@ -12,6 +12,7 @@ import type { TimelineWarningResponse } from '@/modules/roadmaps/types/roadmap-p
 
 import { UserNotFoundException } from '@/common/exceptions/app.exceptions';
 import {
+  calculateLongestStreakDays,
   calculateStreakDays,
   fillDailyActivityRange,
   subtractUtcDays,
@@ -20,7 +21,9 @@ import {
 } from '@/common/utils/streak-days.util';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
+import type { ActivityQueryDto } from './dto/activity-query.dto';
 import type {
+  ActivitySummaryResponse,
   DailyActivityEntryResponse,
   DashboardActiveRoadmapResponse,
   DashboardResponse,
@@ -70,6 +73,35 @@ const toNumberOrNull = (value: Prisma.Decimal | number | null) =>
 @Injectable()
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async getActivitySummary(
+    userId: string,
+    query: ActivityQueryDto = {},
+  ): Promise<ActivitySummaryResponse> {
+    const { from, to } = this.resolveActivityRange(query);
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        dailyActivity: {
+          orderBy: [{ activityDate: 'desc' }, { id: 'asc' }],
+          select: {
+            activityDate: true,
+            nodesCompleted: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new UserNotFoundException(userId);
+    }
+
+    return {
+      streakDays: calculateStreakDays(user.dailyActivity),
+      longestStreak: calculateLongestStreakDays(user.dailyActivity),
+      activity: fillDailyActivityRange(user.dailyActivity, from, to),
+    };
+  }
 
   async getDashboard(userId: string): Promise<DashboardResponse> {
     const user = await this.prisma.user.findUnique({
@@ -412,6 +444,27 @@ export class DashboardService {
       .filter(Boolean)
       .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
       .join(' ');
+  }
+
+  private resolveActivityRange(query: ActivityQueryDto): { from: Date; to: Date } {
+    const to = query.to ? this.parseDateOnly(query.to) : toUtcMidnightDate(new Date());
+    const from = query.from ? this.parseDateOnly(query.from) : subtractUtcDays(to, 29);
+
+    if (from.getTime() > to.getTime()) {
+      throw new BadRequestException('Invalid activity date range');
+    }
+
+    return { from, to };
+  }
+
+  private parseDateOnly(value: string): Date {
+    const date = new Date(`${value}T00:00:00.000Z`);
+
+    if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+      throw new BadRequestException('Invalid activity date');
+    }
+
+    return date;
   }
 
   private formatRole(role: UserRole): string {

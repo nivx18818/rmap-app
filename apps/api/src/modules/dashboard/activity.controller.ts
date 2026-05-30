@@ -15,6 +15,6 @@ export class ActivityController {
     @CurrentUser() user: RequestUser,
     @Query() query: ActivityQueryDto,
   ): Promise<ActivitySummaryResponse> {
-    return this.dashboardService.getActivitySummary(user.id, query);
+    return await this.dashboardService.getActivitySummary(user.id, query);
   }
 }

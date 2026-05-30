@@ -176,8 +176,7 @@ describe('DashboardService', () => {
 
     const result = await service.getDashboard(MOCK_USER_ID);
 
-    expect(result.activeRoadmaps).toEqual([]);
-    expect(result.userRoadmaps).toEqual([]);
+    expect(result.roadmaps).toEqual([]);
     expect(result.streakDays).toBe(1);
     expect(result.activityRecent).toHaveLength(30);
     expect(result.activityRecent[0]).toEqual({
@@ -263,8 +262,9 @@ describe('DashboardService', () => {
 
     const result = await service.getDashboard(MOCK_USER_ID);
 
-    expect(result.activeRoadmaps).toEqual([
-      {
+    expect(result.roadmaps).toHaveLength(2);
+    expect(result.roadmaps[0]).toEqual(
+      expectObjectContaining({
         completionPct: 75,
         deadlineDate: null,
         estimatedWeeks: 6,
@@ -279,10 +279,9 @@ describe('DashboardService', () => {
         nodesTotal: 4,
         nodesCompleted: 3,
         timelineWarning: null,
-      },
-    ]);
-    expect(result.userRoadmaps).toHaveLength(1);
-    expect(result.userRoadmaps[0]).toEqual(
+      }),
+    );
+    expect(result.roadmaps[1]).toEqual(
       expectObjectContaining({
         id: 'roadmap-1',
         startedAt: null,

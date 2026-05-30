@@ -25,7 +25,7 @@ import type { ActivityQueryDto } from './dto/activity-query.dto';
 import type {
   ActivitySummaryResponse,
   DailyActivityEntryResponse,
-  DashboardActiveRoadmapResponse,
+  DashboardRoadmapResponse,
   DashboardResponse,
   DashboardRoadmapStatusResponse,
   DashboardSkillCategoryResponse,
@@ -127,33 +127,30 @@ export class DashboardService {
     }
 
     const streakDays = calculateStreakDays(user.dailyActivity);
-    const [activeRoadmaps, userRoadmaps] = await this.prisma.$transaction([
-      this.prisma.roadmap.findMany({
-        where: {
-          OR: [{ isTemplate: true }, { isTemplate: false, userId }],
-          nodes: {
-            some: {
-              userNodeProgress: {
-                some: {
-                  userId,
-                  startedAt: { not: null },
+    const rawRoadmaps = await this.prisma.roadmap.findMany({
+      where: {
+        OR: [
+          { isTemplate: false, userId },
+          {
+            isTemplate: true,
+            nodes: {
+              some: {
+                userNodeProgress: {
+                  some: {
+                    userId,
+                    startedAt: { not: null },
+                  },
                 },
               },
             },
           },
-        },
-        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
-        select: this.getDashboardRoadmapSelect(userId),
-      }),
-      this.prisma.roadmap.findMany({
-        where: { isTemplate: false, userId },
-        orderBy: [{ generatedAt: 'desc' }, { id: 'asc' }],
-        select: this.getDashboardRoadmapSelect(userId),
-      }),
-    ]);
-    const activeRoadmapSummaries = activeRoadmaps.map((roadmap) =>
-      this.formatRoadmapProgressSummary(roadmap, streakDays),
-    );
+        ],
+      },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+      select: this.getDashboardRoadmapSelect(userId),
+    });
+
+    const roadmaps = rawRoadmaps.map((roadmap) => this.formatRoadmapSummary(roadmap, streakDays));
 
     return {
       userProfile: {
@@ -163,13 +160,12 @@ export class DashboardService {
         role: this.formatRole(user.role),
         createdAt: user.createdAt.toISOString(),
       },
-      activeRoadmaps: activeRoadmapSummaries,
-      userRoadmaps: userRoadmaps.map((roadmap) => this.formatUserRoadmap(roadmap)),
+      roadmaps,
       streakDays: streakDays,
       activityRecent: this.formatActivityRange(user.dailyActivity, DASHBOARD_ACTIVITY_DAYS),
-      summary: this.formatSummary(userRoadmaps, activeRoadmapSummaries, streakDays),
-      skillCategories: this.formatSkillCategories(userRoadmaps),
-      roadmapStatus: this.formatRoadmapStatus(userRoadmaps, activeRoadmapSummaries),
+      summary: this.formatSummary(rawRoadmaps, roadmaps, streakDays),
+      skillCategories: this.formatSkillCategories(rawRoadmaps),
+      roadmapStatus: this.formatRoadmapStatus(rawRoadmaps, roadmaps),
     };
   }
 
@@ -201,10 +197,10 @@ export class DashboardService {
     } satisfies Prisma.RoadmapSelect;
   }
 
-  private formatRoadmapProgressSummary(
+  private formatRoadmapSummary(
     roadmap: DashboardRoadmapRecord,
     streakDays: number,
-  ): DashboardActiveRoadmapResponse {
+  ): DashboardRoadmapResponse {
     const nodesTotal = roadmap.nodes.length;
     const completedNodes = roadmap.nodes.filter((node) => this.isNodeCompleted(node));
     const nodesCompleted = completedNodes.length;
@@ -218,29 +214,32 @@ export class DashboardService {
     );
 
     const roadmapMetadata = this.formatUserRoadmap(roadmap);
+    const isStarted = roadmapMetadata.startedAt !== null;
 
     return {
+      roadmapId: roadmap.id,
       deadlineDate: roadmapMetadata.deadlineDate,
+      description: roadmapMetadata.description,
       estimatedWeeks: roadmapMetadata.estimatedWeeks,
       goalName: roadmapMetadata.goalName,
       isTemplate: roadmapMetadata.isTemplate,
       roleCategory: roadmapMetadata.roleCategory,
-      roadmapId: roadmap.id,
       startedAt: roadmapMetadata.startedAt,
       title: roadmapMetadata.title,
-      completionPct: this.calculatePercent(nodesCompleted, nodesTotal),
-      streakDays,
-      skillReadinessPct: this.calculatePercent(
-        requiredLeafNodesCompleted,
-        requiredLeafNodes.length,
-      ),
+      completionPct: isStarted ? this.calculatePercent(nodesCompleted, nodesTotal) : 0,
+      streakDays: isStarted ? streakDays : 0,
+      skillReadinessPct: isStarted
+        ? this.calculatePercent(requiredLeafNodesCompleted, requiredLeafNodes.length)
+        : 0,
       nodesTotal,
-      nodesCompleted,
-      timelineWarning: this.calculateTimelineWarning(
-        roadmap.generatedAt,
-        toNumberOrNull(roadmap.hoursPerDay),
-        completedHours,
-      ),
+      nodesCompleted: isStarted ? nodesCompleted : 0,
+      timelineWarning: isStarted
+        ? this.calculateTimelineWarning(
+            roadmap.generatedAt,
+            toNumberOrNull(roadmap.hoursPerDay),
+            completedHours,
+          )
+        : null,
     };
   }
 
@@ -276,20 +275,20 @@ export class DashboardService {
   }
 
   private formatSummary(
-    userRoadmaps: DashboardRoadmapRecord[],
-    activeRoadmapSummaries: DashboardActiveRoadmapResponse[],
+    rawRoadmaps: DashboardRoadmapRecord[],
+    roadmaps: DashboardRoadmapResponse[],
     streakDays: number,
   ): DashboardSummaryResponse {
-    const totalSkills = userRoadmaps.reduce(
+    const totalSkills = rawRoadmaps.reduce(
       (total, roadmap) => total + this.getLeafNodes(roadmap).length,
       0,
     );
-    const completedSkills = userRoadmaps.reduce(
+    const completedSkills = rawRoadmaps.reduce(
       (total, roadmap) =>
         total + this.getLeafNodes(roadmap).filter((node) => this.isNodeCompleted(node)).length,
       0,
     );
-    const inProgressSkills = userRoadmaps.reduce(
+    const inProgressSkills = rawRoadmaps.reduce(
       (total, roadmap) =>
         total +
         this.getLeafNodes(roadmap).filter(
@@ -299,9 +298,9 @@ export class DashboardService {
     );
 
     return {
-      totalRoadmaps: userRoadmaps.length,
-      activeRoadmaps: activeRoadmapSummaries.length,
-      completedRoadmaps: userRoadmaps.filter((roadmap) => this.isRoadmapCompleted(roadmap)).length,
+      totalRoadmaps: roadmaps.length,
+      activeRoadmaps: roadmaps.filter((r) => r.startedAt !== null).length,
+      completedRoadmaps: rawRoadmaps.filter((roadmap) => this.isRoadmapCompleted(roadmap)).length,
       totalSkills,
       completedSkills,
       inProgressSkills,
@@ -334,27 +333,29 @@ export class DashboardService {
   }
 
   private formatRoadmapStatus(
-    userRoadmaps: DashboardRoadmapRecord[],
-    activeRoadmapSummaries: DashboardActiveRoadmapResponse[],
+    rawRoadmaps: DashboardRoadmapRecord[],
+    roadmaps: DashboardRoadmapResponse[],
   ): DashboardRoadmapStatusResponse {
     const completedRoadmapIds = new Set(
-      userRoadmaps
+      rawRoadmaps
         .filter((roadmap) => this.isRoadmapCompleted(roadmap))
         .map((roadmap) => roadmap.id),
     );
-    const behindPace = activeRoadmapSummaries.filter(
+    const behindPace = roadmaps.filter(
       (roadmap) => !completedRoadmapIds.has(roadmap.roadmapId) && roadmap.timelineWarning?.isBehind,
     ).length;
-    const onTrack = activeRoadmapSummaries.filter(
+    const onTrack = roadmaps.filter(
       (roadmap) =>
-        !completedRoadmapIds.has(roadmap.roadmapId) && !roadmap.timelineWarning?.isBehind,
+        !completedRoadmapIds.has(roadmap.roadmapId) &&
+        roadmap.startedAt !== null &&
+        !roadmap.timelineWarning?.isBehind,
     ).length;
 
     return {
       behindPace,
       onTrack,
       completed: completedRoadmapIds.size,
-      notStarted: userRoadmaps.filter((roadmap) => this.getStartedAt(roadmap) === null).length,
+      notStarted: roadmaps.filter((roadmap) => roadmap.startedAt === null).length,
     };
   }
 

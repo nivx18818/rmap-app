@@ -1,5 +1,5 @@
 import type { RoadmapResponseDto } from '@/modules/roadmaps/dto/roadmap-response.dto';
-import type { RoadmapProgressSummaryResponse } from '@/modules/roadmaps/types/roadmap-progress.types';
+import type { TimelineWarningResponse } from '@/modules/roadmaps/types/roadmap-progress.types';
 
 export interface DashboardUserProfileResponse {
   id: string;
@@ -44,20 +44,27 @@ export interface DashboardRoadmapStatusResponse {
   notStarted: number;
 }
 
-export interface DashboardActiveRoadmapResponse extends RoadmapProgressSummaryResponse {
+export interface DashboardRoadmapResponse {
+  roadmapId: string;
   deadlineDate: null | string;
+  description: null | string;
   estimatedWeeks: null | number;
   goalName: null | string;
   isTemplate: boolean;
   roleCategory: RoadmapResponseDto['roleCategory'];
   startedAt: null | string;
   title: string;
+  completionPct: number;
+  streakDays: number;
+  skillReadinessPct: number;
+  nodesTotal: number;
+  nodesCompleted: number;
+  timelineWarning: TimelineWarningResponse | null;
 }
 
 export interface DashboardResponse {
   userProfile: DashboardUserProfileResponse;
-  activeRoadmaps: DashboardActiveRoadmapResponse[];
-  userRoadmaps: RoadmapResponseDto[];
+  roadmaps: DashboardRoadmapResponse[];
   streakDays: number;
   activityRecent: DailyActivityEntryResponse[];
   summary: DashboardSummaryResponse;

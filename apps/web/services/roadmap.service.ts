@@ -92,6 +92,10 @@ export const roadmapService = {
     return response.data;
   },
 
+  deleteRoadmap: async (roadmapId: string) => {
+    await axiosInstance.delete(ENDPOINTS.roadmaps.getById(roadmapId));
+  },
+
   getRoadmapNodes: async (roadmapId: string, filters: RoadmapNodesFilter = {}) => {
     const params = new URLSearchParams();
     if (filters.nodeType) params.set('nodeType', filters.nodeType);
@@ -109,6 +113,14 @@ export const roadmapService = {
     const response = await axiosInstance.get<RoadmapProgressSummary>(
       ENDPOINTS.roadmaps.progress(roadmapId),
     );
+    return response.data;
+  },
+
+  startLearning: async (roadmapId: string) => {
+    const response = await axiosInstance.post<{
+      roadmap: RoadmapDetail;
+      unlockedNodes: string[];
+    }>(ENDPOINTS.roadmaps.startLearning(roadmapId));
     return response.data;
   },
 

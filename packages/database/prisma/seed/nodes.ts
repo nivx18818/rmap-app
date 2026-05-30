@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
+import * as dagre from '@dagrejs/dagre';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 
@@ -78,6 +79,40 @@ function getContentMetadata(
   return { name, description: descLines.join('\n').trim() };
 }
 
+interface LayoutNodeInput {
+  tempId: string;
+  tempParentId: string | null;
+  nodeType: NodeType;
+}
+
+function computeDagreLayout(nodes: LayoutNodeInput[]): Map<string, { posX: number; posY: number }> {
+  const g = new dagre.graphlib.Graph();
+  g.setGraph({ rankdir: 'TB', ranksep: 100, nodesep: 60 });
+  g.setDefaultEdgeLabel(() => ({}));
+
+  for (const node of nodes) {
+    const isLeaf = node.nodeType === NodeType.REQUIRED || node.nodeType === NodeType.OPTIONAL;
+    g.setNode(node.tempId, {
+      width: isLeaf ? 200 : 300,
+      height: isLeaf ? 60 : 80,
+    });
+
+    if (node.tempParentId) {
+      g.setEdge(node.tempParentId, node.tempId);
+    }
+  }
+
+  dagre.layout(g);
+
+  const result = new Map<string, { posX: number; posY: number }>();
+  for (const node of nodes) {
+    const { x, y } = g.node(node.tempId);
+    result.set(node.tempId, { posX: x, posY: y });
+  }
+
+  return result;
+}
+
 async function seedRoadmapNodes(roadmapId: string, slug: string): Promise<boolean> {
   const roadmapDir = path.join(ROADMAPS_ROOT, slug);
   const mappingFile = fs.existsSync(path.join(roadmapDir, 'migration-mapping.json'))
@@ -110,72 +145,115 @@ async function seedRoadmapNodes(roadmapId: string, slug: string): Promise<boolea
   const sortedKeys = Array.from(allHierarchyKeys).sort(
     (a, b) => a.split(':').length - b.split(':').length,
   );
-  const keyToDbIdMap = new Map<string, string>();
+
+  const skills = await prisma.skill.findMany({ select: { id: true, name: true } });
+  const skillMap = new Map<string, string>();
+  for (const s of skills) {
+    skillMap.set(s.name, s.id);
+  }
+
+  interface ResolvedNode {
+    key: string;
+    parentKey: string | null;
+    displayName: string;
+    description: string | null;
+    nodeType: NodeType;
+    skillId: string | null;
+  }
+
+  const resolvedNodes = new Map<string, ResolvedNode>();
 
   for (const key of sortedKeys) {
     const nodeId = mapping[key];
     const parts = key.split(':');
     const isLeafInMapping = mapping[key] && !mappingKeys.some((mk) => mk.startsWith(`${key}:`));
 
-    let parentId: string | null = null;
+    let parentKey: string | null = null;
     if (parts.length > 1) {
-      const parentKey = parts.slice(0, -1).join(':');
-      parentId = keyToDbIdMap.get(parentKey) || null;
+      parentKey = parts.slice(0, -1).join(':');
     }
 
     const jsonNode = nodeId ? jsonNodes.find((n: any) => n.id === nodeId) : null;
     const content = nodeId ? getContentMetadata(roadmapDir, nodeId) : { name: '', description: '' };
 
     const displayName = content.name || jsonNode?.data?.label || formatKeyName(key);
-    const posX = jsonNode?.position?.x || 0;
-    const posY = jsonNode?.position?.y || 0;
 
     // RULE: Level 0 (no ":") is ALWAYS a GROUP.
     // Intermediate nodes (isLeafInMapping = false) are ALWAYS GROUPs.
     const isGroup = parts.length === 1 || !isLeafInMapping;
 
     if (isGroup) {
-      // Create GROUP (explicit or implicit)
       const description = content.description || `Group container for ${displayName}`;
-      const groupNode = await prisma.roadmapNode.create({
-        data: {
-          roadmapId,
-          parentId,
-          name: displayName,
-          description,
-          nodeType: NodeType.GROUP,
-          posX,
-          posY,
-        },
+      resolvedNodes.set(key, {
+        key,
+        parentKey,
+        displayName,
+        description,
+        nodeType: NodeType.GROUP,
+        skillId: null,
       });
-      keyToDbIdMap.set(key, groupNode.id);
     } else {
-      // It's a Leaf Node (Level 1+)
-      const skill = await prisma.skill.findFirst({
-        where: { name: displayName },
-        select: { id: true },
-      });
-
-      if (!skill) continue;
+      // Leaf Node (Level 1+)
+      const skillId = skillMap.get(displayName);
+      if (!skillId) {
+        continue;
+      }
 
       let nodeType: NodeType = NodeType.REQUIRED;
       if (jsonNode?.data?.legend?.label?.toLowerCase().includes('option')) {
         nodeType = NodeType.OPTIONAL;
       }
 
-      const leafNode = await prisma.roadmapNode.create({
-        data: {
-          roadmapId,
-          parentId,
-          skillId: skill.id,
-          name: displayName,
-          nodeType,
-          posX,
-          posY,
-        },
+      resolvedNodes.set(key, {
+        key,
+        parentKey,
+        displayName,
+        description: content.description || null,
+        nodeType,
+        skillId,
       });
-      keyToDbIdMap.set(key, leafNode.id);
     }
+  }
+
+  // Convert resolvedNodes to list of Dagre layout inputs
+  const layoutNodes = Array.from(resolvedNodes.values()).map((node) => ({
+    tempId: node.key,
+    tempParentId: node.parentKey,
+    nodeType: node.nodeType,
+  }));
+
+  // Compute layout
+  const layoutPositions = computeDagreLayout(layoutNodes);
+
+  const keyToDbIdMap = new Map<string, string>();
+
+  for (const key of sortedKeys) {
+    const node = resolvedNodes.get(key);
+    if (!node) {
+      continue;
+    }
+
+    let parentId: string | null = null;
+    if (node.parentKey) {
+      parentId = keyToDbIdMap.get(node.parentKey) || null;
+    }
+
+    const pos = layoutPositions.get(key) || { posX: 0, posY: 0 };
+
+    const createdNode = await prisma.roadmapNode.create({
+      data: {
+        roadmapId,
+        parentId,
+        skillId: node.skillId,
+        name: node.displayName,
+        description: node.description,
+        nodeType: node.nodeType,
+        posX: pos.posX,
+        posY: pos.posY,
+      },
+    });
+
+    keyToDbIdMap.set(key, createdNode.id);
   }
 
   log(`  Done: ${keyToDbIdMap.size} nodes seeded.`);
@@ -184,6 +262,8 @@ async function seedRoadmapNodes(roadmapId: string, slug: string): Promise<boolea
 
 export async function seedNodesMain() {
   log('=== Seed Roadmap Nodes (Strict Hierarchy v4) ===');
+  log('Clearing existing roadmap nodes and progress...');
+  await prisma.userNodeProgress.deleteMany({});
   await prisma.roadmapNode.deleteMany({});
 
   const roadmaps = await prisma.roadmap.findMany({

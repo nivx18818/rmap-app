@@ -104,6 +104,8 @@ function parseRoadmapMetadata(slug: string): RoadmapMetadata {
 
 export async function seedRoadmapsMain() {
   log('=== Seed Roadmaps ===');
+  log('Clearing existing roadmaps...');
+  await prisma.roadmap.deleteMany({});
 
   if (!fs.existsSync(ROADMAPS_ROOT)) {
     throw new Error(`Roadmaps directory not found at: ${ROADMAPS_ROOT}`);

@@ -256,6 +256,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@dagrejs/dagre':
+        specifier: ^3.0.0
+        version: 3.0.0
       '@prisma/adapter-pg':
         specifier: ^7.8.0
         version: 7.8.0
@@ -269,6 +272,9 @@ importers:
         specifier: ^8.20.0
         version: 8.20.0
     devDependencies:
+      '@types/dagre':
+        specifier: ^0.7.54
+        version: 0.7.54
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0

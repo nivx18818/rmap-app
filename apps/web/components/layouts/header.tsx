@@ -30,6 +30,8 @@ export function Header() {
   const { isAuthenticated, isLoading, signOut, user } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const userFirstName = user?.fullName?.split(' ')[0];
+  const userDashboardLabel = userFirstName ? `${userFirstName}'s Dashboard` : 'Dashboard';
 
   const handleSignOut = async () => {
     setIsLoggingOut(true);
@@ -116,10 +118,7 @@ export function Header() {
               size="sm"
               className="rounded-full"
               render={
-                <Link
-                  className="flex items-center gap-2"
-                  href={'/roadmaps/generate' as Route<string>}
-                >
+                <Link className="flex items-center gap-2" href={'/dashboard' as Route<string>}>
                   {user?.avatarUrl ? (
                     <Image
                       className="size-6 rounded-full object-cover"
@@ -132,7 +131,7 @@ export function Header() {
                   ) : (
                     <HugeiconsIcon className="size-4" icon={UserCircleIcon} />
                   )}
-                  {user?.fullName?.split(' ')[0] ?? 'My Account'}
+                  {userDashboardLabel}
                 </Link>
               }
             />
@@ -261,7 +260,7 @@ export function Header() {
                   render={
                     <Link
                       className="flex w-full items-center gap-2"
-                      href={'/roadmaps/generate' as Route<string>}
+                      href={'/dashboard' as Route<string>}
                     >
                       {user?.avatarUrl ? (
                         <Image
@@ -275,7 +274,7 @@ export function Header() {
                       ) : (
                         <HugeiconsIcon className="size-4" icon={UserCircleIcon} />
                       )}
-                      {user?.fullName?.split(' ')[0] ?? 'My Account'}
+                      {userDashboardLabel}
                     </Link>
                   }
                 />

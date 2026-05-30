@@ -7,6 +7,7 @@ export const ENDPOINTS = {
     refresh: '/auth/refresh',
     register: '/auth/register',
   },
+  dashboard: '/dashboard',
   onboarding: {
     goals: '/onboarding/goals',
     quiz: '/onboarding/quiz',
@@ -24,6 +25,7 @@ export const ENDPOINTS = {
     nodeQuiz: (roadmapId: string, nodeId: string) => `/roadmaps/${roadmapId}/nodes/${nodeId}/quiz`,
     nodes: (roadmapId: string) => `/roadmaps/${roadmapId}/nodes`,
     progress: (roadmapId: string) => `/roadmaps/${roadmapId}/progress`,
+    startLearning: (roadmapId: string) => `/roadmaps/${roadmapId}/start`,
     submitNodeQuiz: (roadmapId: string, nodeId: string) =>
       `/roadmaps/${roadmapId}/nodes/${nodeId}/quiz/submit`,
   },

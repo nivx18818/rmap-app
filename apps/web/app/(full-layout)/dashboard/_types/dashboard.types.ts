@@ -3,19 +3,16 @@ import type { RoadmapProgressSummary } from '../../../(full-layout)/roadmaps/[id
 
 export interface DashboardUserProfileApiResponse {
   avatarUrl?: null | string;
-  avatar_url?: null | string;
   id: string;
   email: string;
   fullName: string;
-  full_name?: string;
   role: string;
   createdAt: string;
-  created_at?: string;
 }
 
 export interface DailyActivityEntryApiResponse {
-  activity_date: string;
-  nodes_completed: number;
+  activityDate: string;
+  nodesCompleted: number;
 }
 
 export interface DashboardSummaryApiResponse {
@@ -53,14 +50,14 @@ export interface DashboardActiveRoadmap extends RoadmapProgressSummary {
 }
 
 export interface DashboardApiResponse {
-  user_profile: DashboardUserProfileApiResponse;
-  active_roadmap: DashboardActiveRoadmap[];
-  user_roadmap: RoadmapDetail[];
-  streak_days: number;
-  activity_recent: DailyActivityEntryApiResponse[];
+  userProfile: DashboardUserProfileApiResponse;
+  activeRoadmaps: DashboardActiveRoadmap[];
+  userRoadmaps: RoadmapDetail[];
+  streakDays: number;
+  activityRecent: DailyActivityEntryApiResponse[];
   summary: DashboardSummaryApiResponse;
-  skill_categories: DashboardSkillCategoryApiResponse[];
-  roadmap_status: DashboardRoadmapStatusApiResponse;
+  skillCategories: DashboardSkillCategoryApiResponse[];
+  roadmapStatus: DashboardRoadmapStatusApiResponse;
 }
 
 export interface DashboardUserProfile {

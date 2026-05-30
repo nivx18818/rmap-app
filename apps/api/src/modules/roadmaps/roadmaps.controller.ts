@@ -16,6 +16,7 @@ import type {
   LatestMilestoneSubmissionResponse,
   MilestoneSubmissionEnvelopeResponse,
   NodeDetailResponse,
+  StartRoadmapResponse,
 } from './types/roadmap-nodes.types';
 import type { RoadmapProgressSummaryResponse } from './types/roadmap-progress.types';
 
@@ -93,6 +94,20 @@ export class RoadmapsController {
     @Param('roadmapId') roadmapId: string,
   ): Promise<RoadmapProgressSummaryResponse> {
     return this.roadmapsService.getProgressSummary(user.id, roadmapId);
+  }
+
+  /**
+   * POST /roadmaps/:roadmapId/start
+   *
+   * Starts an unstarted personal roadmap and unlocks the first learning group.
+   */
+  @Post(':roadmapId/start')
+  @HttpCode(HttpStatus.OK)
+  async startLearning(
+    @CurrentUser() user: RequestUser,
+    @Param('roadmapId') roadmapId: string,
+  ): Promise<StartRoadmapResponse> {
+    return this.roadmapsService.startLearning(user.id, roadmapId);
   }
 
   @Get(':roadmapId')

@@ -55,6 +55,7 @@ import type {
   MilestoneSubmissionResponse,
   RoadmapNodeWithUserProgressResponse,
   RoadmapNodesListResponse,
+  StartRoadmapResponse,
   UpdateNodeProgressResponse,
 } from './types/roadmap-nodes.types';
 import type {
@@ -135,6 +136,8 @@ const MILESTONE_SUBMISSION_SELECT = {
 
 type SelectedRoadmap = Pick<Roadmap, keyof typeof ROADMAP_SELECT>;
 
+type RoadmapTransaction = Awaited<Parameters<Parameters<PrismaService['$transaction']>[0]>[0]>;
+
 type DecimalLike = {
   toNumber?: () => number;
   toString: () => string;
@@ -207,6 +210,19 @@ export class RoadmapsService {
     private readonly dagreLayout: DagreLayoutService,
   ) {}
 
+  private getRoadmapAccessWhere(userId: string, roadmapId: string): Prisma.RoadmapWhereInput {
+    return {
+      id: roadmapId,
+      OR: [{ isTemplate: true }, { isTemplate: false, userId }],
+    };
+  }
+
+  private getRoadmapRelationAccessWhere(userId: string): Prisma.RoadmapWhereInput {
+    return {
+      OR: [{ isTemplate: true }, { isTemplate: false, userId }],
+    };
+  }
+
   async listUserRoadmaps(
     userId: string,
     query: ListRoadmapsQueryDto,
@@ -229,9 +245,15 @@ export class RoadmapsService {
       }),
       this.prisma.roadmap.count({ where }),
     ]);
+    const startedAtByRoadmapId = await this.findStartedAtByRoadmapId(
+      userId,
+      roadmaps.map((roadmap) => roadmap.id),
+    );
 
     return {
-      data: roadmaps.map((roadmap) => this.formatRoadmap(roadmap)),
+      data: roadmaps.map((roadmap) =>
+        this.formatRoadmap(roadmap, startedAtByRoadmapId.get(roadmap.id) ?? null),
+      ),
       meta: {
         page,
         perPage,
@@ -251,7 +273,7 @@ export class RoadmapsService {
 
     const where: Prisma.RoadmapNodeWhereInput = {
       roadmapId,
-      roadmap: { userId },
+      roadmap: this.getRoadmapRelationAccessWhere(userId),
     };
 
     if (nodeType) {
@@ -309,12 +331,9 @@ export class RoadmapsService {
     roadmapId: string,
   ): Promise<RoadmapProgressSummaryResponse> {
     const roadmap = await this.prisma.roadmap.findFirst({
-      where: {
-        id: roadmapId,
-        isTemplate: false,
-        userId,
-      },
+      where: this.getRoadmapAccessWhere(userId, roadmapId),
       select: {
+        deadlineDate: true,
         generatedAt: true,
         hoursPerDay: true,
         id: true,
@@ -359,7 +378,21 @@ export class RoadmapsService {
       (total, node) => total + (toNumberOrNull(node.estimatedHours) ?? 0),
       0,
     );
+    const totalLeafEstimatedHours = nodes
+      .filter((node) => LEAF_NODE_TYPES.includes(node.nodeType))
+      .reduce((total, node) => total + (toNumberOrNull(node.estimatedHours) ?? 0), 0);
+    const remainingEstimatedHours = Math.max(0, totalLeafEstimatedHours - completedHours);
     const hoursPerDay = toNumberOrNull(roadmap.hoursPerDay);
+    const deadlineTimelineWarning =
+      roadmap.deadlineDate && hoursPerDay
+        ? this.calculateDeadlineTimelineWarning(
+            roadmap.deadlineDate,
+            hoursPerDay,
+            remainingEstimatedHours,
+            new Date(),
+            'The remaining roadmap estimate',
+          )
+        : null;
 
     return {
       roadmapId: roadmap.id,
@@ -371,11 +404,9 @@ export class RoadmapsService {
       ),
       nodesTotal,
       nodesCompleted,
-      timelineWarning: this.calculateTimelineWarning(
-        roadmap.generatedAt,
-        hoursPerDay,
-        completedHours,
-      ),
+      timelineWarning:
+        deadlineTimelineWarning ??
+        this.calculateTimelineWarning(roadmap.generatedAt, hoursPerDay, completedHours),
     };
   }
 
@@ -388,7 +419,7 @@ export class RoadmapsService {
       where: {
         id: nodeId,
         roadmapId,
-        roadmap: { userId },
+        roadmap: this.getRoadmapRelationAccessWhere(userId),
       },
       select: {
         id: true,
@@ -528,7 +559,7 @@ export class RoadmapsService {
       where: {
         id: nodeId,
         roadmapId,
-        roadmap: { userId },
+        roadmap: this.getRoadmapRelationAccessWhere(userId),
       },
       select: {
         id: true,
@@ -586,7 +617,7 @@ export class RoadmapsService {
       where: {
         id: nodeId,
         roadmapId,
-        roadmap: { userId },
+        roadmap: this.getRoadmapRelationAccessWhere(userId),
       },
       select: {
         id: true,
@@ -721,7 +752,7 @@ export class RoadmapsService {
       where: {
         id: nodeId,
         roadmapId,
-        roadmap: { userId },
+        roadmap: this.getRoadmapRelationAccessWhere(userId),
       },
       select: {
         id: true,
@@ -802,7 +833,7 @@ export class RoadmapsService {
       where: {
         id: nodeId,
         roadmapId,
-        roadmap: { userId },
+        roadmap: this.getRoadmapRelationAccessWhere(userId),
       },
       select: { id: true, nodeType: true },
     });
@@ -912,7 +943,8 @@ export class RoadmapsService {
           : total,
       0,
     );
-    const timelineWarning = this.calculateGenerationTimelineWarning(
+    const estimatedWeeks = this.calculateEstimatedWeeks(totalGeneratedLeafHours, dto.hoursPerDay);
+    const timelineWarning = this.calculateDeadlineTimelineWarning(
       deadline,
       dto.hoursPerDay,
       totalGeneratedLeafHours,
@@ -947,6 +979,7 @@ export class RoadmapsService {
           goalName: dto.goal,
           hoursPerDay: dto.hoursPerDay,
           deadlineDate: deadline,
+          estimatedWeeks,
           isTemplate: false,
         },
       });
@@ -978,31 +1011,6 @@ export class RoadmapsService {
           status: 'LOCKED' as const,
         })),
       });
-
-      // First group + all leaf nodes inside it → IN_PROGRESS
-      const firstGroup = flatNodes.find((n) => n.nodeType === 'GROUP');
-      const firstGroupLeafIds = firstGroup
-        ? flatNodes
-            .filter(
-              (n) =>
-                n.tempParentId === firstGroup.tempId &&
-                (n.nodeType === 'REQUIRED' || n.nodeType === 'OPTIONAL'),
-            )
-            .map((n) => n.realId)
-        : [];
-      const firstLeaf = flatNodes.find(
-        (n) => n.nodeType === 'REQUIRED' || n.nodeType === 'OPTIONAL',
-      );
-      const inProgressIds = (
-        firstGroup ? [firstGroup.realId, ...firstGroupLeafIds] : [firstLeaf?.realId]
-      ).filter((id): id is string => !!id);
-
-      if (inProgressIds.length > 0) {
-        await tx.userNodeProgress.updateMany({
-          where: { roadmapNodeId: { in: inProgressIds } },
-          data: { status: 'IN_PROGRESS', startedAt: new Date() },
-        });
-      }
 
       return created;
     });
@@ -1629,11 +1637,12 @@ export class RoadmapsService {
     return streakDays;
   }
 
-  private calculateGenerationTimelineWarning(
+  private calculateDeadlineTimelineWarning(
     deadline: Date,
     hoursPerDay: number,
     totalEstimatedHours: number,
     now = new Date(),
+    messageSubject = 'The generated roadmap estimate',
   ): TimelineWarningResponse | null {
     if (hoursPerDay <= 0 || totalEstimatedHours <= 0) {
       return null;
@@ -1658,10 +1667,19 @@ export class RoadmapsService {
       paceDeficitPct,
       estimatedDelayDays,
       message:
-        `The generated roadmap estimate may not fit your deadline: about ` +
+        `${messageSubject} may not fit your deadline: about ` +
         `${estimatedDelayDays} additional study day(s) needed.`,
     };
   }
+
+  private calculateEstimatedWeeks(totalEstimatedHours: number, hoursPerDay: number): number | null {
+    if (totalEstimatedHours <= 0 || hoursPerDay <= 0) {
+      return null;
+    }
+
+    return Math.max(1, Math.ceil(totalEstimatedHours / (hoursPerDay * 7)));
+  }
+
   private calculateTimelineWarning(
     generatedAt: Date,
     hoursPerDay: number | null,
@@ -1717,7 +1735,42 @@ export class RoadmapsService {
     return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
   }
 
-  private formatRoadmap(roadmap: SelectedRoadmap): RoadmapResponseDto {
+  private async findStartedAtByRoadmapId(
+    userId: string,
+    roadmapIds: string[],
+  ): Promise<Map<string, Date>> {
+    if (roadmapIds.length === 0) {
+      return new Map();
+    }
+
+    const progressRows = await this.prisma.userNodeProgress.findMany({
+      where: {
+        userId,
+        startedAt: { not: null },
+        roadmapNode: { roadmapId: { in: roadmapIds } },
+      },
+      orderBy: [{ startedAt: 'asc' }, { id: 'asc' }],
+      select: {
+        startedAt: true,
+        roadmapNode: { select: { roadmapId: true } },
+      },
+    });
+
+    const startedAtByRoadmapId = new Map<string, Date>();
+
+    for (const progress of progressRows) {
+      if (progress.startedAt && !startedAtByRoadmapId.has(progress.roadmapNode.roadmapId)) {
+        startedAtByRoadmapId.set(progress.roadmapNode.roadmapId, progress.startedAt);
+      }
+    }
+
+    return startedAtByRoadmapId;
+  }
+
+  private formatRoadmap(
+    roadmap: SelectedRoadmap,
+    startedAt: Date | null = null,
+  ): RoadmapResponseDto {
     return {
       deadlineDate: this.formatDateOnly(roadmap.deadlineDate),
       description: roadmap.description,
@@ -1728,6 +1781,7 @@ export class RoadmapsService {
       id: roadmap.id,
       isTemplate: roadmap.isTemplate,
       roleCategory: roadmap.roleCategory,
+      startedAt: startedAt?.toISOString() ?? null,
       title: roadmap.title,
       updatedAt: roadmap.updatedAt.toISOString(),
       userId: roadmap.userId,
@@ -1975,7 +2029,7 @@ export class RoadmapsService {
     dto: UpdateNodeProgressDto,
   ): Promise<UpdateNodeProgressResponse> {
     const node = await this.prisma.roadmapNode.findFirst({
-      where: { id: nodeId, roadmapId, roadmap: { userId } },
+      where: { id: nodeId, roadmapId, roadmap: this.getRoadmapRelationAccessWhere(userId) },
       select: { id: true, nodeType: true, parentId: true, posY: true },
     });
 
@@ -2236,21 +2290,114 @@ export class RoadmapsService {
     unlockedNodes.push(...leafIds);
   }
 
+  private async unlockInitialRoadmapNodes(
+    tx: RoadmapTransaction,
+    userId: string,
+    roadmapId: string,
+    now: Date,
+    unlockedNodes: string[],
+  ): Promise<void> {
+    const firstGroup = await tx.roadmapNode.findFirst({
+      where: { roadmapId, nodeType: NodeType.GROUP },
+      orderBy: [{ posY: 'asc' }, { id: 'asc' }],
+      select: { id: true },
+    });
+
+    if (firstGroup) {
+      await this.unlockProgressNode(tx, userId, firstGroup.id, now, unlockedNodes);
+      await this.unlockGroupLeaves(tx, userId, firstGroup.id, now, unlockedNodes);
+      return;
+    }
+
+    const firstLeaf = await tx.roadmapNode.findFirst({
+      where: { roadmapId, nodeType: { in: LEAF_NODE_TYPES } },
+      orderBy: [{ posY: 'asc' }, { id: 'asc' }],
+      select: { id: true },
+    });
+
+    if (firstLeaf) {
+      await this.unlockProgressNode(tx, userId, firstLeaf.id, now, unlockedNodes);
+    }
+  }
+
+  private async ensureUserRoadmapProgressRows(
+    tx: RoadmapTransaction,
+    userId: string,
+    roadmapId: string,
+  ): Promise<void> {
+    const nodes = await tx.roadmapNode.findMany({
+      where: { roadmapId },
+      select: { id: true },
+    });
+
+    if (nodes.length === 0) {
+      return;
+    }
+
+    await tx.userNodeProgress.createMany({
+      data: nodes.map((node) => ({
+        userId,
+        roadmapNodeId: node.id,
+        status: NodeStatus.LOCKED,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
   async getByIdForOwner(userId: string, roadmapId: string): Promise<RoadmapResponseDto> {
     const roadmap = await this.prisma.roadmap.findFirst({
       select: ROADMAP_SELECT,
-      where: {
-        id: roadmapId,
-        isTemplate: false,
-        userId,
-      },
+      where: this.getRoadmapAccessWhere(userId, roadmapId),
     });
 
     if (!roadmap) {
       throw new RoadmapNotFoundException(roadmapId);
     }
 
-    return this.formatRoadmap(roadmap);
+    const startedAtByRoadmapId = await this.findStartedAtByRoadmapId(userId, [roadmap.id]);
+
+    return this.formatRoadmap(roadmap, startedAtByRoadmapId.get(roadmap.id) ?? null);
+  }
+
+  async startLearning(userId: string, roadmapId: string): Promise<StartRoadmapResponse> {
+    return this.prisma.$transaction(async (tx) => {
+      const roadmap = await tx.roadmap.findFirst({
+        select: ROADMAP_SELECT,
+        where: this.getRoadmapAccessWhere(userId, roadmapId),
+      });
+
+      if (!roadmap) {
+        throw new RoadmapNotFoundException(roadmapId);
+      }
+
+      const existingStartedProgress = await tx.userNodeProgress.findFirst({
+        where: {
+          userId,
+          startedAt: { not: null },
+          roadmapNode: { roadmapId: roadmap.id },
+        },
+        orderBy: [{ startedAt: 'asc' }, { id: 'asc' }],
+        select: { startedAt: true },
+      });
+
+      if (existingStartedProgress?.startedAt) {
+        return {
+          roadmap: this.formatRoadmap(roadmap, existingStartedProgress.startedAt),
+          unlockedNodes: [],
+        };
+      }
+
+      const now = new Date();
+      const unlockedNodes: string[] = [];
+
+      await this.ensureUserRoadmapProgressRows(tx, userId, roadmap.id);
+      await this.unlockInitialRoadmapNodes(tx, userId, roadmap.id, now, unlockedNodes);
+
+      return {
+        roadmap: this.formatRoadmap(roadmap, now),
+        unlockedNodes,
+      };
+    });
   }
 
   async deleteByIdForOwner(userId: string, roadmapId: string): Promise<void> {

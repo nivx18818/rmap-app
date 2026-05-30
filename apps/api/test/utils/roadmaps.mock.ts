@@ -404,6 +404,7 @@ export const MOCK_ROADMAP = {
   goalName: MOCK_DTO.goal,
   hoursPerDay: MOCK_DTO.hoursPerDay,
   deadlineDate: new Date('2030-12-31T23:59:59.999Z'),
+  estimatedWeeks: 6,
   isTemplate: false,
   generatedAt: new Date(),
   updatedAt: new Date(),

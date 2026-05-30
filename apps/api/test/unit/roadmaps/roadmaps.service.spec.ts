@@ -50,7 +50,11 @@ function makeTxMock() {
       create: jest.fn(),
       findFirst: jest.fn().mockResolvedValue(null),
     },
-    roadmap: { create: jest.fn().mockResolvedValue(MOCK_ROADMAP) },
+    roadmap: {
+      create: jest.fn().mockResolvedValue(MOCK_ROADMAP),
+      findFirst: jest.fn().mockResolvedValue(null),
+      update: jest.fn().mockResolvedValue(MOCK_ROADMAP),
+    },
     roadmapNode: {
       createMany: jest.fn().mockResolvedValue({ count: 19 }),
       findFirst: jest.fn().mockResolvedValue(null),
@@ -59,6 +63,7 @@ function makeTxMock() {
     userNodeProgress: {
       count: jest.fn().mockResolvedValue(0),
       createMany: jest.fn().mockResolvedValue({ count: 19 }),
+      findFirst: jest.fn().mockResolvedValue(null),
       findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn().mockResolvedValue(null),
       update: jest.fn(),
@@ -184,6 +189,7 @@ interface RoadmapsPrismaMock {
     deleteMany: AsyncMock<{ count: number }>;
     findFirst: AsyncMock<Record<string, unknown> | null>;
     findMany: AsyncMock<unknown[]>;
+    update: AsyncMock<Record<string, unknown>>;
   };
   roadmapNode: {
     findFirst: AsyncMock<RoadmapNodeFindFirstSelection | null>;
@@ -198,6 +204,7 @@ interface RoadmapsPrismaMock {
     findMany: AsyncMock<typeof MOCK_PRISMA_SKILL_PREREQUISITES>;
   };
   userNodeProgress: {
+    findMany: AsyncMock<Array<{ startedAt: Date | null; roadmapNode: { roadmapId: string } }>>;
     findUnique: AsyncMock<{ status: NodeStatus; quizPassed: boolean | null } | null>;
   };
 }
@@ -263,6 +270,7 @@ const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
     deleteMany: jest.fn<Promise<{ count: number }>, unknown[]>(),
     findFirst: jest.fn<Promise<Record<string, unknown> | null>, unknown[]>(),
     findMany: jest.fn<Promise<unknown[]>, unknown[]>(),
+    update: jest.fn<Promise<Record<string, unknown>>, unknown[]>(),
   },
   roadmapNode: {
     findFirst: jest.fn<Promise<RoadmapNodeFindFirstSelection | null>, unknown[]>(),
@@ -279,6 +287,12 @@ const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
       .mockResolvedValue(MOCK_PRISMA_SKILL_PREREQUISITES),
   },
   userNodeProgress: {
+    findMany: jest
+      .fn<
+        Promise<Array<{ startedAt: Date | null; roadmapNode: { roadmapId: string } }>>,
+        unknown[]
+      >()
+      .mockResolvedValue([]),
     findUnique: jest.fn<
       Promise<{ status: NodeStatus; quizPassed: boolean | null } | null>,
       unknown[]
@@ -520,56 +534,32 @@ describe('RoadmapsService', () => {
       expect(result.timelineWarning).toBeNull();
     });
 
-    it('should initialize the first group and all first-group leaves as in progress', async () => {
+    it('should persist estimatedWeeks from generated leaf hours and daily study time', async () => {
       await service.generate(MOCK_USER_ID, MOCK_DTO);
 
-      const createManyMock = txMock.roadmapNode.createMany as jest.Mock<
-        Promise<{ count: number }>,
-        [
-          {
-            data: Array<{
-              id: string;
-              parentId: string | null;
-              nodeType: NodeType;
-            }>;
-          },
-        ]
-      >;
-      const createManyCall = createManyMock.mock.calls[0]?.[0];
-      const nodes = createManyCall?.data ?? [];
-      const firstGroup = nodes.find((node) => node.nodeType === NodeType.GROUP);
-
-      if (!firstGroup) {
-        throw new Error('Expected roadmap generation to create a first group');
-      }
-
-      const firstGroupLeafIds = nodes
-        .filter(
-          (node) =>
-            node.parentId === firstGroup.id &&
-            (node.nodeType === NodeType.REQUIRED || node.nodeType === NodeType.OPTIONAL),
-        )
-        .map((node) => node.id);
-      const updateManyMock = txMock.userNodeProgress.updateMany as jest.Mock<
-        Promise<{ count: number }>,
-        [
-          {
-            data: { startedAt: Date; status: NodeStatus };
-            where: { roadmapNodeId: { in: string[] } };
-          },
-        ]
-      >;
-      const updateManyCall = updateManyMock.mock.calls[0]?.[0];
-
-      expect(firstGroupLeafIds).toHaveLength(4);
-      expect(updateManyCall?.where.roadmapNodeId.in).toEqual(
-        expect.arrayContaining([firstGroup.id, ...firstGroupLeafIds]),
-      );
-      expect(updateManyCall?.where.roadmapNodeId.in).toHaveLength(5);
-      expect(txMock.userNodeProgress.updateMany).toHaveBeenCalledWith({
-        where: { roadmapNodeId: { in: updateManyCall?.where.roadmapNodeId.in } },
-        data: { status: NodeStatus.IN_PROGRESS, startedAt: expectAnyDate() },
+      expect(txMock.roadmap.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          estimatedWeeks: 6,
+        }) as object,
       });
+    });
+
+    it('should keep all progress rows locked after generation', async () => {
+      await service.generate(MOCK_USER_ID, MOCK_DTO);
+
+      const createProgressMock = txMock.userNodeProgress.createMany as jest.Mock<
+        Promise<{ count: number }>,
+        [{ data: Array<{ status: NodeStatus; userId: string }> }]
+      >;
+      const createProgressCall = createProgressMock.mock.calls[0]?.[0];
+
+      expect(createProgressCall?.data.length).toBeGreaterThan(0);
+      expect(
+        createProgressCall?.data.every(
+          (progress) => progress.status === NodeStatus.LOCKED && progress.userId === MOCK_USER_ID,
+        ),
+      ).toBe(true);
+      expect(txMock.userNodeProgress.updateMany).not.toHaveBeenCalled();
     });
 
     it('should NOT include quiz answers in any Prisma call args', async () => {
@@ -634,7 +624,10 @@ describe('RoadmapsService', () => {
 
       expect(prisma.roadmapNode.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { roadmapId, roadmap: { userId: MOCK_USER_ID } },
+          where: {
+            roadmapId,
+            roadmap: { OR: [{ isTemplate: true }, { isTemplate: false, userId: MOCK_USER_ID }] },
+          },
         }),
       );
       expect(result).toEqual({
@@ -807,6 +800,7 @@ describe('RoadmapsService', () => {
       jest.useFakeTimers();
       jest.setSystemTime(systemNow);
       prisma.roadmap.findFirst.mockResolvedValue({
+        deadlineDate: null,
         generatedAt: new Date('2026-05-20T03:00:00Z'),
         hoursPerDay: createDecimal(2),
         id: roadmapId,
@@ -852,6 +846,7 @@ describe('RoadmapsService', () => {
 
     it('should compute streak from consecutive daily activity rows', async () => {
       prisma.roadmap.findFirst.mockResolvedValue({
+        deadlineDate: null,
         generatedAt: new Date('2026-05-20T03:00:00Z'),
         hoursPerDay: null,
         id: roadmapId,
@@ -874,6 +869,7 @@ describe('RoadmapsService', () => {
 
     it('should return a timeline warning when pace deficit is at least 15 percent', async () => {
       prisma.roadmap.findFirst.mockResolvedValue({
+        deadlineDate: null,
         generatedAt: new Date('2026-05-18T03:00:00Z'),
         hoursPerDay: createDecimal(4),
         id: roadmapId,
@@ -895,6 +891,7 @@ describe('RoadmapsService', () => {
 
     it('should return null timeline warning on the generated calendar day', async () => {
       prisma.roadmap.findFirst.mockResolvedValue({
+        deadlineDate: null,
         generatedAt: new Date('2026-05-21T03:00:00Z'),
         hoursPerDay: createDecimal(4),
         id: roadmapId,
@@ -911,6 +908,7 @@ describe('RoadmapsService', () => {
 
     it('should return null timeline warning when on track', async () => {
       prisma.roadmap.findFirst.mockResolvedValue({
+        deadlineDate: null,
         generatedAt: new Date('2026-05-19T03:00:00Z'),
         hoursPerDay: createDecimal(4),
         id: roadmapId,
@@ -923,6 +921,29 @@ describe('RoadmapsService', () => {
       const result = await service.getProgressSummary(MOCK_USER_ID, roadmapId);
 
       expect(result.timelineWarning).toBeNull();
+    });
+
+    it('should return a timeline warning when remaining estimate does not fit the deadline', async () => {
+      prisma.roadmap.findFirst.mockResolvedValue({
+        deadlineDate: new Date('2026-05-23T00:00:00Z'),
+        generatedAt: new Date('2026-05-21T03:00:00Z'),
+        hoursPerDay: createDecimal(2),
+        id: roadmapId,
+      });
+      prisma.roadmapNode.findMany.mockResolvedValue([
+        makeProgressNode('required-1', NodeType.REQUIRED, NodeStatus.IN_PROGRESS, 40),
+        makeProgressNode('optional-1', NodeType.OPTIONAL, NodeStatus.LOCKED, 20),
+      ]);
+
+      const result = await service.getProgressSummary(MOCK_USER_ID, roadmapId);
+
+      expect(result.timelineWarning).toEqual({
+        isBehind: true,
+        paceDeficitPct: 93.3,
+        estimatedDelayDays: 28,
+        message:
+          'The remaining roadmap estimate may not fit your deadline: about 28 additional study day(s) needed.',
+      });
     });
   });
 
@@ -1022,7 +1043,7 @@ describe('RoadmapsService', () => {
       expect(findFirstArgs.where).toEqual({
         id: nodeId,
         roadmapId,
-        roadmap: { userId: MOCK_USER_ID },
+        roadmap: { OR: [{ isTemplate: true }, { isTemplate: false, userId: MOCK_USER_ID }] },
       });
       expect(findFirstArgs.select.skill?.select?.resources?.orderBy).toEqual([
         { isPrimary: 'desc' },
@@ -1295,7 +1316,7 @@ describe('RoadmapsService', () => {
           where: {
             id: nodeId,
             roadmapId,
-            roadmap: { userId: MOCK_USER_ID },
+            roadmap: { OR: [{ isTemplate: true }, { isTemplate: false, userId: MOCK_USER_ID }] },
           },
         }),
       );
@@ -1321,6 +1342,12 @@ describe('RoadmapsService', () => {
 
       prisma.roadmap.findMany.mockResolvedValue([roadmap]);
       prisma.roadmap.count.mockResolvedValue(42);
+      prisma.userNodeProgress.findMany.mockResolvedValueOnce([
+        {
+          startedAt: new Date('2025-04-24T07:30:00.000Z'),
+          roadmapNode: { roadmapId: 'roadmap-1' },
+        },
+      ]);
 
       const result = await service.listUserRoadmaps('user-1', { page: 2, perPage: 10 });
 
@@ -1365,6 +1392,7 @@ describe('RoadmapsService', () => {
             id: 'roadmap-1',
             isTemplate: false,
             roleCategory: RoleCategory.WEB_DEVELOPMENT,
+            startedAt: '2025-04-24T07:30:00.000Z',
             title: 'Your Backend Intern Roadmap',
             updatedAt: '2025-04-25T08:00:00.000Z',
             userId: 'user-1',
@@ -1431,6 +1459,7 @@ describe('RoadmapsService', () => {
         id: roadmapId,
         isTemplate: false,
         roleCategory: RoleCategory.WEB_DEVELOPMENT,
+        startedAt: null,
         title: 'Backend roadmap',
         updatedAt: new Date('2025-04-25T08:00:00.000Z'),
         userId,
@@ -1448,6 +1477,7 @@ describe('RoadmapsService', () => {
         id: roadmapId,
         isTemplate: false,
         roleCategory: RoleCategory.WEB_DEVELOPMENT,
+        startedAt: null,
         title: 'Backend roadmap',
         updatedAt: '2025-04-25T08:00:00.000Z',
         userId,
@@ -1470,8 +1500,7 @@ describe('RoadmapsService', () => {
         },
         where: {
           id: roadmapId,
-          isTemplate: false,
-          userId,
+          OR: [{ isTemplate: true }, { isTemplate: false, userId }],
         },
       });
     });
@@ -1496,6 +1525,125 @@ describe('RoadmapsService', () => {
       prisma.roadmap.findFirst.mockResolvedValue(null);
 
       await expect(service.getByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
+        RoadmapNotFoundException,
+      );
+    });
+  });
+
+  describe('startLearning', () => {
+    const roadmapId = 'roadmap-1';
+    const userId = 'user-1';
+    const generatedAt = new Date('2025-04-24T07:00:00.000Z');
+    const updatedAt = new Date('2025-04-25T08:00:00.000Z');
+
+    const makeRoadmap = (isTemplate = false) => ({
+      deadlineDate: new Date('2025-10-01T00:00:00.000Z'),
+      description: 'A backend plan',
+      estimatedWeeks: null,
+      generatedAt,
+      goalName: 'Backend Intern at a product company',
+      hoursPerDay: createDecimal(2.5),
+      id: roadmapId,
+      isTemplate,
+      roleCategory: RoleCategory.WEB_DEVELOPMENT,
+      title: 'Backend roadmap',
+      updatedAt,
+      userId: isTemplate ? null : userId,
+    });
+
+    it('should mark an unstarted roadmap as started and unlock the first group leaves', async () => {
+      txMock.roadmap.findFirst.mockResolvedValue(makeRoadmap());
+      txMock.roadmapNode.findFirst.mockResolvedValueOnce({ id: 'group-1' });
+      txMock.userNodeProgress.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 2 });
+      txMock.userNodeProgress.findMany.mockResolvedValueOnce([
+        { roadmapNodeId: 'leaf-1' },
+        { roadmapNodeId: 'leaf-2' },
+      ]);
+
+      const result = await service.startLearning(userId, roadmapId);
+
+      const findRoadmapMock = txMock.roadmap.findFirst as jest.Mock<
+        Promise<Record<string, unknown> | null>,
+        [
+          {
+            select: { id?: boolean; isTemplate?: boolean };
+            where: {
+              id: string;
+              OR: Array<{ isTemplate: boolean; userId?: string }>;
+            };
+          },
+        ]
+      >;
+      const findRoadmapCall = findRoadmapMock.mock.calls[0]?.[0];
+
+      expect(findRoadmapCall).toEqual({
+        select: expectObjectContaining({ id: true, isTemplate: true }),
+        where: {
+          id: roadmapId,
+          OR: [{ isTemplate: true }, { isTemplate: false, userId }],
+        },
+      });
+      expect(txMock.roadmap.update).not.toHaveBeenCalled();
+      expect(txMock.roadmapNode.findFirst).toHaveBeenCalledWith({
+        where: { roadmapId, nodeType: NodeType.GROUP },
+        orderBy: [{ posY: 'asc' }, { id: 'asc' }],
+        select: { id: true },
+      });
+      expect(txMock.userNodeProgress.updateMany).toHaveBeenNthCalledWith(1, {
+        where: { userId, roadmapNodeId: 'group-1', status: NodeStatus.LOCKED },
+        data: { status: NodeStatus.IN_PROGRESS, startedAt: expectAnyDate() },
+      });
+      expect(txMock.userNodeProgress.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { userId, roadmapNodeId: { in: ['leaf-1', 'leaf-2'] } },
+        data: { status: NodeStatus.IN_PROGRESS, startedAt: expectAnyDate() },
+      });
+      expect(result.roadmap.id).toBe(roadmapId);
+      expect(result.roadmap.startedAt).toEqual(expect.any(String));
+      expect(result.unlockedNodes).toEqual(['group-1', 'leaf-1', 'leaf-2']);
+    });
+
+    it('should be idempotent when the roadmap is already started', async () => {
+      const startedAt = new Date('2025-04-24T07:30:00.000Z');
+      txMock.roadmap.findFirst.mockResolvedValue(makeRoadmap());
+      txMock.userNodeProgress.findFirst.mockResolvedValue({ startedAt });
+
+      const result = await service.startLearning(userId, roadmapId);
+
+      expect(txMock.roadmap.update).not.toHaveBeenCalled();
+      expect(txMock.userNodeProgress.updateMany).not.toHaveBeenCalled();
+      expect(result.roadmap.id).toBe(roadmapId);
+      expect(result.roadmap.startedAt).toBe(startedAt.toISOString());
+      expect(result.unlockedNodes).toEqual([]);
+    });
+
+    it('should create user progress rows before starting a template roadmap', async () => {
+      txMock.roadmap.findFirst.mockResolvedValue(makeRoadmap(true));
+      txMock.roadmapNode.findMany.mockResolvedValueOnce([{ id: 'group-1' }, { id: 'leaf-1' }]);
+      txMock.roadmapNode.findFirst.mockResolvedValueOnce({ id: 'group-1' });
+      txMock.userNodeProgress.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 1 });
+      txMock.userNodeProgress.findMany.mockResolvedValueOnce([{ roadmapNodeId: 'leaf-1' }]);
+
+      const result = await service.startLearning(userId, roadmapId);
+
+      expect(txMock.userNodeProgress.createMany).toHaveBeenCalledWith({
+        data: [
+          { userId, roadmapNodeId: 'group-1', status: NodeStatus.LOCKED },
+          { userId, roadmapNodeId: 'leaf-1', status: NodeStatus.LOCKED },
+        ],
+        skipDuplicates: true,
+      });
+      expect(result.roadmap.isTemplate).toBe(true);
+      expect(result.unlockedNodes).toEqual(['group-1', 'leaf-1']);
+    });
+
+    it('should throw 404 when roadmap is not owned by the user', async () => {
+      txMock.roadmap.findFirst.mockResolvedValue(null);
+
+      await expect(service.startLearning(userId, roadmapId)).rejects.toThrow(
         RoadmapNotFoundException,
       );
     });
@@ -1594,7 +1742,7 @@ describe('RoadmapsService', () => {
         where: {
           id: nodeId,
           roadmapId,
-          roadmap: { userId: MOCK_USER_ID },
+          roadmap: { OR: [{ isTemplate: true }, { isTemplate: false, userId: MOCK_USER_ID }] },
         },
         select: {
           id: true,
@@ -1888,7 +2036,7 @@ describe('RoadmapsService', () => {
         where: {
           id: nodeId,
           roadmapId,
-          roadmap: { userId: MOCK_USER_ID },
+          roadmap: { OR: [{ isTemplate: true }, { isTemplate: false, userId: MOCK_USER_ID }] },
         },
         select: {
           id: true,

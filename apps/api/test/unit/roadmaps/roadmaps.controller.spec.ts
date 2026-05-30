@@ -19,6 +19,7 @@ describe('RoadmapsController', () => {
     getProgressSummary: jest.fn(),
     listNodes: jest.fn(),
     listUserRoadmaps: jest.fn(),
+    startLearning: jest.fn(),
     submitMilestoneSubmission: jest.fn(),
     submitNodeQuiz: jest.fn(),
     updateNodeProgress: jest.fn(),
@@ -147,6 +148,7 @@ describe('RoadmapsController', () => {
         id: 'roadmap-1',
         isTemplate: false,
         roleCategory: 'WEB_DEVELOPMENT',
+        startedAt: null,
         title: 'Backend roadmap',
         updatedAt: '2025-04-25T08:00:00.000Z',
         userId: 'user-1',
@@ -205,6 +207,43 @@ describe('RoadmapsController', () => {
 
       expect(mockRoadmapsService.deleteByIdForOwner).toHaveBeenCalledWith('user-1', 'roadmap-1');
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('startLearning', () => {
+    it('should start a roadmap for the current user', async () => {
+      const user = {
+        id: 'user-1',
+        email: 'test@example.com',
+        fullName: 'Test User',
+        role: 'USER',
+        createdAt: new Date('2025-04-24T07:00:00Z'),
+      };
+      const response = {
+        roadmap: {
+          deadlineDate: null,
+          description: 'A backend plan',
+          estimatedWeeks: null,
+          generatedAt: '2025-04-24T07:00:00.000Z',
+          goalName: null,
+          hoursPerDay: null,
+          id: 'roadmap-1',
+          isTemplate: false,
+          roleCategory: 'WEB_DEVELOPMENT',
+          startedAt: '2025-04-24T07:30:00.000Z',
+          title: 'Backend roadmap',
+          updatedAt: '2025-04-25T08:00:00.000Z',
+          userId: 'user-1',
+        },
+        unlockedNodes: ['group-1', 'leaf-1'],
+      };
+
+      mockRoadmapsService.startLearning.mockResolvedValue(response);
+
+      const result = await controller.startLearning(user, 'roadmap-1');
+
+      expect(mockRoadmapsService.startLearning).toHaveBeenCalledWith('user-1', 'roadmap-1');
+      expect(result).toEqual(response);
     });
   });
 

@@ -8,6 +8,7 @@ export interface RoadmapDetail {
   id: string;
   isTemplate: boolean;
   roleCategory: string;
+  startedAt: null | string;
   title: string;
   updatedAt: string;
   userId: null | string;

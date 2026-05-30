@@ -5,12 +5,14 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { Button } from '@repo/design-system/components/ui/button';
 import { Card, CardContent } from '@repo/design-system/components/ui/card';
 import { Skeleton } from '@repo/design-system/components/ui/skeleton';
+import { toast } from '@repo/design-system/lib/toast';
 import { useEffect, useMemo, useState } from 'react';
 
 import { HeroGradient } from '@/components/shared/hero-gradient';
 import { MaskBackground } from '@/components/shared/mask-background';
+import { roadmapService } from '@/services/roadmap.service';
 
-import type { DashboardActiveRoadmap } from '../_types/dashboard.types';
+import type { DashboardRoadmap } from '../_types/dashboard.types';
 
 import { useDashboard } from '../_hooks/use-dashboard';
 import { DashboardEmptyState } from './dashboard-empty-state';
@@ -18,9 +20,9 @@ import { DashboardMain } from './dashboard-main';
 import { DashboardSectionContainer } from './dashboard-section-container';
 import { DashboardSidebar } from './dashboard-sidebar';
 
-const EMPTY_ACTIVE_ROADMAPS: DashboardActiveRoadmap[] = [];
+const EMPTY_ACTIVE_ROADMAPS: DashboardRoadmap[] = [];
 
-function getDefaultFocusRoadmap(roadmaps: DashboardActiveRoadmap[]): DashboardActiveRoadmap | null {
+function getDefaultFocusRoadmap(roadmaps: DashboardRoadmap[]): DashboardRoadmap | null {
   if (roadmaps.length === 0) return null;
 
   return (
@@ -58,30 +60,36 @@ function DashboardSkeleton() {
 export function DashboardContent() {
   const { dashboard, errorMessage, isLoading, refreshDashboard } = useDashboard();
   const [selectedRoadmapId, setSelectedRoadmapId] = useState<null | string>(null);
-  const activeRoadmaps = dashboard?.activeRoadmaps ?? EMPTY_ACTIVE_ROADMAPS;
-  const defaultFocusRoadmap = useMemo(
-    () => getDefaultFocusRoadmap(activeRoadmaps),
-    [activeRoadmaps],
-  );
+  const roadmaps = dashboard?.roadmaps ?? EMPTY_ACTIVE_ROADMAPS;
+  const defaultFocusRoadmap = useMemo(() => getDefaultFocusRoadmap(roadmaps), [roadmaps]);
   const selectedRoadmap =
-    activeRoadmaps.find((roadmap) => roadmap.roadmapId === selectedRoadmapId) ??
-    defaultFocusRoadmap;
-  const hasAnyRoadmap = dashboard
-    ? dashboard.activeRoadmaps.length > 0 || dashboard.userRoadmaps.length > 0
-    : false;
+    roadmaps.find((roadmap) => roadmap.roadmapId === selectedRoadmapId) ?? defaultFocusRoadmap;
+  const hasAnyRoadmap = dashboard ? dashboard.roadmaps.length > 0 : false;
+
+  const handleDeleteRoadmap = async (roadmapId: string) => {
+    try {
+      await roadmapService.deleteRoadmap(roadmapId);
+      toast.success('Roadmap deleted successfully');
+
+      if (selectedRoadmapId === roadmapId) {
+        setSelectedRoadmapId(null);
+      }
+
+      await refreshDashboard();
+    } catch {
+      toast.error('Failed to delete roadmap');
+    }
+  };
 
   useEffect(() => {
-    if (!defaultFocusRoadmap) {
-      setSelectedRoadmapId(null);
-      return;
+    if (selectedRoadmapId && roadmaps.length > 0) {
+      const stillExists = roadmaps.some((roadmap) => roadmap.roadmapId === selectedRoadmapId);
+
+      if (!stillExists && defaultFocusRoadmap) {
+        setSelectedRoadmapId(defaultFocusRoadmap.roadmapId);
+      }
     }
-
-    setSelectedRoadmapId((currentRoadmapId) => {
-      const stillExists = activeRoadmaps.some((roadmap) => roadmap.roadmapId === currentRoadmapId);
-
-      return stillExists ? currentRoadmapId : defaultFocusRoadmap.roadmapId;
-    });
-  }, [activeRoadmaps, defaultFocusRoadmap]);
+  }, [roadmaps, defaultFocusRoadmap, selectedRoadmapId]);
 
   return (
     <main className="flex flex-1 flex-col pt-28 pb-8 sm:pt-32">
@@ -124,7 +132,7 @@ export function DashboardContent() {
         ) : dashboard && hasAnyRoadmap ? (
           <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
             <DashboardSidebar
-              profile={dashboard.userProfile}
+              userProfile={dashboard.userProfile}
               roadmapStatus={dashboard.roadmapStatus}
               skillCategories={dashboard.skillCategories}
               summary={dashboard.summary}
@@ -133,6 +141,7 @@ export function DashboardContent() {
             <DashboardMain
               dashboard={dashboard}
               selectedRoadmap={selectedRoadmap}
+              onDeleteRoadmap={handleDeleteRoadmap}
               onSelectRoadmap={setSelectedRoadmapId}
             />
           </div>

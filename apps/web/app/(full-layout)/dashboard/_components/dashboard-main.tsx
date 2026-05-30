@@ -1,6 +1,6 @@
 import { Badge } from '@repo/design-system/components/ui/badge';
 
-import type { Dashboard, DashboardActiveRoadmap } from '../_types/dashboard.types';
+import type { Dashboard, DashboardRoadmap } from '../_types/dashboard.types';
 
 import { DashboardActiveRoadmapsTable } from './dashboard-active-roadmaps-table';
 import { DashboardCurrentRoadmap } from './dashboard-current-roadmap';
@@ -9,10 +9,16 @@ import { DashboardOverallProgress } from './dashboard-overall-progress';
 interface DashboardMainProps {
   dashboard: Dashboard;
   onSelectRoadmap: (roadmapId: string) => void;
-  selectedRoadmap: DashboardActiveRoadmap | null;
+  onDeleteRoadmap: (roadmapId: string) => void;
+  selectedRoadmap: DashboardRoadmap | null;
 }
 
-export function DashboardMain({ dashboard, onSelectRoadmap, selectedRoadmap }: DashboardMainProps) {
+export function DashboardMain({
+  dashboard,
+  onSelectRoadmap,
+  onDeleteRoadmap,
+  selectedRoadmap,
+}: DashboardMainProps) {
   const firstName = dashboard.userProfile.fullName.split(' ')[0] || 'there';
 
   return (
@@ -33,19 +39,14 @@ export function DashboardMain({ dashboard, onSelectRoadmap, selectedRoadmap }: D
       </div>
 
       <div className="grid gap-4 2xl:grid-cols-[minmax(0,0.85fr)_minmax(520px,1.15fr)]">
-        <DashboardOverallProgress
-          summary={dashboard.summary}
-          activeRoadmaps={dashboard.activeRoadmaps}
-          selectedRoadmapId={selectedRoadmap?.roadmapId ?? null}
-          userRoadmaps={dashboard.userRoadmaps}
-          onSelectRoadmap={onSelectRoadmap}
-        />
+        <DashboardOverallProgress summary={dashboard.summary} />
         <DashboardCurrentRoadmap roadmap={selectedRoadmap} />
       </div>
 
       <DashboardActiveRoadmapsTable
-        roadmaps={dashboard.activeRoadmaps}
+        roadmaps={dashboard.roadmaps}
         selectedRoadmapId={selectedRoadmap?.roadmapId ?? null}
+        onDeleteRoadmap={onDeleteRoadmap}
         onSelectRoadmap={onSelectRoadmap}
       />
     </div>

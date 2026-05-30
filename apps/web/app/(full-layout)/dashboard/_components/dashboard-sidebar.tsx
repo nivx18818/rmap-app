@@ -13,10 +13,8 @@ import {
   DrawerTrigger,
 } from '@repo/design-system/components/ui/drawer';
 
-import type { DashboardSidebarContentProps } from './sidebar/sidebar-content';
-
 import { getInitials } from '../_utils/formatters';
-import { SidebarContent } from './sidebar/sidebar-content';
+import { SidebarContent, type DashboardSidebarContentProps } from './sidebar/sidebar-content';
 
 export function DashboardSidebar(props: DashboardSidebarContentProps) {
   return (
@@ -31,14 +29,14 @@ export function DashboardSidebar(props: DashboardSidebarContentProps) {
             <Button variant="outline" className="h-auto w-full justify-between py-3">
               <div className="flex items-center gap-3">
                 <Avatar className="size-8 rounded-lg">
-                  <AvatarImage alt={props.profile.fullName} src={props.profile.avatarUrl} />
+                  <AvatarImage alt={props.userProfile.fullName} src={props.userProfile.avatarUrl} />
                   <AvatarFallback className="rounded-lg">
-                    {getInitials(props.profile.fullName)}
+                    {getInitials(props.userProfile.fullName)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col items-start">
                   <span className="text-foreground text-sm font-semibold">
-                    {props.profile.fullName}
+                    {props.userProfile.fullName}
                   </span>
                   <span className="text-muted-foreground text-xs">View Profile & Stats</span>
                 </div>

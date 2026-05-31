@@ -1,0 +1,27 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "..",
+  "displayName": "api-integration",
+  "roots": ["<rootDir>", "<rootDir>/../../packages/database/generated/prisma"],
+  "testEnvironment": "node",
+  "testMatch": ["<rootDir>/test/integration/**/*.integration-spec.ts"],
+  "extensionsToTreatAsEsm": [".ts"],
+  "moduleNameMapper": {
+    "^@/(.*)$": "<rootDir>/src/$1",
+    "^@repo/db/prisma/(.*)$": "<rootDir>/../../packages/database/generated/prisma/$1.ts",
+    "^@dagrejs/dagre$": "<rootDir>/test/integration/utils/dagre.mock.ts"
+  },
+  "transform": {
+    "^.+\\.ts$": [
+      "ts-jest",
+      {
+        "tsconfig": "<rootDir>/test/tsconfig.integration.json",
+        "useESM": true
+      }
+    ]
+  },
+  "transformIgnorePatterns": ["[/\\\\]node_modules[/\\\\](?!@repo[/\\\\]db)"],
+  "collectCoverageFrom": ["src/**/*.(t|j)s"],
+  "coverageReporters": ["text", "lcov", "json-summary"],
+  "coverageDirectory": "../../coverage/apps/api"
+}

@@ -9,6 +9,21 @@ jobs:
   checks:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: rmap_test
+          POSTGRES_PASSWORD: rmap
+          POSTGRES_USER: rmap
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rmap -d rmap_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -28,7 +43,7 @@ jobs:
       - name: Lint
         run: pnpm lint
         env:
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          DIRECT_URL: postgresql://rmap:rmap@localhost:5432/rmap_test
 
       - name: Typecheck
         run: pnpm check-types
@@ -39,8 +54,27 @@ jobs:
       - name: Build
         run: pnpm build
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          DATABASE_URL: postgresql://rmap:rmap@localhost:5432/rmap_test
+          DIRECT_URL: postgresql://rmap:rmap@localhost:5432/rmap_test
+
+      - name: Unit tests
+        run: pnpm --filter api test
+
+      - name: Deploy test database migrations
+        run: pnpm --filter @repo/db db:deploy
+        env:
+          DIRECT_URL: postgresql://rmap:rmap@localhost:5432/rmap_test
+
+      - name: Integration tests
+        run: pnpm --filter api test:integration
+        env:
+          CLIENT_URL: http://localhost:3000
+          DATABASE_URL: postgresql://rmap:rmap@localhost:5432/rmap_test
+          DIRECT_URL: postgresql://rmap:rmap@localhost:5432/rmap_test
+          JWT_REFRESH_SECRET: test-refresh-secret
+          JWT_REFRESH_TOKEN_HASH_SECRET: test-refresh-hash-secret
+          JWT_SECRET: test-access-secret
+          NODE_ENV: test
 
       # - name: Test
       #   run: pnpm test --if-present

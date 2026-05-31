@@ -11,8 +11,8 @@
     "JWT_SECRET",
     "JWT_REFRESH_SECRET",
     "JWT_REFRESH_TOKEN_HASH_SECRET",
-    "E2E_ALLOW_DB_RESET",
-    "E2E_SKIP_IF_DB_UNREACHABLE"
+    "INTEGRATION_ALLOW_DB_RESET",
+    "E2E_ALLOW_DB_RESET"
   ],
   "tasks": {
     "build": {
@@ -22,6 +22,9 @@
     },
     "lint": {
       "dependsOn": ["^lint", "^db:generate"]
+    },
+    "test": {
+      "outputs": ["coverage/**"]
     },
     "check-types": {
       "dependsOn": ["^check-types"]

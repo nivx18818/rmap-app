@@ -12,6 +12,8 @@ export default {
   testEnvironment: 'node',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^@dagrejs/dagre$': '<rootDir>/test/integration/utils/dagre.mock.ts',
+    '^nodemailer$': '<rootDir>/test/utils/nodemailer.mock.ts',
     '^@repo/db/prisma/client$': '<rootDir>/test/utils/prisma-client.mock.ts',
     '^@repo/db/prisma/internal/prismaNamespace$': '<rootDir>/test/utils/prisma-namespace.mock.ts',
   },

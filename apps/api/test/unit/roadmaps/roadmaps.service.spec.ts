@@ -11,15 +11,17 @@ import {
 } from '@repo/db/prisma/client';
 
 import {
-  AppBadRequestException,
   DeadlineInPastException,
   InvalidStatusTransitionException,
   MilestoneSubmissionInProgressException,
   MilestoneSubmissionInvalidCommandException,
+  MilestoneSubmissionInvalidStateException,
   MilestoneSubmissionInvalidUrlException,
   MilestoneTestsNotPassedException,
   NodeQuizGenerationUnavailableException,
   QuizNotPassedException,
+  QuizSubmissionInvalidException,
+  RoadmapNodeProgressInvalidUpdateException,
   RoadmapGenerationUnavailableException,
   RoadmapNodeNotFoundException,
   RoadmapNotFoundException,
@@ -2312,7 +2314,7 @@ describe('RoadmapsService', () => {
 
       await expect(
         service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, submitDto),
-      ).rejects.toMatchObject({ status: 400 });
+      ).rejects.toThrow(QuizSubmissionInvalidException);
       expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
     });
 
@@ -2327,7 +2329,7 @@ describe('RoadmapsService', () => {
             { questionId: 'question-5', selectedOption: 'A' },
           ],
         }),
-      ).rejects.toMatchObject({ status: 400 });
+      ).rejects.toThrow(QuizSubmissionInvalidException);
       expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
     });
 
@@ -2336,7 +2338,7 @@ describe('RoadmapsService', () => {
         service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, {
           answers: submitDto.answers.slice(0, 4),
         }),
-      ).rejects.toMatchObject({ status: 400 });
+      ).rejects.toThrow(QuizSubmissionInvalidException);
       expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
     });
 
@@ -2345,7 +2347,7 @@ describe('RoadmapsService', () => {
         service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, {
           answers: [...submitDto.answers, { questionId: 'question-6', selectedOption: 'A' }],
         }),
-      ).rejects.toMatchObject({ status: 400 });
+      ).rejects.toThrow(QuizSubmissionInvalidException);
       expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
     });
 
@@ -2362,7 +2364,7 @@ describe('RoadmapsService', () => {
             { questionId: 'unknown-question', selectedOption: 'A' },
           ],
         }),
-      ).rejects.toMatchObject({ status: 400 });
+      ).rejects.toThrow(QuizSubmissionInvalidException);
       expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
     });
   });
@@ -2460,6 +2462,22 @@ describe('RoadmapsService', () => {
           repoUrl: 'https://github.com/acme/api-project',
         }),
       ).rejects.toThrow(RoadmapNodeNotFoundException);
+      expect(txMock.milestoneSubmission.create).not.toHaveBeenCalled();
+    });
+
+    it('should reject non-milestone project submissions with a custom exception', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.REQUIRED,
+        skillId: 'skill-1',
+        userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
+      });
+
+      await expect(
+        service.submitMilestoneSubmission(MOCK_USER_ID, roadmapId, nodeId, {
+          repoUrl: 'https://github.com/acme/api-project',
+        }),
+      ).rejects.toThrow(MilestoneSubmissionInvalidStateException);
       expect(txMock.milestoneSubmission.create).not.toHaveBeenCalled();
     });
 
@@ -2647,7 +2665,7 @@ describe('RoadmapsService', () => {
         service.updateNodeProgress(MOCK_USER_ID, roadmapId, nodeId, {
           status: NodeStatus.COMPLETED,
         }),
-      ).rejects.toThrow(AppBadRequestException);
+      ).rejects.toThrow(RoadmapNodeProgressInvalidUpdateException);
       expect(prisma.userNodeProgress.findUnique).not.toHaveBeenCalled();
       expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(txMock.dailyActivity.upsert).not.toHaveBeenCalled();

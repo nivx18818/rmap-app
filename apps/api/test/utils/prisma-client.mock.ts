@@ -65,3 +65,8 @@ export const MilestoneSubmissionStatus = {
   FAILED: 'FAILED',
   ERROR: 'ERROR',
 } as const;
+
+export const UserRole = {
+  USER: 'USER',
+  ADMIN: 'ADMIN',
+} as const;

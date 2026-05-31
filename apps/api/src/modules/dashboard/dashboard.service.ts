@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   NodeStatus,
   NodeType,
@@ -10,7 +10,11 @@ import {
 import type { RoadmapResponseDto } from '@/modules/roadmaps/dto/roadmap-response.dto';
 import type { TimelineWarningResponse } from '@/modules/roadmaps/types/roadmap-progress.types';
 
-import { UserNotFoundException } from '@/common/exceptions/app.exceptions';
+import {
+  ActivityDateInvalidException,
+  ActivityDateRangeInvalidException,
+  UserNotFoundException,
+} from '@/common/exceptions/app.exceptions';
 import {
   calculateLongestStreakDays,
   calculateStreakDays,
@@ -452,7 +456,7 @@ export class DashboardService {
     const from = query.from ? this.parseDateOnly(query.from) : subtractUtcDays(to, 29);
 
     if (from.getTime() > to.getTime()) {
-      throw new BadRequestException('Invalid activity date range');
+      throw new ActivityDateRangeInvalidException();
     }
 
     return { from, to };
@@ -462,7 +466,7 @@ export class DashboardService {
     const date = new Date(`${value}T00:00:00.000Z`);
 
     if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
-      throw new BadRequestException('Invalid activity date');
+      throw new ActivityDateInvalidException();
     }
 
     return date;

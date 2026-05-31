@@ -1,10 +1,16 @@
 import type { TestingModule } from '@nestjs/testing';
 import type { NodeStatus, NodeType, RoleCategory, UserRole } from '@repo/db/prisma/client';
 
+import { HttpException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { NodeStatus as NodeStatusValue, NodeType as NodeTypeValue } from '@repo/db/prisma/client';
 
-import { UserNotFoundException } from '@/common/exceptions/app.exceptions';
+import { ErrorCode } from '@/common/constants/error-codes';
+import {
+  ActivityDateInvalidException,
+  ActivityDateRangeInvalidException,
+  UserNotFoundException,
+} from '@/common/exceptions/app.exceptions';
 import { DashboardService } from '@/modules/dashboard/dashboard.service';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
@@ -79,6 +85,28 @@ const createPrismaMock = (): DashboardPrismaMock => ({
 const expectObjectContaining = <T extends object>(value: T): T =>
   expect.objectContaining(value) as T;
 
+const expectExceptionCode = async (promise: Promise<unknown>, code: ErrorCode): Promise<void> => {
+  let caught: unknown;
+
+  try {
+    await promise;
+  } catch (error) {
+    caught = error;
+  }
+
+  if (!(caught instanceof HttpException)) {
+    throw new Error('Expected promise to reject with an HttpException');
+  }
+
+  const response = caught.getResponse();
+
+  if (typeof response !== 'object' || response === null) {
+    throw new Error('Expected exception response to be an object');
+  }
+
+  expect(response).toMatchObject({ code });
+};
+
 const createUserRecord = (overrides: Partial<DashboardUserRecord> = {}): DashboardUserRecord => ({
   id: MOCK_USER_ID,
   email: 'test@example.com',
@@ -138,7 +166,7 @@ describe('DashboardService', () => {
     jest.clearAllMocks();
   });
 
-  it('should query dashboard payload with active and user roadmaps', async () => {
+  it('should query dashboard payload with active template and user roadmaps', async () => {
     prisma.user.findUnique.mockResolvedValue(createUserRecord());
 
     await service.getDashboard(MOCK_USER_ID);
@@ -154,20 +182,138 @@ describe('DashboardService', () => {
     expect(prisma.roadmap.findMany).toHaveBeenNthCalledWith(
       1,
       expectObjectContaining({
-        where: expectObjectContaining({
-          OR: [{ isTemplate: true }, { isTemplate: false, userId: MOCK_USER_ID }],
-        }) as object,
-      }),
-    );
-    expect(prisma.roadmap.findMany).toHaveBeenNthCalledWith(
-      2,
-      expectObjectContaining({
-        where: { isTemplate: false, userId: MOCK_USER_ID },
+        where: {
+          OR: [
+            { isTemplate: false, userId: MOCK_USER_ID },
+            {
+              isTemplate: true,
+              nodes: {
+                some: {
+                  userNodeProgress: {
+                    some: {
+                      startedAt: { not: null },
+                      userId: MOCK_USER_ID,
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
       }),
     );
   });
 
-  it('should return active_roadmap null when the user has no roadmap', async () => {
+  it('should query the current user activity payload', async () => {
+    prisma.user.findUnique.mockResolvedValue(createUserRecord());
+
+    await service.getActivitySummary(MOCK_USER_ID);
+
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: MOCK_USER_ID },
+      select: {
+        dailyActivity: {
+          orderBy: [{ activityDate: 'desc' }, { id: 'asc' }],
+          select: {
+            activityDate: true,
+            nodesCompleted: true,
+          },
+        },
+      },
+    });
+  });
+
+  it('should return empty activity state with a zero-filled default range', async () => {
+    prisma.user.findUnique.mockResolvedValue(createUserRecord());
+
+    const result = await service.getActivitySummary(MOCK_USER_ID);
+
+    expect(result.streakDays).toBe(0);
+    expect(result.longestStreak).toBe(0);
+    expect(result.activity).toHaveLength(30);
+    expect(result.activity[0]).toEqual({
+      activityDate: '2026-04-21',
+      nodesCompleted: 0,
+    });
+    expect(result.activity[29]).toEqual({
+      activityDate: '2026-05-20',
+      nodesCompleted: 0,
+    });
+  });
+
+  it('should return populated activity with current and longest streaks', async () => {
+    prisma.user.findUnique.mockResolvedValue(
+      createUserRecord({
+        dailyActivity: [
+          { activityDate: new Date('2026-05-20T00:00:00Z'), nodesCompleted: 2 },
+          { activityDate: new Date('2026-05-19T00:00:00Z'), nodesCompleted: 1 },
+          { activityDate: new Date('2026-05-18T00:00:00Z'), nodesCompleted: 0 },
+          { activityDate: new Date('2026-05-16T00:00:00Z'), nodesCompleted: 1 },
+          { activityDate: new Date('2026-05-15T00:00:00Z'), nodesCompleted: 3 },
+          { activityDate: new Date('2026-05-14T00:00:00Z'), nodesCompleted: 1 },
+        ],
+      }),
+    );
+
+    const result = await service.getActivitySummary(MOCK_USER_ID, {
+      from: '2026-05-14',
+      to: '2026-05-20',
+    });
+
+    expect(result.streakDays).toBe(2);
+    expect(result.longestStreak).toBe(3);
+    expect(result.activity).toEqual([
+      { activityDate: '2026-05-14', nodesCompleted: 1 },
+      { activityDate: '2026-05-15', nodesCompleted: 3 },
+      { activityDate: '2026-05-16', nodesCompleted: 1 },
+      { activityDate: '2026-05-17', nodesCompleted: 0 },
+      { activityDate: '2026-05-18', nodesCompleted: 0 },
+      { activityDate: '2026-05-19', nodesCompleted: 1 },
+      { activityDate: '2026-05-20', nodesCompleted: 2 },
+    ]);
+  });
+
+  it('should default activity from date to 30 days before a custom to date', async () => {
+    prisma.user.findUnique.mockResolvedValue(createUserRecord());
+
+    const result = await service.getActivitySummary(MOCK_USER_ID, { to: '2026-05-10' });
+
+    expect(result.activity).toHaveLength(30);
+    expect(result.activity[0]?.activityDate).toBe('2026-04-11');
+    expect(result.activity[29]?.activityDate).toBe('2026-05-10');
+  });
+
+  it('should reject invalid activity ranges', async () => {
+    const promise = service.getActivitySummary(MOCK_USER_ID, {
+      from: '2026-05-21',
+      to: '2026-05-20',
+    });
+
+    await expect(promise).rejects.toThrow(ActivityDateRangeInvalidException);
+    await expectExceptionCode(promise, ErrorCode.ACTIVITY_DATE_RANGE_INVALID);
+
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('should reject invalid activity date values', async () => {
+    const promise = service.getActivitySummary(MOCK_USER_ID, {
+      from: '2026-02-30',
+      to: '2026-05-20',
+    });
+
+    await expect(promise).rejects.toThrow(ActivityDateInvalidException);
+    await expectExceptionCode(promise, ErrorCode.ACTIVITY_DATE_INVALID);
+
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('should throw UserNotFoundException when the activity user is missing', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+
+    await expect(service.getActivitySummary(MOCK_USER_ID)).rejects.toThrow(UserNotFoundException);
+  });
+
+  it('should return empty roadmap state when the user has no roadmap', async () => {
     prisma.user.findUnique.mockResolvedValue(
       createUserRecord({
         dailyActivity: [{ activityDate: new Date('2026-05-19T00:00:00Z'), nodesCompleted: 1 }],
@@ -216,49 +362,52 @@ describe('DashboardService', () => {
         ],
       }),
     );
-    prisma.roadmap.findMany
-      .mockResolvedValueOnce([
-        createRoadmapRecord({
-          nodes: [
-            {
-              id: 'group-1',
-              nodeType: NodeTypeValue.GROUP,
-              estimatedHours: null,
-              userNodeProgress: [
-                { startedAt: new Date('2026-05-19T00:00:00Z'), status: NodeStatusValue.COMPLETED },
-              ],
-            },
-            {
-              id: 'required-1',
-              nodeType: NodeTypeValue.REQUIRED,
-              estimatedHours: 2,
-              userNodeProgress: [
-                { startedAt: new Date('2026-05-19T00:00:00Z'), status: NodeStatusValue.COMPLETED },
-              ],
-            },
-            {
-              id: 'required-2',
-              nodeType: NodeTypeValue.REQUIRED,
-              estimatedHours: 4,
-              userNodeProgress: [
-                {
-                  startedAt: new Date('2026-05-19T00:00:00Z'),
-                  status: NodeStatusValue.IN_PROGRESS,
-                },
-              ],
-            },
-            {
-              id: 'optional-1',
-              nodeType: NodeTypeValue.OPTIONAL,
-              estimatedHours: 3,
-              userNodeProgress: [
-                { startedAt: new Date('2026-05-19T00:00:00Z'), status: NodeStatusValue.COMPLETED },
-              ],
-            },
-          ],
-        }),
-      ])
-      .mockResolvedValueOnce([createRoadmapRecord()]);
+    prisma.roadmap.findMany.mockResolvedValue([
+      createRoadmapRecord({
+        id: 'active-roadmap',
+        nodes: [
+          {
+            id: 'group-1',
+            nodeType: NodeTypeValue.GROUP,
+            estimatedHours: null,
+            userNodeProgress: [
+              { startedAt: new Date('2026-05-19T00:00:00Z'), status: NodeStatusValue.COMPLETED },
+            ],
+          },
+          {
+            id: 'required-1',
+            nodeType: NodeTypeValue.REQUIRED,
+            estimatedHours: 2,
+            userNodeProgress: [
+              { startedAt: new Date('2026-05-19T00:00:00Z'), status: NodeStatusValue.COMPLETED },
+            ],
+          },
+          {
+            id: 'required-2',
+            nodeType: NodeTypeValue.REQUIRED,
+            estimatedHours: 4,
+            userNodeProgress: [
+              {
+                startedAt: new Date('2026-05-19T00:00:00Z'),
+                status: NodeStatusValue.IN_PROGRESS,
+              },
+            ],
+          },
+          {
+            id: 'optional-1',
+            nodeType: NodeTypeValue.OPTIONAL,
+            estimatedHours: 3,
+            userNodeProgress: [
+              { startedAt: new Date('2026-05-19T00:00:00Z'), status: NodeStatusValue.COMPLETED },
+            ],
+          },
+        ],
+      }),
+      createRoadmapRecord({
+        id: 'not-started-roadmap',
+        title: 'Not started roadmap',
+      }),
+    ]);
 
     const result = await service.getDashboard(MOCK_USER_ID);
 
@@ -271,7 +420,7 @@ describe('DashboardService', () => {
         goalName: 'Backend Engineer',
         isTemplate: false,
         roleCategory: 'WEB_DEVELOPMENT',
-        roadmapId: 'roadmap-1',
+        roadmapId: 'active-roadmap',
         startedAt: '2026-05-19T00:00:00.000Z',
         streakDays: 2,
         skillReadinessPct: 50,
@@ -283,9 +432,9 @@ describe('DashboardService', () => {
     );
     expect(result.roadmaps[1]).toEqual(
       expectObjectContaining({
-        id: 'roadmap-1',
+        roadmapId: 'not-started-roadmap',
         startedAt: null,
-        title: 'Backend roadmap',
+        title: 'Not started roadmap',
       }),
     );
     expect(result.streakDays).toBe(2);
@@ -361,9 +510,7 @@ describe('DashboardService', () => {
     });
 
     prisma.user.findUnique.mockResolvedValue(createUserRecord());
-    prisma.roadmap.findMany
-      .mockResolvedValueOnce([completedRoadmap, behindRoadmap])
-      .mockResolvedValueOnce([completedRoadmap, behindRoadmap, notStartedRoadmap]);
+    prisma.roadmap.findMany.mockResolvedValue([completedRoadmap, behindRoadmap, notStartedRoadmap]);
 
     const result = await service.getDashboard(MOCK_USER_ID);
 

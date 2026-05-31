@@ -2,6 +2,7 @@
 import type { TestingModule } from '@nestjs/testing';
 
 import { Test } from '@nestjs/testing';
+import { UserRole, type User } from '@repo/db/prisma/client';
 import { PrismaClientKnownRequestError } from '@repo/db/prisma/internal/prismaNamespace';
 
 import { EmailAlreadyExistsException } from '@/common/exceptions/app.exceptions';
@@ -11,6 +12,17 @@ import { UserService } from '@/modules/user/user.service';
 import type { Context, MockContext } from '../../utils/prisma-mock';
 
 import { createMockContext, resetMockContext } from '../../utils/prisma-mock';
+
+const makeUser = (overrides: Partial<User> = {}): User => ({
+  createdAt: new Date('2025-04-24T07:00:00.000Z'),
+  email: 'test@example.com',
+  fullName: 'Test',
+  id: '1',
+  passwordHash: 'hash',
+  role: UserRole.USER,
+  updatedAt: new Date('2025-04-24T07:00:00.000Z'),
+  ...overrides,
+});
 
 describe('UserService', () => {
   let service: UserService;
@@ -43,15 +55,7 @@ describe('UserService', () => {
 
   describe('findByEmail', () => {
     it('should return a user if found', async () => {
-      const mockUser = {
-        id: '1',
-        email: 'test@example.com',
-        fullName: 'Test',
-        passwordHash: 'hash',
-        role: 'USER' as const,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      const mockUser = makeUser();
       mockCtx.prisma.user.findUnique.mockResolvedValue(mockUser);
 
       const result = await service.findByEmail('test@example.com');
@@ -65,15 +69,7 @@ describe('UserService', () => {
 
   describe('findById', () => {
     it('should return a user if found', async () => {
-      const mockUser = {
-        id: '1',
-        email: 'test@example.com',
-        fullName: 'Test',
-        passwordHash: 'hash',
-        role: 'USER' as const,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      const mockUser = makeUser();
       mockCtx.prisma.user.findUnique.mockResolvedValue(mockUser);
 
       const result = await service.findById('1');
@@ -88,13 +84,7 @@ describe('UserService', () => {
   describe('create', () => {
     it('should successfully create a user', async () => {
       const createUserDto = { email: 'test@example.com', passwordHash: 'hash', fullName: 'Test' };
-      const mockUser = {
-        id: '1',
-        ...createUserDto,
-        role: 'USER' as const,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      const mockUser = makeUser(createUserDto);
       mockCtx.prisma.user.create.mockResolvedValue(mockUser);
 
       const result = await service.create(createUserDto);
@@ -123,15 +113,13 @@ describe('UserService', () => {
   describe('updateProfile', () => {
     it('should update and return the user', async () => {
       const mockUser = {
-        id: '1',
+        createdAt: new Date('2025-04-24T07:00:00Z'),
         email: 'test@example.com',
         fullName: 'New Name',
-        role: 'USER' as const,
-        createdAt: new Date('2025-04-24T07:00:00Z'),
-        passwordHash: 'hash',
-        updatedAt: new Date(),
+        id: '1',
+        role: UserRole.USER,
       };
-      mockCtx.prisma.user.update.mockResolvedValue(mockUser);
+      mockCtx.prisma.user.update.mockResolvedValue(mockUser as unknown as User);
 
       const result = await service.updateProfile('1', { fullName: 'New Name' });
 

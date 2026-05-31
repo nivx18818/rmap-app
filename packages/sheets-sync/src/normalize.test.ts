@@ -10,14 +10,23 @@ test('normalizes issue content and Project v2 field values', () => {
     content: {
       __typename: 'Issue',
       assignees: { nodes: [{ login: 'alice' }, { login: 'bob' }] },
+      body: [
+        '## Description',
+        '',
+        'Create the roadmap progress API endpoints.',
+        '',
+        '## Problem',
+        '',
+        'Learners need progress tracking.',
+      ].join('\n'),
       closedByPullRequestsReferences: {
         nodes: [{ url: 'https://github.com/nivx18818/rmap-app/pull/2' }],
       },
-      labels: { nodes: [{ name: 'backend' }] },
+      labels: { nodes: [{ name: 'type: feature' }, { name: 'area: backend' }] },
       number: 12,
       repository: { nameWithOwner: 'nivx18818/rmap-app' },
       state: 'OPEN',
-      title: 'Build roadmap progress API',
+      title: '[FEATURE] Build roadmap progress API',
       updatedAt: '2026-05-30T10:00:00Z',
       url: 'https://github.com/nivx18818/rmap-app/issues/12',
     },
@@ -37,9 +46,9 @@ test('normalizes issue content and Project v2 field values', () => {
   const normalized = normalizeProjectItem(item);
 
   assert.equal(normalized.syncKey, 'nivx18818/rmap-app#12');
-  assert.equal(normalized.row.Area, 'API');
-  assert.equal(normalized.row.Feature, 'Progress');
-  assert.equal(normalized.row['Task Detail'], 'Build roadmap progress API');
+  assert.equal(normalized.row.Area, 'backend');
+  assert.equal(normalized.row.Feature, 'Build roadmap progress API');
+  assert.equal(normalized.row['Task Detail'], 'Create the roadmap progress API endpoints.');
   assert.equal(normalized.row.Assignee, 'alice, bob');
   assert.equal(normalized.row.Size, '5');
   assert.equal(normalized.row.Status, 'In Progress');
@@ -49,6 +58,36 @@ test('normalizes issue content and Project v2 field values', () => {
   assert.equal(normalized.row['Updated At'], '2026-05-31T01:00:00Z');
   assert.equal(normalized.row.Archived, 'FALSE');
   assert.match(normalized.syncHash, /^[a-f0-9]{64}$/);
+});
+
+test('strips improvement issue title prefixes and derives frontend area labels', () => {
+  const item = {
+    content: {
+      __typename: 'Issue',
+      body: [
+        '## Description',
+        '',
+        'Improve the dashboard layout.',
+        '',
+        '## Scope',
+        '',
+        '- Sidebar',
+      ].join('\n'),
+      labels: { nodes: [{ name: 'area: frontend' }] },
+      number: 14,
+      repository: { nameWithOwner: 'nivx18818/rmap-app' },
+      state: 'OPEN',
+      title: '[IMPROVEMENT] Refine dashboard layout',
+      url: 'https://github.com/nivx18818/rmap-app/issues/14',
+    },
+    id: 'PVTI_improvement',
+  } satisfies ProjectItem;
+
+  const normalized = normalizeProjectItem(item);
+
+  assert.equal(normalized.row.Area, 'frontend');
+  assert.equal(normalized.row.Feature, 'Refine dashboard layout');
+  assert.equal(normalized.row['Task Detail'], 'Improve the dashboard layout.');
 });
 
 test('falls back to linked pull requests for issue evidence', () => {

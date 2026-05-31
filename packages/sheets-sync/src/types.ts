@@ -119,6 +119,7 @@ export interface LabelRef {
 export interface IssueContent {
   __typename: 'Issue';
   assignees?: GraphqlNodeList<AssigneeRef> | null;
+  body?: string | null;
   closedByPullRequestsReferences?: GraphqlNodeList<{ url?: string | null }> | null;
   labels?: GraphqlNodeList<LabelRef> | null;
   number?: number | null;

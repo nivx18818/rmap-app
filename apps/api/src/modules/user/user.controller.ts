@@ -24,6 +24,12 @@ export class UserController {
   }
 
   private formatCreateUserProfile(user: CreateUserProfileDto): CreateUserProfileDto {
-    return { ...user, role: user.role.toLowerCase() };
+    return {
+      createdAt: user.createdAt,
+      email: user.email,
+      fullName: user.fullName,
+      id: user.id,
+      role: user.role.toLowerCase(),
+    };
   }
 }

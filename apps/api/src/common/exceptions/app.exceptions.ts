@@ -133,6 +133,78 @@ export class MilestoneSubmissionInProgressException extends BadRequestException 
   }
 }
 
+export class TemplateNodeInvalidShapeException extends BadRequestException {
+  constructor(message?: string) {
+    super({
+      code: ErrorCode.TEMPLATE_NODE_INVALID_SHAPE,
+      message: message || getErrorMessage(ErrorCode.TEMPLATE_NODE_INVALID_SHAPE),
+    });
+  }
+}
+
+export class TemplateNodeInvalidReferenceException extends BadRequestException {
+  constructor(message?: string) {
+    super({
+      code: ErrorCode.TEMPLATE_NODE_INVALID_REFERENCE,
+      message: message || getErrorMessage(ErrorCode.TEMPLATE_NODE_INVALID_REFERENCE),
+    });
+  }
+}
+
+export class TemplateNodeInvalidValueException extends BadRequestException {
+  constructor(message?: string) {
+    super({
+      code: ErrorCode.TEMPLATE_NODE_INVALID_VALUE,
+      message: message || getErrorMessage(ErrorCode.TEMPLATE_NODE_INVALID_VALUE),
+    });
+  }
+}
+
+export class ActivityDateInvalidException extends BadRequestException {
+  constructor() {
+    super({
+      code: ErrorCode.ACTIVITY_DATE_INVALID,
+      message: getErrorMessage(ErrorCode.ACTIVITY_DATE_INVALID),
+    });
+  }
+}
+
+export class ActivityDateRangeInvalidException extends BadRequestException {
+  constructor() {
+    super({
+      code: ErrorCode.ACTIVITY_DATE_RANGE_INVALID,
+      message: getErrorMessage(ErrorCode.ACTIVITY_DATE_RANGE_INVALID),
+    });
+  }
+}
+
+export class QuizSubmissionInvalidException extends BadRequestException {
+  constructor(message?: string) {
+    super({
+      code: ErrorCode.QUIZ_SUBMISSION_INVALID,
+      message: message || getErrorMessage(ErrorCode.QUIZ_SUBMISSION_INVALID),
+    });
+  }
+}
+
+export class MilestoneSubmissionInvalidStateException extends BadRequestException {
+  constructor(message?: string) {
+    super({
+      code: ErrorCode.MILESTONE_SUBMISSION_INVALID_STATE,
+      message: message || getErrorMessage(ErrorCode.MILESTONE_SUBMISSION_INVALID_STATE),
+    });
+  }
+}
+
+export class RoadmapNodeProgressInvalidUpdateException extends BadRequestException {
+  constructor(message?: string) {
+    super({
+      code: ErrorCode.ROADMAP_NODE_PROGRESS_INVALID_UPDATE,
+      message: message || getErrorMessage(ErrorCode.ROADMAP_NODE_PROGRESS_INVALID_UPDATE),
+    });
+  }
+}
+
 // ==========================================
 // 401 - Unauthorized (Authentication Errors)
 // ==========================================
@@ -477,6 +549,14 @@ export const ErrorCodeToException = {
   [ErrorCode.MILESTONE_SUBMISSION_INVALID_URL]: MilestoneSubmissionInvalidUrlException,
   [ErrorCode.MILESTONE_SUBMISSION_INVALID_COMMAND]: MilestoneSubmissionInvalidCommandException,
   [ErrorCode.MILESTONE_SUBMISSION_IN_PROGRESS]: MilestoneSubmissionInProgressException,
+  [ErrorCode.TEMPLATE_NODE_INVALID_SHAPE]: TemplateNodeInvalidShapeException,
+  [ErrorCode.TEMPLATE_NODE_INVALID_REFERENCE]: TemplateNodeInvalidReferenceException,
+  [ErrorCode.TEMPLATE_NODE_INVALID_VALUE]: TemplateNodeInvalidValueException,
+  [ErrorCode.ACTIVITY_DATE_INVALID]: ActivityDateInvalidException,
+  [ErrorCode.ACTIVITY_DATE_RANGE_INVALID]: ActivityDateRangeInvalidException,
+  [ErrorCode.QUIZ_SUBMISSION_INVALID]: QuizSubmissionInvalidException,
+  [ErrorCode.MILESTONE_SUBMISSION_INVALID_STATE]: MilestoneSubmissionInvalidStateException,
+  [ErrorCode.ROADMAP_NODE_PROGRESS_INVALID_UPDATE]: RoadmapNodeProgressInvalidUpdateException,
   // 401 - Unauthorized
   [ErrorCode.UNAUTHORIZED]: AppUnauthorizedException,
   [ErrorCode.INVALID_ACCESS_TOKEN]: InvalidTokenException,

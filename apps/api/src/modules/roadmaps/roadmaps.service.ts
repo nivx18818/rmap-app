@@ -14,18 +14,20 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
-  AppBadRequestException,
   DeadlineInPastException,
   InternalServerErrorException,
   InvalidStatusTransitionException,
   MilestoneSubmissionInProgressException,
   MilestoneSubmissionInvalidCommandException,
+  MilestoneSubmissionInvalidStateException,
   MilestoneSubmissionInvalidUrlException,
   MilestoneTestsNotPassedException,
   NodeQuizGenerationUnavailableException,
+  QuizSubmissionInvalidException,
   QuizNodeNotInProgressException,
   QuizNodeTypeInvalidException,
   QuizNotPassedException,
+  RoadmapNodeProgressInvalidUpdateException,
   RoadmapGenerationUnavailableException,
   RoadmapNodeNotFoundException,
   RoadmapNotFoundException,
@@ -661,7 +663,7 @@ export class RoadmapsService {
       questions.length !== NODE_QUIZ_QUESTION_COUNT ||
       submittedQuestionIds.some((questionId) => !questionById.has(questionId))
     ) {
-      throw new AppBadRequestException('Quiz submission contains unknown question answers');
+      throw new QuizSubmissionInvalidException('Quiz submission contains unknown question answers');
     }
 
     const answerByQuestionId = new Map(
@@ -770,7 +772,9 @@ export class RoadmapsService {
     }
 
     if (node.nodeType !== NodeType.MILESTONE) {
-      throw new AppBadRequestException('Only milestone nodes can receive project submissions');
+      throw new MilestoneSubmissionInvalidStateException(
+        'Only milestone nodes can receive project submissions',
+      );
     }
 
     const currentStatus = node.userNodeProgress[0]?.status ?? NodeStatus.LOCKED;
@@ -780,7 +784,9 @@ export class RoadmapsService {
     }
 
     if (currentStatus === NodeStatus.COMPLETED) {
-      throw new AppBadRequestException('Completed milestones cannot receive new submissions');
+      throw new MilestoneSubmissionInvalidStateException(
+        'Completed milestones cannot receive new submissions',
+      );
     }
 
     const submission = await this.prisma.$transaction(async (tx) => {
@@ -843,7 +849,9 @@ export class RoadmapsService {
     }
 
     if (node.nodeType !== NodeType.MILESTONE) {
-      throw new AppBadRequestException('Only milestone nodes have project submissions');
+      throw new MilestoneSubmissionInvalidStateException(
+        'Only milestone nodes have project submissions',
+      );
     }
 
     const submission = await this.prisma.milestoneSubmission.findFirst({
@@ -2005,14 +2013,16 @@ export class RoadmapsService {
 
   private assertStrictQuizSubmission(answers: SubmitQuizDto['answers']): void {
     if (answers.length !== NODE_QUIZ_QUESTION_COUNT) {
-      throw new AppBadRequestException('Quiz submission must include exactly 5 answers');
+      throw new QuizSubmissionInvalidException('Quiz submission must include exactly 5 answers');
     }
 
     const submittedQuestionIds = answers.map((answer) => answer.questionId);
     const uniqueSubmittedQuestionIds = new Set(submittedQuestionIds);
 
     if (uniqueSubmittedQuestionIds.size !== submittedQuestionIds.length) {
-      throw new AppBadRequestException('Quiz submission contains duplicate question answers');
+      throw new QuizSubmissionInvalidException(
+        'Quiz submission contains duplicate question answers',
+      );
     }
   }
 
@@ -2038,7 +2048,9 @@ export class RoadmapsService {
     }
 
     if (node.nodeType === NodeType.GROUP) {
-      throw new AppBadRequestException('Group nodes are structural and cannot be manually updated');
+      throw new RoadmapNodeProgressInvalidUpdateException(
+        'Group nodes are structural and cannot be manually updated',
+      );
     }
 
     const currentProgress = await this.prisma.userNodeProgress.findUnique({
@@ -2063,7 +2075,7 @@ export class RoadmapsService {
 
     if (node.nodeType === NodeType.MILESTONE && dto.status === NodeStatus.COMPLETED) {
       if (currentProgress.quizPassed !== null) {
-        throw new AppBadRequestException('Milestone nodes skip quiz validation');
+        throw new RoadmapNodeProgressInvalidUpdateException('Milestone nodes skip quiz validation');
       }
 
       await this.assertMilestoneCompletionAllowed(userId, nodeId, dto.forceComplete === true);

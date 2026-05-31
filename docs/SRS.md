@@ -29,6 +29,7 @@ Within the current project scope, RMap focuses on these core capabilities:
 - Generate personalized learning roadmaps by role (Frontend, Backend, Mobile, DevOps, Data);
 - Organize skills in a spine-based tree structure with sequential unlocking between groups, while still showing prerequisite context for each skill;
 - Recommend learning resources (prioritize free sources: YouTube, official docs), limited to 1-2 main resources per node;
+- Provide publicly readable roadmap templates that learners can browse before or after signing in;
 - Track progress across three layers: roadmap %, streak (consistency), and skill readiness;
 - Show **timeline pressure** alerts when users are behind their target deadline;
 - Integrate **quick quizzes** as a required step before a leaf node can be marked `Completed`;
@@ -103,6 +104,8 @@ Within the current project scope, RMap focuses on these core capabilities:
 | --------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **FR-20** | Node-based resource suggestions | Each node shows up to **2 primary resources** (avoid link dumps). Priority order: YouTube > official docs > free Udemy/Coursera content. Each node also includes one mini-task or practical exercise. |
 | **FR-21** | Resource management (Admin)     | Admin can add/edit/delete resources attached to each node. The admin interface can remain simple.                                                                                                     |
+
+Roadmap templates are publicly readable. Admin template endpoints are reserved for template authoring and mutation only, including create/update/delete for templates and their nodes.
 
 ---
 

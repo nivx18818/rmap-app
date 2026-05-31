@@ -425,7 +425,7 @@ export class AdminTemplatesService {
   }
 
   private hasOwn(object: object, key: string): boolean {
-    return Object.hasOwn(object, key);
+    return Object.hasOwn(object, key) && (object as Record<string, unknown>)[key] !== undefined;
   }
 
   private toNumber(value: DecimalLike | number): number {

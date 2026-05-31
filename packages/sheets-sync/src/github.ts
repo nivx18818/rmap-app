@@ -127,6 +127,7 @@ function buildProjectItemsQuery(ownerType: SyncConfig['projectOwnerType']): stri
                   }
                 }
                 ... on Issue {
+                  body
                   number
                   title
                   url

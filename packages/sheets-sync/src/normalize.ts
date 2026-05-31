@@ -2,6 +2,7 @@ import { computeSyncHash } from './hash.js';
 import {
   DEFAULT_COLUMNS,
   type ColumnName,
+  type LabelRef,
   type NormalizedProjectItem,
   type ProjectFieldValue,
   type ProjectItem,
@@ -20,9 +21,9 @@ export function normalizeProjectItem(item: ProjectItem): NormalizedProjectItem {
   const fieldValues = item.fieldValues?.nodes ?? [];
 
   const row = createEmptyRow();
-  row.Area = getProjectFieldValue(fieldValues, 'Area');
-  row.Feature = getProjectFieldValue(fieldValues, 'Feature');
-  row['Task Detail'] = content?.title ?? '';
+  row.Area = getArea(content) || getProjectFieldValue(fieldValues, 'Area');
+  row.Feature = getFeature(content) || getProjectFieldValue(fieldValues, 'Feature');
+  row['Task Detail'] = getTaskDetail(content);
   row.Assignee = getProjectFieldValue(fieldValues, 'Assignee') || getAssignees(content);
   row.Size = getProjectFieldValue(fieldValues, 'Size');
   row.Status = getProjectFieldValue(fieldValues, 'Status') || getState(content);
@@ -90,6 +91,14 @@ function getAssignees(content?: ProjectItemContent): string {
   return joinValues(content?.assignees?.nodes?.map((assignee) => assignee.login) ?? []);
 }
 
+function getArea(content?: ProjectItemContent): string {
+  if (content?.__typename !== 'Issue') {
+    return '';
+  }
+
+  return getLabelPrefixValue(content.labels?.nodes ?? [], 'area');
+}
+
 function getEvidence(
   fieldValues: readonly ProjectFieldValue[],
   content?: ProjectItemContent,
@@ -113,6 +122,14 @@ function getEvidence(
   return '';
 }
 
+function getFeature(content?: ProjectItemContent): string {
+  if (content?.__typename !== 'Issue') {
+    return '';
+  }
+
+  return stripIssueTitlePrefix(content.title ?? '');
+}
+
 function getIssueOrPullRequestNumber(content?: ProjectItemContent): string {
   if (content?.__typename !== 'Issue' && content?.__typename !== 'PullRequest') {
     return '';
@@ -129,12 +146,30 @@ function getRepository(content?: ProjectItemContent): string {
   return content.repository?.nameWithOwner ?? '';
 }
 
+function getLabelPrefixValue(labels: readonly LabelRef[], prefix: string): string {
+  const normalizedPrefix = prefix.toLowerCase();
+  const label = labels.find((labelRef) => {
+    const [labelPrefix, value] = labelRef.name?.split(':', 2) ?? [];
+    return labelPrefix?.trim().toLowerCase() === normalizedPrefix && value?.trim() !== '';
+  });
+
+  return label?.name?.split(':', 2)[1]?.trim() ?? '';
+}
+
 function getState(content?: ProjectItemContent): string {
   if (content?.__typename !== 'Issue' && content?.__typename !== 'PullRequest') {
     return '';
   }
 
   return content.state ?? '';
+}
+
+function getTaskDetail(content?: ProjectItemContent): string {
+  if (content?.__typename !== 'Issue') {
+    return content?.title ?? '';
+  }
+
+  return extractMarkdownSection(content.body ?? '', 'Description') || (content.title ?? '');
 }
 
 function getUrl(content?: ProjectItemContent): string {
@@ -145,8 +180,37 @@ function getUrl(content?: ProjectItemContent): string {
   return content.url ?? '';
 }
 
+function extractMarkdownSection(markdown: string, sectionName: string): string {
+  const lines = markdown.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n');
+  const headingPattern = /^ {0,3}#{1,6}\s+(.+?)\s*#*\s*$/;
+  const sectionHeadingIndex = lines.findIndex((line) => {
+    const heading = headingPattern.exec(line);
+    return heading?.[1]?.trim().toLowerCase() === sectionName.toLowerCase();
+  });
+
+  if (sectionHeadingIndex === -1) {
+    return '';
+  }
+
+  const sectionLines: string[] = [];
+
+  for (const line of lines.slice(sectionHeadingIndex + 1)) {
+    if (headingPattern.test(line)) {
+      break;
+    }
+
+    sectionLines.push(line);
+  }
+
+  return sectionLines.join('\n').trim();
+}
+
 function joinValues(values: readonly (null | string | undefined)[]): string {
   return values
     .filter((value): value is string => value !== null && value !== undefined && value !== '')
     .join(', ');
+}
+
+function stripIssueTitlePrefix(title: string): string {
+  return title.replace(/^\s*\[(?:FEATURE|IMPROVEMENT)\]\s*/i, '').trim();
 }

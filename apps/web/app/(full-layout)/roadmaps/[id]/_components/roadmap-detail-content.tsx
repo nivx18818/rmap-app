@@ -38,7 +38,7 @@ export function RoadmapDetailContent({ roadmapId }: RoadmapDetailContentProps) {
     });
 
   const title = roadmap?.title ?? 'Roadmap';
-  const isPreviewRoadmap = Boolean(roadmap && !roadmap.isTemplate && !roadmap.startedAt);
+  const isPreviewRoadmap = Boolean(roadmap && !roadmap.startedAt);
 
   const handleProgressUpdated = useCallback(() => {
     void refreshProgressSummary();

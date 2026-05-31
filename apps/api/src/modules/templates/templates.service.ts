@@ -74,6 +74,7 @@ export class TemplatesService {
     const skip = (page - 1) * perPage;
     const where: Prisma.RoadmapWhereInput = {
       isTemplate: true,
+      nodes: { some: {} },
     };
 
     if (query.roleCategory) {

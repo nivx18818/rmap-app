@@ -1,0 +1,26 @@
+{
+  "projectOwner": "nivx18818",
+  "projectOwnerType": "USER",
+  "projectNumber": 1,
+  "sheetName": "Sprint Backlog Tracker",
+  "visibleColumns": [
+    "Area",
+    "Feature",
+    "Task Detail",
+    "Assignee",
+    "Size",
+    "Status",
+    "Evidence"
+  ],
+  "metadataColumns": [
+    "Sync Key",
+    "Content Type",
+    "Issue/PR Number",
+    "Repository",
+    "URL",
+    "Updated At",
+    "Sync Hash",
+    "Archived",
+    "Archived At"
+  ]
+}

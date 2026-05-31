@@ -109,7 +109,15 @@ Roadmap templates are publicly readable. Admin template endpoints are reserved f
 
 ---
 
-### **2.7. Future-Oriented Features `[FUTURE]`**
+### **2.7. Module: Support & Reporting Automation**
+
+| **ID**    | **Function**                       | **Detailed Description**                                                                                                                                                                                                                                                                                                                            |
+| --------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **FR-22** | GitHub Project to Sheets reporting | The project support workflow syncs the team GitHub Project v2 backlog into a Google Sheets tab named `Sprint Backlog Tracker` by default. Issue, pull request, and push events trigger near-immediate sync runs; Project-only field or card moves are captured by a scheduled 5-minute poll and may be delayed by GitHub schedule execution timing. |
+
+---
+
+### **2.8. Future-Oriented Features `[FUTURE]`**
 
 The following features are **not in the current version scope** but are intentionally designed as extensions to avoid major future refactoring. This section answers questions about product direction.
 

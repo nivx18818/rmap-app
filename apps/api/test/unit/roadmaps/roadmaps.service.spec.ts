@@ -487,6 +487,31 @@ describe('RoadmapsService', () => {
         RoadmapGenerationUnavailableException,
       );
     });
+
+    it('should throw RoadmapGenerationUnavailableException when a group contains a nested group', async () => {
+      const invalid = {
+        title: 'T',
+        description: 'D',
+        nodes: [
+          {
+            name: 'Parent Group',
+            nodeType: 'group',
+            children: [
+              {
+                name: 'Nested Group',
+                nodeType: 'group',
+                children: [{ name: 'HTTP & REST', nodeType: 'required', skillId: 'skill-1' }],
+              },
+            ],
+          },
+        ],
+      };
+      aiService.generateRoadmap.mockResolvedValue(JSON.stringify(invalid));
+
+      await expect(service.generate(MOCK_USER_ID, MOCK_DTO)).rejects.toThrow(
+        RoadmapGenerationUnavailableException,
+      );
+    });
   });
 
   describe('happy path', () => {

@@ -1223,21 +1223,19 @@ export class RoadmapsService {
         return false;
       }
 
-      // If this is a nested group (depth >= 1), its children MUST be leaf nodes only
-      if (depth >= 1) {
-        const allChildrenAreLeaves = n.children.every((child) => {
-          const c = child;
-          return c && (c.nodeType === 'required' || c.nodeType === 'optional');
-        });
-        if (!allChildrenAreLeaves) {
-          this.logger.warn(
-            `Validation failed: nested group (depth ${depth}) must only have leaves`,
-            {
-              node,
-            },
-          );
-          return false;
-        }
+      // Group nodes cannot contain other group nodes (only leaf nodes are allowed)
+      const allChildrenAreLeaves = n.children.every((child) => {
+        const c = child;
+        return c && (c.nodeType === 'required' || c.nodeType === 'optional');
+      });
+      if (!allChildrenAreLeaves) {
+        this.logger.warn(
+          `Validation failed: group nodes must only contain leaf nodes (no nested groups allowed)`,
+          {
+            node,
+          },
+        );
+        return false;
       }
 
       return n.children.every((child) => this.isValidAiNode(child, depth + 1));

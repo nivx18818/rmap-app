@@ -5,11 +5,13 @@ export const COOKIE_NAMES = {
   REFRESH_TOKEN: 'refresh_token',
 } as const;
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const BASE_COOKIE_OPTIONS: CookieOptions = {
   domain: process.env.COOKIE_DOMAIN,
   httpOnly: true,
-  sameSite: 'strict',
-  secure: process.env.NODE_ENV === 'production',
+  sameSite: isProduction ? 'none' : 'lax',
+  secure: isProduction,
 };
 
 export const ACCESS_TOKEN_COOKIE_OPTIONS: CookieOptions = {

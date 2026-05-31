@@ -15,7 +15,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-e2e.json --runInBand"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",
@@ -57,6 +57,8 @@
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",
     "jest": "^30.0.0",
+    "jest-html-reporters": "^3.1.7",
+    "jest-junit": "^17.0.0",
     "jest-mock-extended": "^2.0.4",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",

@@ -7,7 +7,12 @@
     "PORT",
     "COOKIE_DOMAIN",
     "CLIENT_URL",
-    "NODE_ENV"
+    "NODE_ENV",
+    "JWT_SECRET",
+    "JWT_REFRESH_SECRET",
+    "JWT_REFRESH_TOKEN_HASH_SECRET",
+    "E2E_ALLOW_DB_RESET",
+    "E2E_SKIP_IF_DB_UNREACHABLE"
   ],
   "tasks": {
     "build": {

@@ -82,7 +82,7 @@ export const roadmapService = {
     const response = await axiosInstance.post<GenerateRoadmapResponse>(
       ENDPOINTS.roadmaps.generate,
       payload,
-      { timeout: 180000 },
+      { timeout: 300000 },
     );
     return response.data;
   },

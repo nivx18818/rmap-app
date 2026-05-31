@@ -106,7 +106,7 @@ function getEvidence(
 
   if (content?.__typename === 'Issue') {
     return joinValues(
-      content.closingPullRequestsReferences?.nodes?.map((pullRequest) => pullRequest.url) ?? [],
+      content.closedByPullRequestsReferences?.nodes?.map((pullRequest) => pullRequest.url) ?? [],
     );
   }
 

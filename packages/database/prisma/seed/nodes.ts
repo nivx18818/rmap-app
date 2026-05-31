@@ -9,6 +9,7 @@
 import 'dotenv/config';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as readline from 'readline';
 import { fileURLToPath } from 'url';
 
 import * as dagre from '@dagrejs/dagre';
@@ -79,35 +80,113 @@ function getContentMetadata(
   return { name, description: descLines.join('\n').trim() };
 }
 
+function hasDeepChildren(key: string, allMappingKeys: string[]): boolean {
+  const prefix = `${key}:`;
+  const depth = key.split(':').length;
+  return allMappingKeys.some((k) => k.startsWith(prefix) && k.split(':').length === depth + 1);
+}
+
+async function askGroupNameForSkill(
+  skillNames: string,
+  defaultName: string,
+  roadmapSlug: string,
+): Promise<string> {
+  console.log(
+    `[Agent Auto-Fill] Phân tích tên Group cho cụm skill "${skillNames}" thuộc roadmap "${roadmapSlug}"...`,
+  );
+
+  const rules = [
+    { match: /Hypothesis Testing/i, name: 'Statistics' },
+    { match: /SSR|Lifecycle/i, name: 'Angular Core' },
+    { match: /Real Time|Polling/i, name: 'Realtime Comm' },
+    { match: /ECR/i, name: 'Container Registry' },
+    { match: /CI\/CD/i, name: 'CI/CD Pipelines' },
+    { match: /NEO4J/i, name: 'Graph DB' },
+    { match: /Databases/i, name: 'Databases' },
+  ];
+
+  for (const r of rules) {
+    if (r.match.test(skillNames)) {
+      console.log(`=> Auto-filled with: ${r.name}`);
+      return r.name;
+    }
+  }
+
+  const fallback = skillNames.includes(', ') ? 'Core Concepts' : defaultName;
+  console.log(`=> Auto-filled with fallback: ${fallback}`);
+  return fallback;
+}
+
 interface LayoutNodeInput {
   tempId: string;
   tempParentId: string | null;
   nodeType: NodeType;
 }
 
-function computeDagreLayout(nodes: LayoutNodeInput[]): Map<string, { posX: number; posY: number }> {
-  const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: 'TB', ranksep: 100, nodesep: 60 });
-  g.setDefaultEdgeLabel(() => ({}));
+/**
+ * Mirrors DagreLayoutService.computeLayout() from apps/api:
+ * - GROUP nodes form a vertical chain along the central axis (Dagre-computed Y).
+ * - LEAF nodes are placed manually, alternating right/left of their GROUP parent,
+ *   centered vertically around the parent's Y.
+ * - ranksep is dynamic: max(150, ceil(maxLeafCount/2) * Y_SPACING + PADDING)
+ *   so groups with many children never overlap their siblings.
+ */
+function computeDagreLayout(nodes: LayoutNodeInput[]) {
+  const X_OFFSET = 340;
+  const Y_SPACING = 50;
+  const MIN_RANKSEP = 150;
 
-  for (const node of nodes) {
-    const isLeaf = node.nodeType === NodeType.REQUIRED || node.nodeType === NodeType.OPTIONAL;
-    g.setNode(node.tempId, {
-      width: isLeaf ? 200 : 300,
-      height: isLeaf ? 60 : 80,
-    });
+  const axisNodes = nodes.filter((n) => n.tempParentId === null);
+  const leafNodes = nodes.filter((n) => n.tempParentId !== null);
 
-    if (node.tempParentId) {
-      g.setEdge(node.tempParentId, node.tempId);
+  const childrenMap = new Map<string, LayoutNodeInput[]>();
+  for (const leaf of leafNodes) {
+    if (leaf.tempParentId) {
+      if (!childrenMap.has(leaf.tempParentId)) {
+        childrenMap.set(leaf.tempParentId, []);
+      }
+      childrenMap.get(leaf.tempParentId)!.push(leaf);
     }
   }
 
-  dagre.layout(g);
-
   const result = new Map<string, { posX: number; posY: number }>();
-  for (const node of nodes) {
-    const { x, y } = g.node(node.tempId);
-    result.set(node.tempId, { posX: x, posY: y });
+  let currentY = 0;
+
+  for (const node of axisNodes) {
+    result.set(node.tempId, { posX: 0, posY: currentY });
+
+    // ── Manual leaf placement (alternating right/left) ──────────────────
+    const children = childrenMap.get(node.tempId) ?? [];
+    const rightChildren = children.filter((_, idx) => idx % 2 === 0);
+    const leftChildren = children.filter((_, idx) => idx % 2 !== 0);
+
+    const placeChildren = (childArray: LayoutNodeInput[], isLeft: boolean) => {
+      const k = childArray.length;
+      if (k === 0) return;
+      const startY = currentY - ((k - 1) * Y_SPACING) / 2;
+      childArray.forEach((child, idx) => {
+        const cx = isLeft ? -X_OFFSET : X_OFFSET;
+        const cy = startY + idx * Y_SPACING;
+        result.set(child.tempId, { posX: cx, posY: cy });
+      });
+    };
+
+    placeChildren(rightChildren, false);
+    placeChildren(leftChildren, true);
+
+    // Calculate height consumed by children to push next axis node down dynamically
+    const maxLeaves = children.length;
+    const columnHeight = Math.ceil(maxLeaves / 2) * Y_SPACING;
+
+    // Add dynamic spacing for the next node
+    currentY += Math.max(MIN_RANKSEP, columnHeight + 50);
+  }
+
+  // ── Safety fallback for orphaned leaves ───────────────────────────────
+  for (const leaf of leafNodes) {
+    if (!result.has(leaf.tempId)) {
+      result.set(leaf.tempId, { posX: 0, posY: 0 });
+    }
   }
 
   return result;
@@ -142,9 +221,41 @@ async function seedRoadmapNodes(roadmapId: string, slug: string): Promise<boolea
     }
   });
 
-  const sortedKeys = Array.from(allHierarchyKeys).sort(
-    (a, b) => a.split(':').length - b.split(':').length,
-  );
+  const allHierarchyKeysArray = Array.from(allHierarchyKeys);
+  const prefixOrder = new Map<string, number>();
+  mappingKeys.forEach((key) => {
+    const prefix = key.split(':')[0];
+    if (!prefixOrder.has(prefix)) {
+      prefixOrder.set(prefix, prefixOrder.size);
+    }
+  });
+
+  const getRank = (key: string): number => {
+    const depth = key.split(':').length;
+    if (depth === 2 && hasDeepChildren(key, allHierarchyKeysArray)) return 1; // Promoted groups
+    if (depth === 1) return 2; // Base group
+    if (depth === 2) return 3; // Non-promoted leaves of base group
+    return depth + 2; // Depth 3 goes to 5, Depth 4 goes to 6, etc.
+  };
+
+  const sortedKeys = allHierarchyKeysArray.sort((a, b) => {
+    const prefixA = a.split(':')[0];
+    const prefixB = b.split(':')[0];
+
+    // Maintain top-level prefix ordering first
+    if (prefixA !== prefixB) {
+      return (prefixOrder.get(prefixA) ?? 0) - (prefixOrder.get(prefixB) ?? 0);
+    }
+
+    // Within the same top-level prefix, sort by our custom rank
+    const rankA = getRank(a);
+    const rankB = getRank(b);
+
+    if (rankA !== rankB) return rankA - rankB;
+
+    // If same rank (e.g. two promoted groups), sort alphabetically to ensure determinism
+    return a.localeCompare(b);
+  });
 
   const skills = await prisma.skill.findMany({ select: { id: true, name: true } });
   const skillMap = new Map<string, string>();
@@ -166,30 +277,54 @@ async function seedRoadmapNodes(roadmapId: string, slug: string): Promise<boolea
   for (const key of sortedKeys) {
     const nodeId = mapping[key];
     const parts = key.split(':');
-    const isLeafInMapping = mapping[key] && !mappingKeys.some((mk) => mk.startsWith(`${key}:`));
-
-    let parentKey: string | null = null;
-    if (parts.length > 1) {
-      parentKey = parts.slice(0, -1).join(':');
-    }
+    const depth = parts.length;
 
     const jsonNode = nodeId ? jsonNodes.find((n: any) => n.id === nodeId) : null;
     const content = nodeId ? getContentMetadata(roadmapDir, nodeId) : { name: '', description: '' };
-
     const displayName = content.name || jsonNode?.data?.label || formatKeyName(key);
 
-    // RULE: Level 0 (no ":") is ALWAYS a GROUP.
-    // Intermediate nodes (isLeafInMapping = false) are ALWAYS GROUPs.
-    const isGroup = parts.length === 1 || !isLeafInMapping;
+    let isGroup = false;
+    let parentKey: string | null = null;
+
+    if (depth === 1) {
+      isGroup = true;
+      parentKey = null;
+    } else if (depth === 2) {
+      if (hasDeepChildren(key, allHierarchyKeysArray)) {
+        isGroup = true;
+        parentKey = null; // Promoted group
+      } else {
+        isGroup = false;
+        parentKey = parts.slice(0, 1).join(':'); // Depth-1 parent
+      }
+    } else if (depth >= 3) {
+      isGroup = false;
+      parentKey = parts.slice(0, 2).join(':'); // Promoted depth-2 parent
+    }
 
     if (isGroup) {
+      let finalNodeType: NodeType = NodeType.GROUP;
+
+      if (depth === 1) {
+        const depth2Keys = allHierarchyKeysArray.filter(
+          (k) => k.startsWith(`${key}:`) && k.split(':').length === 2,
+        );
+        // If there are no unpromoted depth-2 leaves, this base group becomes a MILESTONE
+        const hasUnpromotedLeaves = depth2Keys.some(
+          (k) => !hasDeepChildren(k, allHierarchyKeysArray),
+        );
+        if (!hasUnpromotedLeaves) {
+          finalNodeType = NodeType.MILESTONE;
+        }
+      }
+
       const description = content.description || `Group container for ${displayName}`;
       resolvedNodes.set(key, {
         key,
         parentKey,
         displayName,
         description,
-        nodeType: NodeType.GROUP,
+        nodeType: finalNodeType,
         skillId: null,
       });
     } else {
@@ -213,6 +348,59 @@ async function seedRoadmapNodes(roadmapId: string, slug: string): Promise<boolea
         skillId,
       });
     }
+  }
+
+  // Q3: Detect leaf-less groups and cluster adjacent ones
+  const depth1Keys = sortedKeys.filter((k) => k.split(':').length === 1);
+  let currentCluster: { key: string; node: ResolvedNode; skillId: string }[] = [];
+
+  const processCluster = async (cluster: typeof currentCluster) => {
+    if (cluster.length === 0) return;
+
+    const skillNames = cluster.map((c) => c.node.displayName).join(', ');
+    const defaultName =
+      cluster.length === 1 ? `${cluster[0].node.displayName} Concepts` : 'Misc Concepts';
+
+    const groupName = await askGroupNameForSkill(skillNames, defaultName, slug);
+    const wrapperKey = `cluster_wrapper_${cluster[0].key}`;
+
+    resolvedNodes.set(wrapperKey, {
+      key: wrapperKey,
+      parentKey: null,
+      displayName: groupName,
+      description: `Wrapper for ${skillNames}`,
+      nodeType: NodeType.GROUP,
+      skillId: null,
+    });
+
+    for (const item of cluster) {
+      item.node.nodeType = NodeType.REQUIRED;
+      item.node.skillId = item.skillId;
+      item.node.parentKey = wrapperKey;
+    }
+  };
+
+  for (const key of depth1Keys) {
+    const node = resolvedNodes.get(key);
+    if (!node) continue;
+
+    const hasChildren = Array.from(resolvedNodes.values()).some((n) => n.parentKey === key);
+
+    if (!hasChildren) {
+      const skillId = skillMap.get(node.displayName);
+      if (skillId) {
+        currentCluster.push({ key, node, skillId });
+      }
+    } else {
+      if (currentCluster.length > 0) {
+        await processCluster(currentCluster);
+        currentCluster = [];
+      }
+    }
+  }
+
+  if (currentCluster.length > 0) {
+    await processCluster(currentCluster);
   }
 
   // Convert resolvedNodes to list of Dagre layout inputs

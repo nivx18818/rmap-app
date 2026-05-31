@@ -10,7 +10,7 @@ test('normalizes issue content and Project v2 field values', () => {
     content: {
       __typename: 'Issue',
       assignees: { nodes: [{ login: 'alice' }, { login: 'bob' }] },
-      closingPullRequestsReferences: {
+      closedByPullRequestsReferences: {
         nodes: [{ url: 'https://github.com/nivx18818/rmap-app/pull/2' }],
       },
       labels: { nodes: [{ name: 'backend' }] },
@@ -56,7 +56,7 @@ test('falls back to linked pull requests for issue evidence', () => {
     content: {
       __typename: 'Issue',
       assignees: { nodes: [] },
-      closingPullRequestsReferences: {
+      closedByPullRequestsReferences: {
         nodes: [{ url: 'https://github.com/nivx18818/rmap-app/pull/9' }],
       },
       number: 8,

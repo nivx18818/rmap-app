@@ -145,7 +145,7 @@ function buildProjectItemsQuery(ownerType: SyncConfig['projectOwnerType']): stri
                       name
                     }
                   }
-                  closingPullRequestsReferences(first: 10) {
+                  closedByPullRequestsReferences(first: 10, includeClosedPrs: true) {
                     nodes {
                       url
                     }

@@ -153,6 +153,7 @@ function buildProjectItemsQuery(ownerType: SyncConfig['projectOwnerType']): stri
                   }
                 }
                 ... on PullRequest {
+                  body
                   number
                   title
                   url

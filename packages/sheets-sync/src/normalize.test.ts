@@ -46,7 +46,7 @@ test('normalizes issue content and Project v2 field values', () => {
   const normalized = normalizeProjectItem(item);
 
   assert.equal(normalized.syncKey, 'nivx18818/rmap-app#12');
-  assert.equal(normalized.row.Area, 'backend');
+  assert.equal(normalized.row.Area, 'Backend');
   assert.equal(normalized.row.Feature, 'Build roadmap progress API');
   assert.equal(normalized.row['Task Detail'], 'Create the roadmap progress API endpoints.');
   assert.equal(normalized.row.Assignee, 'alice, bob');
@@ -85,7 +85,7 @@ test('strips improvement issue title prefixes and derives frontend area labels',
 
   const normalized = normalizeProjectItem(item);
 
-  assert.equal(normalized.row.Area, 'frontend');
+  assert.equal(normalized.row.Area, 'Frontend');
   assert.equal(normalized.row.Feature, 'Refine dashboard layout');
   assert.equal(normalized.row['Task Detail'], 'Improve the dashboard layout.');
 });
@@ -113,15 +113,25 @@ test('falls back to linked pull requests for issue evidence', () => {
   assert.equal(normalized.row.Status, 'CLOSED');
 });
 
-test('uses the pull request URL as default evidence for pull request items', () => {
+test('uses standalone pull request title, description, and URL defaults', () => {
   const item = {
     content: {
       __typename: 'PullRequest',
       assignees: { nodes: [{ login: 'maintainer' }] },
+      body: [
+        '## Description',
+        '',
+        'Ship the generated roadmap experience.',
+        '',
+        '## Related Issue',
+        '',
+        'Closes #',
+      ].join('\n'),
+      labels: { nodes: [{ name: 'area: frontend' }] },
       number: 18,
       repository: { nameWithOwner: 'nivx18818/rmap-app' },
       state: 'MERGED',
-      title: 'Add generated roadmap flow',
+      title: 'Feat/Add generated roadmap flow',
       url: 'https://github.com/nivx18818/rmap-app/pull/18',
     },
     id: 'PVTI_pr',
@@ -130,9 +140,36 @@ test('uses the pull request URL as default evidence for pull request items', () 
   const normalized = normalizeProjectItem(item);
 
   assert.equal(normalized.syncKey, 'nivx18818/rmap-app#18');
+  assert.equal(normalized.row.Area, 'Frontend');
+  assert.equal(normalized.row.Feature, 'Add generated roadmap flow');
+  assert.equal(normalized.row['Task Detail'], 'Ship the generated roadmap experience.');
   assert.equal(normalized.row.Evidence, 'https://github.com/nivx18818/rmap-app/pull/18');
   assert.equal(normalized.row['Content Type'], 'PullRequest');
   assert.equal(normalized.row.Assignee, 'maintainer');
+});
+
+test('strips slash and word title prefixes from derived features', () => {
+  const infraItem = {
+    content: {
+      __typename: 'Issue',
+      number: 20,
+      repository: { nameWithOwner: 'nivx18818/rmap-app' },
+      title: 'Infra/Configure sheets sync',
+    },
+    id: 'PVTI_infra',
+  } satisfies ProjectItem;
+  const featureItem = {
+    content: {
+      __typename: 'PullRequest',
+      number: 21,
+      repository: { nameWithOwner: 'nivx18818/rmap-app' },
+      title: 'Feature Polish onboarding quiz',
+    },
+    id: 'PVTI_feature',
+  } satisfies ProjectItem;
+
+  assert.equal(normalizeProjectItem(infraItem).row.Feature, 'Configure sheets sync');
+  assert.equal(normalizeProjectItem(featureItem).row.Feature, 'Polish onboarding quiz');
 });
 
 test('uses the project item id as the sync key for draft issues', () => {

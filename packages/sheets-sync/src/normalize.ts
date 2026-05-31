@@ -92,11 +92,11 @@ function getAssignees(content?: ProjectItemContent): string {
 }
 
 function getArea(content?: ProjectItemContent): string {
-  if (content?.__typename !== 'Issue') {
+  if (content?.__typename !== 'Issue' && content?.__typename !== 'PullRequest') {
     return '';
   }
 
-  return getLabelPrefixValue(content.labels?.nodes ?? [], 'area');
+  return capitalizeFirstLetter(getLabelPrefixValue(content.labels?.nodes ?? [], 'area'));
 }
 
 function getEvidence(
@@ -123,11 +123,11 @@ function getEvidence(
 }
 
 function getFeature(content?: ProjectItemContent): string {
-  if (content?.__typename !== 'Issue') {
+  if (content?.__typename !== 'Issue' && content?.__typename !== 'PullRequest') {
     return '';
   }
 
-  return stripIssueTitlePrefix(content.title ?? '');
+  return stripTitlePrefix(content.title ?? '');
 }
 
 function getIssueOrPullRequestNumber(content?: ProjectItemContent): string {
@@ -165,11 +165,14 @@ function getState(content?: ProjectItemContent): string {
 }
 
 function getTaskDetail(content?: ProjectItemContent): string {
-  if (content?.__typename !== 'Issue') {
+  if (content?.__typename !== 'Issue' && content?.__typename !== 'PullRequest') {
     return content?.title ?? '';
   }
 
-  return extractMarkdownSection(content.body ?? '', 'Description') || (content.title ?? '');
+  return (
+    extractMarkdownSection(content.body ?? '', 'Description') ||
+    stripTitlePrefix(content.title ?? '')
+  );
 }
 
 function getUrl(content?: ProjectItemContent): string {
@@ -211,6 +214,29 @@ function joinValues(values: readonly (null | string | undefined)[]): string {
     .join(', ');
 }
 
-function stripIssueTitlePrefix(title: string): string {
-  return title.replace(/^\s*\[(?:FEATURE|IMPROVEMENT)\]\s*/i, '').trim();
+function capitalizeFirstLetter(value: string): string {
+  if (value === '') {
+    return '';
+  }
+
+  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+}
+
+const TITLE_PREFIX_PATTERN =
+  /^(?:\[(?:BUG|CHORE|CI|DOCS?|FEAT(?:URE)?|FIX|IMPROVEMENT|INFRA|REFACTOR|TEST)\]\s*|(?:BUG|CHORE|CI|DOCS?|FEAT(?:URE)?|FIX|IMPROVEMENT|INFRA|REFACTOR|TEST)(?:\s*[/:-]\s*|\s+))/i;
+
+function stripTitlePrefix(title: string): string {
+  let normalizedTitle = title.trim();
+
+  while (normalizedTitle !== '') {
+    const strippedTitle = normalizedTitle.replace(TITLE_PREFIX_PATTERN, '').trim();
+
+    if (strippedTitle === normalizedTitle) {
+      return normalizedTitle;
+    }
+
+    normalizedTitle = strippedTitle;
+  }
+
+  return normalizedTitle;
 }

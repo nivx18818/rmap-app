@@ -5,10 +5,10 @@ import { motion } from 'framer-motion';
 
 import type { RoadmapProgressSummary } from '../_types/roadmap-progress.types';
 
+import { containerVariants, itemVariants } from '../_utils/roadmap-hero-utils';
 import { HeroActions } from './roadmap-hero-actions';
 import { HeroHeader } from './roadmap-hero-header';
 import { HeroProgress } from './roadmap-hero-progress';
-import { containerVariants, itemVariants } from './roadmap-hero-utils';
 
 export interface RoadmapHeroProps {
   canRecreate?: boolean;

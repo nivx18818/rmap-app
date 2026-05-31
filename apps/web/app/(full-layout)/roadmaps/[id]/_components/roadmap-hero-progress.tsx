@@ -16,7 +16,7 @@ import {
   formatDayCount,
   formatPercent,
   NUMBER_FORMATTER,
-} from './roadmap-hero-utils';
+} from '../_utils/roadmap-hero-utils';
 
 export interface HeroProgressProps {
   isProgressLoading: boolean;

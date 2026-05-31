@@ -5,7 +5,7 @@ import { HugeiconsIcon } from '@hugeicons/react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
-import { itemVariants } from './roadmap-hero-utils';
+import { itemVariants } from '../_utils/roadmap-hero-utils';
 
 export interface HeroHeaderProps {
   heroActions: ReactNode;

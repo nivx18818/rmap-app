@@ -116,11 +116,13 @@ describe('TemplatesService', () => {
         take: 10,
         where: {
           isTemplate: true,
+          nodes: { some: {} },
         },
       });
       expect(prisma.roadmap.count.mock.calls[0]?.[0]).toEqual({
         where: {
           isTemplate: true,
+          nodes: { some: {} },
         },
       });
       expect(result).toEqual({
@@ -164,6 +166,7 @@ describe('TemplatesService', () => {
           take: 20,
           where: {
             isTemplate: true,
+            nodes: { some: {} },
             roleCategory: RoleCategory.DATA_ANALYSIS,
           },
         }),
@@ -171,6 +174,7 @@ describe('TemplatesService', () => {
       expect(prisma.roadmap.count.mock.calls[0]?.[0]).toEqual({
         where: {
           isTemplate: true,
+          nodes: { some: {} },
           roleCategory: RoleCategory.DATA_ANALYSIS,
         },
       });

@@ -6,10 +6,25 @@ export interface NavItem {
 }
 
 export interface RoadmapItemData {
+  id?: string;
   label: string;
   href?: string;
   variant?: 'default' | 'create';
   isComingSoon?: boolean;
+}
+
+export interface RoadmapTemplate {
+  description: null | string;
+  estimatedWeeks: null | number;
+  id: string;
+  roleCategory: string;
+  title: string;
+}
+
+export interface RoadmapTemplateGroup {
+  category: string;
+  items: RoadmapItemData[];
+  label: string;
 }
 
 export interface RoadmapTimelineItem {

@@ -29,6 +29,9 @@ export const ENDPOINTS = {
     submitNodeQuiz: (roadmapId: string, nodeId: string) =>
       `/roadmaps/${roadmapId}/nodes/${nodeId}/quiz/submit`,
   },
+  templates: {
+    list: '/templates',
+  },
   users: {
     me: '/users/me',
   },

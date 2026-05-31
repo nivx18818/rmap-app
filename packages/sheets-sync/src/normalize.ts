@@ -127,7 +127,9 @@ function getFeature(content?: ProjectItemContent): string {
     return '';
   }
 
-  return stripTitlePrefix(content.title ?? '');
+  const feature = stripTitlePrefix(content.title ?? '');
+
+  return content.__typename === 'PullRequest' ? capitalizeFirstLetter(feature) : feature;
 }
 
 function getIssueOrPullRequestNumber(content?: ProjectItemContent): string {

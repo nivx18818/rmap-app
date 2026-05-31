@@ -131,7 +131,7 @@ test('uses standalone pull request title, description, and URL defaults', () => 
       number: 18,
       repository: { nameWithOwner: 'nivx18818/rmap-app' },
       state: 'MERGED',
-      title: 'Feat/Add generated roadmap flow',
+      title: 'Feat/add generated roadmap flow',
       url: 'https://github.com/nivx18818/rmap-app/pull/18',
     },
     id: 'PVTI_pr',

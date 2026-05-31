@@ -104,9 +104,14 @@ export function parseSkillsFromRoadmap(roadmapSlug: string): ParsedSkillSeed[] {
 
   const skills: ParsedSkillSeed[] = [];
 
+  const mappingKeys = Object.keys(mapping);
+
   for (const [key, nodeId] of Object.entries(mapping)) {
     if (!key.includes(':')) {
-      continue;
+      const hasChildren = mappingKeys.some((k) => k.startsWith(`${key}:`));
+      if (hasChildren) {
+        continue;
+      }
     }
 
     const contentPath = contentById.get(nodeId);

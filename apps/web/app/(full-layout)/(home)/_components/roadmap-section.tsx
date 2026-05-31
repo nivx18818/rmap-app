@@ -20,7 +20,7 @@ export function RoadmapSection() {
       <MaskBackground />
 
       <SectionContainer className="relative z-10 flex flex-col items-center justify-center gap-16">
-        <div className="flex w-full flex-row items-end justify-between gap-8">
+        <div className="flex w-full flex-col items-center justify-between gap-8 lg:flex-row lg:items-end lg:gap-12">
           <div className="flex w-full max-w-134 flex-col gap-6 text-left">
             <h2 className="text-title">
               Discover Learning Roadmaps,
@@ -41,7 +41,7 @@ export function RoadmapSection() {
             </div>
           </div>
 
-          <div className="relative aspect-square w-full max-w-96 shrink-0">
+          <div className="relative aspect-square w-full max-w-72 shrink-0 lg:max-w-96">
             <Image
               className="object-contain"
               src="/roadmap-globe.png"

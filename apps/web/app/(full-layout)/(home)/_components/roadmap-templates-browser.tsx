@@ -49,7 +49,7 @@ export function RoadmapTemplatesBrowser({
 
   return (
     <div className="flex w-full flex-col gap-8">
-      <div className="flex w-full items-center justify-center px-72">
+      <div className="flex w-full items-center justify-center px-4 md:px-12 lg:px-32 xl:px-72">
         <div
           className="group/search border-border relative h-12 w-full max-w-140 shrink-0 rounded-full border p-px shadow-sm transition-all duration-300 focus-within:border-violet-500/50 focus-within:ring-4 focus-within:ring-violet-500/10 hover:border-violet-500/30"
           style={{
@@ -74,9 +74,9 @@ export function RoadmapTemplatesBrowser({
         </div>
       </div>
 
-      <div className="border-border/70 bg-background/65 grid w-full grid-cols-[15rem_1fr] overflow-hidden rounded-2xl border shadow-sm backdrop-blur-md">
-        <aside className="border-border/70 bg-background/75 border-r">
-          <div className="flex flex-col gap-2 p-4">
+      <div className="border-border/70 bg-background/65 flex w-full flex-col overflow-hidden rounded-2xl border shadow-sm backdrop-blur-md md:grid md:grid-cols-[15rem_1fr]">
+        <aside className="border-border/70 bg-background/75 border-b md:border-r md:border-b-0">
+          <div className="flex flex-row gap-2 overflow-x-auto p-4 [-ms-overflow-style:none] [scrollbar-width:none] md:flex-col [&::-webkit-scrollbar]:hidden">
             <CategoryButton
               label="All Roadmaps"
               count={templates.length}
@@ -95,7 +95,7 @@ export function RoadmapTemplatesBrowser({
           </div>
         </aside>
 
-        <div className="min-w-0 p-8">
+        <div className="min-w-0 p-4 md:p-8">
           {loadErrorMessage ? (
             <RoadmapStatusMessage message={loadErrorMessage}>
               <Button variant="outline" size="sm" type="button" onClick={() => router.refresh()}>
@@ -149,8 +149,8 @@ function CategoryButton({
   return (
     <button
       className={cn(
-        'border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted/50 flex w-full items-center justify-between gap-4 border-b px-3 py-2.5 text-left text-sm font-medium transition-colors',
-        isActive && 'text-foreground font-semibold',
+        'border-border/70 text-muted-foreground hover:text-foreground hover:bg-muted/50 flex shrink-0 items-center justify-between gap-4 rounded-lg px-3 py-2 text-left text-sm font-medium whitespace-nowrap transition-colors md:w-full md:rounded-none md:border-b md:py-2.5 md:whitespace-normal',
+        isActive && 'text-foreground bg-muted/50 font-semibold md:bg-transparent',
       )}
       type="button"
       onClick={onClick}

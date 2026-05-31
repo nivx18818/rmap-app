@@ -68,7 +68,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message: prismaError.message,
       };
     } else if (exception instanceof Error) {
-      this.logger.error(exception.message, exception.stack);
+      if (process.env.NODE_ENV === 'production') {
+        this.logger.error('Unexpected error');
+      } else {
+        this.logger.error(exception.message, exception.stack);
+      }
 
       errorResponse = {
         code: ErrorCode.INTERNAL_SERVER_ERROR,

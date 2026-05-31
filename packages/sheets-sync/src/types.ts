@@ -133,6 +133,7 @@ export interface IssueContent {
 export interface PullRequestContent {
   __typename: 'PullRequest';
   assignees?: GraphqlNodeList<AssigneeRef> | null;
+  body?: string | null;
   labels?: GraphqlNodeList<LabelRef> | null;
   number?: number | null;
   repository?: RepositoryRef | null;

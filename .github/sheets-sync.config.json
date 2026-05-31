@@ -13,9 +13,9 @@
     "Evidence"
   ],
   "metadataColumns": [
-    "Sync Key",
     "Content Type",
     "Issue/PR Number",
+    "Sync Key",
     "Repository",
     "URL",
     "Updated At",

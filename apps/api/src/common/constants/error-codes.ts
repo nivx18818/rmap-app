@@ -31,6 +31,7 @@ export enum ErrorCode {
   INVALID_REFRESH_TOKEN = 40103,
   MISSING_AUTHENTICATION = 40104,
   INVALID_CREDENTIALS = 40105,
+  INVALID_PASSWORD_RESET_TOKEN = 40106,
   // 403 - Forbidden
   FORBIDDEN = 40300,
   // 404 - Not Found
@@ -95,6 +96,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.INVALID_REFRESH_TOKEN]: 'Invalid or expired refresh token',
   [ErrorCode.MISSING_AUTHENTICATION]: 'Missing authentication credentials',
   [ErrorCode.INVALID_CREDENTIALS]: 'Invalid credentials',
+  [ErrorCode.INVALID_PASSWORD_RESET_TOKEN]: 'Invalid or expired password reset token',
   // 403 - Forbidden
   [ErrorCode.FORBIDDEN]: 'Access denied',
   // 404 - Not Found

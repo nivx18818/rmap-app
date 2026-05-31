@@ -1,123 +1,193 @@
 import type { TestingModule } from '@nestjs/testing';
+import type { User } from '@repo/db/prisma/client';
 
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
+import { UserRole } from '@repo/db/prisma/client';
+import * as bcrypt from 'bcrypt';
 
-import { UserNotFoundException } from '@/common/exceptions/app.exceptions';
+import {
+  EmailAlreadyExistsException,
+  InvalidCredentialsException,
+  UserNotFoundException,
+} from '@/common/exceptions/app.exceptions';
 import { AuthService } from '@/modules/auth/auth.service';
 import { PasswordResetDeliveryService } from '@/modules/auth/password-reset-delivery.service';
 import { PasswordResetTokenService } from '@/modules/auth/password-reset-token.service';
 import { RefreshTokenService } from '@/modules/auth/refresh-token.service';
 import { UserService } from '@/modules/user/user.service';
 
-interface AuthUserRecord {
-  email: string;
-  fullName: string;
-  id: string;
-  passwordHash: string;
-}
-
-type AsyncMock<TResult = unknown, TArgs extends unknown[] = unknown[]> = jest.Mock<
-  Promise<TResult>,
-  TArgs
->;
-
-interface UserServiceMock {
-  create: AsyncMock<AuthUserRecord>;
-  findByEmail: AsyncMock<AuthUserRecord | null>;
-}
-
-interface PasswordResetTokenServiceMock {
-  consume: AsyncMock<string>;
-  create: AsyncMock<string>;
-}
-
-interface PasswordResetDeliveryServiceMock {
-  sendResetInstructions: AsyncMock<void, [string, string]>;
-}
-
-interface RefreshTokenServiceMock {
-  create: AsyncMock<Record<string, unknown>>;
-  revokeAllByUser: AsyncMock<Record<string, unknown>>;
-}
-
-const createUserRecord = (overrides: Partial<AuthUserRecord> = {}): AuthUserRecord => ({
-  email: 'jane@example.com',
-  fullName: 'Jane Doe',
+const makeUser = (overrides: Partial<User> = {}): User => ({
+  createdAt: new Date('2026-01-01T00:00:00.000Z'),
+  email: 'learner@example.test',
+  fullName: 'Learner One',
   id: 'user-1',
-  passwordHash: 'old-password-hash',
+  passwordHash: '$2b$10$placeholder',
+  role: UserRole.USER,
+  updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   ...overrides,
 });
 
 describe('AuthService', () => {
   let service: AuthService;
-  let userService: UserServiceMock;
-  let passwordResetTokenService: PasswordResetTokenServiceMock;
-  let passwordResetDeliveryService: PasswordResetDeliveryServiceMock;
-  let refreshTokenService: RefreshTokenServiceMock;
+
+  const userService = {
+    create: jest.fn(),
+    findByEmail: jest.fn(),
+  };
+  const jwtService = {
+    signAsync: jest.fn(),
+  };
+  const configService = {
+    get: jest.fn((key: string, fallback?: string) => {
+      const values: Record<string, string> = {
+        JWT_EXPIRES_IN: '15m',
+        JWT_REFRESH_EXPIRES_IN: '7d',
+        JWT_REFRESH_SECRET: 'refresh-secret',
+        JWT_SECRET: 'access-secret',
+      };
+
+      return values[key] ?? fallback;
+    }),
+  };
+  const refreshTokenService = {
+    create: jest.fn(),
+    revokeAllByUser: jest.fn(),
+  };
+  const passwordResetTokenService = {
+    consume: jest.fn(),
+    create: jest.fn(),
+  };
+  const passwordResetDeliveryService = {
+    sendResetInstructions: jest.fn(),
+  };
 
   beforeEach(async () => {
-    userService = {
-      create: jest.fn<Promise<AuthUserRecord>, unknown[]>(),
-      findByEmail: jest.fn<Promise<AuthUserRecord | null>, unknown[]>(),
-    };
-    passwordResetTokenService = {
-      consume: jest.fn<Promise<string>, unknown[]>(),
-      create: jest.fn<Promise<string>, unknown[]>(),
-    };
-    passwordResetDeliveryService = {
-      sendResetInstructions: jest.fn<Promise<void>, [string, string]>().mockResolvedValue(),
-    };
-    refreshTokenService = {
-      create: jest.fn<Promise<Record<string, unknown>>, unknown[]>().mockResolvedValue({}),
-      revokeAllByUser: jest.fn<Promise<Record<string, unknown>>, unknown[]>().mockResolvedValue({}),
-    };
-
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
-        {
-          provide: UserService,
-          useValue: userService,
-        },
-        {
-          provide: JwtService,
-          useValue: {
-            signAsync: jest.fn<Promise<string>, unknown[]>().mockResolvedValue('signed-token'),
-          },
-        },
-        {
-          provide: ConfigService,
-          useValue: {
-            get: jest.fn(),
-          },
-        },
-        {
-          provide: RefreshTokenService,
-          useValue: refreshTokenService,
-        },
-        {
-          provide: PasswordResetTokenService,
-          useValue: passwordResetTokenService,
-        },
-        {
-          provide: PasswordResetDeliveryService,
-          useValue: passwordResetDeliveryService,
-        },
+        { provide: UserService, useValue: userService },
+        { provide: JwtService, useValue: jwtService },
+        { provide: ConfigService, useValue: configService },
+        { provide: RefreshTokenService, useValue: refreshTokenService },
+        { provide: PasswordResetTokenService, useValue: passwordResetTokenService },
+        { provide: PasswordResetDeliveryService, useValue: passwordResetDeliveryService },
       ],
     }).compile();
 
-    service = module.get<AuthService>(AuthService);
+    service = module.get(AuthService);
+    jwtService.signAsync.mockImplementation((_payload, options: { secret: string }) =>
+      Promise.resolve(options.secret === 'access-secret' ? 'access-token' : 'refresh-token'),
+    );
   });
 
   afterEach(() => {
     jest.clearAllMocks();
-    jest.restoreAllMocks();
+  });
+
+  it('registers a user with a hashed password and omits passwordHash from the response', async () => {
+    let createdPasswordHash = '';
+    userService.findByEmail.mockResolvedValue(null);
+    userService.create.mockImplementation((data: { passwordHash: string }) => {
+      createdPasswordHash = data.passwordHash;
+      return Promise.resolve(makeUser({ passwordHash: data.passwordHash }));
+    });
+
+    const result = await service.register({
+      email: 'learner@example.test',
+      fullName: 'Learner One',
+      password: 'CorrectHorseBattery1!',
+    });
+
+    expect(userService.create).toHaveBeenCalledWith({
+      email: 'learner@example.test',
+      fullName: 'Learner One',
+      passwordHash: expect.any(String) as string,
+    });
+    expect(createdPasswordHash).not.toBe('CorrectHorseBattery1!');
+    expect(result).toEqual({
+      createdAt: expect.any(Date) as Date,
+      email: 'learner@example.test',
+      fullName: 'Learner One',
+      id: 'user-1',
+      role: UserRole.USER,
+      updatedAt: expect.any(Date) as Date,
+    });
+  });
+
+  it('rejects duplicate registration emails', async () => {
+    userService.findByEmail.mockResolvedValue(makeUser());
+
+    await expect(
+      service.register({
+        email: 'learner@example.test',
+        fullName: 'Learner One',
+        password: 'CorrectHorseBattery1!',
+      }),
+    ).rejects.toThrow(EmailAlreadyExistsException);
+    expect(userService.create).not.toHaveBeenCalled();
+  });
+
+  it('logs in with valid credentials and persists the refresh token hash record', async () => {
+    const passwordHash = await bcrypt.hash('CorrectHorseBattery1!', 10);
+    userService.findByEmail.mockResolvedValue(makeUser({ passwordHash }));
+
+    const result = await service.login({
+      email: 'learner@example.test',
+      password: 'CorrectHorseBattery1!',
+    });
+
+    expect(result).toEqual(['access-token', 'refresh-token']);
+    expect(jwtService.signAsync).toHaveBeenCalledWith(
+      { email: 'learner@example.test', sub: 'user-1' },
+      { expiresIn: '15m', secret: 'access-secret' },
+    );
+    expect(jwtService.signAsync).toHaveBeenCalledWith(
+      { email: 'learner@example.test', sub: 'user-1' },
+      { expiresIn: '7d', secret: 'refresh-secret' },
+    );
+    expect(refreshTokenService.create).toHaveBeenCalledWith(
+      'user-1',
+      'refresh-token',
+      expect.any(Date),
+    );
+  });
+
+  it('rejects login for missing users and invalid passwords', async () => {
+    userService.findByEmail.mockResolvedValueOnce(null);
+
+    await expect(
+      service.login({ email: 'missing@example.test', password: 'CorrectHorseBattery1!' }),
+    ).rejects.toThrow(InvalidCredentialsException);
+
+    const passwordHash = await bcrypt.hash('CorrectHorseBattery1!', 10);
+    userService.findByEmail.mockResolvedValueOnce(makeUser({ passwordHash }));
+
+    await expect(
+      service.login({ email: 'learner@example.test', password: 'WrongPassword1!' }),
+    ).rejects.toThrow(InvalidCredentialsException);
+  });
+
+  it('refreshes tokens for an existing session identity', async () => {
+    const result = await service.refresh('user-1', 'learner@example.test');
+
+    expect(result).toEqual(['access-token', 'refresh-token']);
+    expect(refreshTokenService.create).toHaveBeenCalledWith(
+      'user-1',
+      'refresh-token',
+      expect.any(Date),
+    );
+  });
+
+  it('logs out by revoking all refresh tokens for the user', async () => {
+    await service.logout('user-1');
+
+    expect(refreshTokenService.revokeAllByUser).toHaveBeenCalledWith('user-1');
   });
 
   describe('forgotPassword', () => {
-    it('should not reveal whether the email exists', async () => {
+    it('does not reveal whether the email exists', async () => {
       userService.findByEmail.mockResolvedValue(null);
 
       await expect(
@@ -128,46 +198,50 @@ describe('AuthService', () => {
       expect(passwordResetDeliveryService.sendResetInstructions).not.toHaveBeenCalled();
     });
 
-    it('should issue and deliver reset instructions for an existing user', async () => {
-      userService.findByEmail.mockResolvedValue(createUserRecord());
+    it('issues and delivers reset instructions for an existing user', async () => {
+      userService.findByEmail.mockResolvedValue(makeUser());
       passwordResetTokenService.create.mockResolvedValue('raw-reset-token');
 
-      await service.forgotPassword({ email: 'jane@example.com' });
+      await service.forgotPassword({ email: 'learner@example.test' });
 
       expect(passwordResetTokenService.create).toHaveBeenCalledWith('user-1');
       expect(passwordResetDeliveryService.sendResetInstructions).toHaveBeenCalledWith(
-        'jane@example.com',
+        'learner@example.test',
         'raw-reset-token',
       );
     });
 
-    it('should still not reveal the email if the user disappears before token creation', async () => {
-      userService.findByEmail.mockResolvedValue(createUserRecord());
+    it('does not reveal the email if the user disappears before token creation', async () => {
+      userService.findByEmail.mockResolvedValue(makeUser());
       passwordResetTokenService.create.mockRejectedValue(new UserNotFoundException('user-1'));
 
-      await expect(service.forgotPassword({ email: 'jane@example.com' })).resolves.toBeUndefined();
+      await expect(
+        service.forgotPassword({ email: 'learner@example.test' }),
+      ).resolves.toBeUndefined();
 
       expect(passwordResetDeliveryService.sendResetInstructions).not.toHaveBeenCalled();
     });
 
-    it('should not reveal the email if reset delivery fails', async () => {
-      userService.findByEmail.mockResolvedValue(createUserRecord());
+    it('does not reveal the email if reset delivery fails', async () => {
+      userService.findByEmail.mockResolvedValue(makeUser());
       passwordResetTokenService.create.mockResolvedValue('raw-reset-token');
       passwordResetDeliveryService.sendResetInstructions.mockRejectedValue(
         new Error('delivery failed'),
       );
 
-      await expect(service.forgotPassword({ email: 'jane@example.com' })).resolves.toBeUndefined();
+      await expect(
+        service.forgotPassword({ email: 'learner@example.test' }),
+      ).resolves.toBeUndefined();
 
       expect(passwordResetDeliveryService.sendResetInstructions).toHaveBeenCalledWith(
-        'jane@example.com',
+        'learner@example.test',
         'raw-reset-token',
       );
     });
   });
 
   describe('resetPassword', () => {
-    it('should hash the new password, consume the token, and revoke refresh tokens', async () => {
+    it('hashes the new password, consumes the token, and revokes refresh tokens', async () => {
       passwordResetTokenService.consume.mockResolvedValue('user-1');
 
       await service.resetPassword({

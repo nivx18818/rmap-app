@@ -8,12 +8,17 @@ import * as bcrypt from 'bcrypt';
 import {
   EmailAlreadyExistsException,
   InvalidCredentialsException,
+  UserNotFoundException,
 } from '@/common/exceptions/app.exceptions';
 
+import type { ForgotPasswordDto } from './dto/forgot-password.dto';
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
+import type { ResetPasswordDto } from './dto/reset-password.dto';
 
 import { UserService } from '../user/user.service';
+import { PasswordResetDeliveryService } from './password-reset-delivery.service';
+import { PasswordResetTokenService } from './password-reset-token.service';
 import { RefreshTokenService } from './refresh-token.service';
 
 @Injectable()
@@ -23,6 +28,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly refreshTokenService: RefreshTokenService,
+    private readonly passwordResetTokenService: PasswordResetTokenService,
+    private readonly passwordResetDeliveryService: PasswordResetDeliveryService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -33,7 +40,7 @@ export class AuthService {
       throw new EmailAlreadyExistsException(email);
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await this.hashPassword(password);
 
     const user = await this.userService.create({
       email,
@@ -73,6 +80,42 @@ export class AuthService {
     await this.refreshTokenService.revokeAllByUser(userId);
   }
 
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+    const user = await this.userService.findByEmail(forgotPasswordDto.email);
+
+    if (!user) {
+      return;
+    }
+
+    let resetToken: string;
+
+    try {
+      resetToken = await this.passwordResetTokenService.create(user.id);
+    } catch (error) {
+      if (error instanceof UserNotFoundException) {
+        return;
+      }
+
+      throw error;
+    }
+
+    try {
+      await this.passwordResetDeliveryService.sendResetInstructions(user.email, resetToken);
+    } catch {
+      return;
+    }
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto) {
+    const passwordHash = await this.hashPassword(resetPasswordDto.newPassword);
+    const userId = await this.passwordResetTokenService.consume(
+      resetPasswordDto.token,
+      passwordHash,
+    );
+
+    await this.refreshTokenService.revokeAllByUser(userId);
+  }
+
   private async issueTokens(payload: { sub: string; email: string }) {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
@@ -90,5 +133,9 @@ export class AuthService {
     await this.refreshTokenService.create(payload.sub, refreshToken, expiresAt);
 
     return [accessToken, refreshToken];
+  }
+
+  private async hashPassword(password: string) {
+    return await bcrypt.hash(password, 10);
   }
 }

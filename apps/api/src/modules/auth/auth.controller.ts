@@ -13,8 +13,10 @@ import type { RequestUser } from './decorators/current-user.decorator';
 
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { RefreshTokenService } from './refresh-token.service';
 import { cookieExtractor } from './utils/cookie-extractor';
@@ -41,6 +43,20 @@ export class AuthController {
     res.cookie('access_token', accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
     res.cookie('refresh_token', refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
     return { message: 'Login successful' };
+  }
+
+  @Public()
+  @Post('password/forgot')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    await this.authService.forgotPassword(forgotPasswordDto);
+  }
+
+  @Public()
+  @Post('password/reset')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    await this.authService.resetPassword(resetPasswordDto);
   }
 
   @Public()

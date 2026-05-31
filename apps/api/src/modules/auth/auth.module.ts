@@ -10,6 +10,8 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+import { PasswordResetDeliveryService } from './password-reset-delivery.service';
+import { PasswordResetTokenService } from './password-reset-token.service';
 import { RefreshTokenService } from './refresh-token.service';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -34,6 +36,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     JwtRefreshStrategy,
     JwtAuthGuard,
     JwtRefreshGuard,
+    PasswordResetDeliveryService,
+    PasswordResetTokenService,
     RefreshTokenService,
   ],
   controllers: [AuthController],

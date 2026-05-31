@@ -2,10 +2,11 @@ name: Sync GitHub Project to Sheets
 
 on:
   issues:
+    types: [opened, closed, reopened]
   pull_request:
-  push:
+    types: [opened, closed, reopened]
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
 
 concurrency:

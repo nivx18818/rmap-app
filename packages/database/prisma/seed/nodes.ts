@@ -9,6 +9,7 @@
 import 'dotenv/config';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as readline from 'readline';
 import { fileURLToPath } from 'url';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';

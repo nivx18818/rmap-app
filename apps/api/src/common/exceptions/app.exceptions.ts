@@ -263,6 +263,15 @@ export class InvalidCredentialsException extends UnauthorizedException {
   }
 }
 
+export class InvalidPasswordResetTokenException extends UnauthorizedException {
+  constructor() {
+    super({
+      code: ErrorCode.INVALID_PASSWORD_RESET_TOKEN,
+      message: getErrorMessage(ErrorCode.INVALID_PASSWORD_RESET_TOKEN),
+    });
+  }
+}
+
 // =================================================
 // 403 - Forbidden (Authorization/Permission Errors)
 // =================================================
@@ -564,6 +573,7 @@ export const ErrorCodeToException = {
   [ErrorCode.INVALID_REFRESH_TOKEN]: RefreshTokenInvalidException,
   [ErrorCode.MISSING_AUTHENTICATION]: MissingAuthenticationException,
   [ErrorCode.INVALID_CREDENTIALS]: InvalidCredentialsException,
+  [ErrorCode.INVALID_PASSWORD_RESET_TOKEN]: InvalidPasswordResetTokenException,
   // 403 - Forbidden
   [ErrorCode.FORBIDDEN]: AppForbiddenException,
   // 404 - Not Found

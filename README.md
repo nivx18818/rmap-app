@@ -35,20 +35,13 @@ pnpm build
 
 ## GitHub Project to Google Sheets sync
 
-The repository includes a GitHub Actions automation package at `packages/sheets-sync` that
-syncs the user Project v2 board `https://github.com/users/nivx18818/projects/1/` into the
-Google Sheets tab `Sprint Backlog Tracker`.
+The repository includes a GitHub Actions automation package at `packages/sheets-sync` that syncs the user Project v2 board `https://github.com/users/nivx18818/projects/1/` into the Google Sheets tab `Sprint Backlog Tracker`.
 
-The workflow runs on issue, pull request, push, manual dispatch, and every 5 minutes on a
-schedule. Issue, pull request, and push events run quickly; Project-only field changes or card
-moves are picked up by scheduled polling and can be delayed by GitHub schedule timing.
-The sync script creates required visible and metadata columns automatically; metadata columns can
-be hidden manually in Google Sheets.
+The workflow runs on issue, pull request, push, manual dispatch, and every 5 minutes on a schedule. Issue, pull request, and push events run quickly; Project-only field changes or card moves are picked up by scheduled polling and can be delayed by GitHub schedule timing. The sync script creates required visible and metadata columns automatically; metadata columns can be hidden manually in Google Sheets.
 
 Required repository secrets:
 
-- `GH_PROJECT_TOKEN` - a PAT or GitHub App token that can read the user-owned Project v2 and
-  related repository issue and pull request data.
+- `GH_PROJECT_TOKEN` - a PAT or GitHub App token that can read the user-owned Project v2 and related repository issue and pull request data.
 - `GOOGLE_SERVICE_ACCOUNT_KEY` - the full Google service account JSON key.
 - `SHEET_ID` - the target spreadsheet ID.
 

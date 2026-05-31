@@ -75,6 +75,3 @@ jobs:
           JWT_REFRESH_TOKEN_HASH_SECRET: test-refresh-hash-secret
           JWT_SECRET: test-access-secret
           NODE_ENV: test
-
-      # - name: Test
-      #   run: pnpm test --if-present

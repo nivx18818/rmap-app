@@ -2,7 +2,7 @@
 import type { ArgumentMetadata, INestApplication, ValidationError } from '@nestjs/common';
 import type { BadRequestException } from '@nestjs/common';
 
-import { configureApp, createValidationPipe } from '@/app.setup';
+import { configureApp, createCorsOrigin, createValidationPipe } from '@/app.setup';
 import { ErrorCode } from '@/common/constants/error-codes';
 import { RegisterDto } from '@/modules/auth/dto/register.dto';
 
@@ -25,6 +25,27 @@ describe('app.setup', () => {
       origin: 'http://localhost:3000',
     });
     expect(app.useGlobalPipes).toHaveBeenCalledWith(expect.any(Object));
+  });
+
+  it('keeps exact CORS origins unchanged', () => {
+    expect(createCorsOrigin('http://localhost:3000')).toBe('http://localhost:3000');
+  });
+
+  it('converts wildcard CORS origins to anchored regexes', () => {
+    const corsOrigin = createCorsOrigin('https://rmap-app*.vercel.app');
+
+    expect(corsOrigin).toBeInstanceOf(RegExp);
+
+    const corsOriginRegex = corsOrigin as RegExp;
+
+    expect(corsOriginRegex.test('https://rmap-app.vercel.app')).toBe(true);
+    expect(corsOriginRegex.test('https://rmap-app-git-feature-user.vercel.app')).toBe(true);
+    expect(corsOriginRegex.test('https://evil-rmap-app.vercel.app')).toBe(false);
+    expect(corsOriginRegex.test('https://rmap-app.vercel.app.evil.com')).toBe(false);
+  });
+
+  it('ignores empty CORS origin configuration', () => {
+    expect(createCorsOrigin('   ')).toBeUndefined();
   });
 
   it('returns validation errors using configured validation codes', async () => {

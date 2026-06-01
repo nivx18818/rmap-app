@@ -146,8 +146,6 @@ The following features are **not in the current version scope** but are intentio
 - **NFR-05:** Passwords and refresh tokens must be hashed with bcrypt before being stored in the database.
 - **NFR-06:** Gemini API key must never be exposed to the client - all AI calls must go through the backend.
 
-**Authentication deployment note:** In production, the browser calls the web origin at `/api/v1`, and Vercel rewrites those requests to the Render API service using `NEXT_PUBLIC_API_BASE_PATH=/api/v1` and `API_PROXY_ORIGIN=https://rmap-app-v13m.onrender.com`. JWT cookies are HttpOnly, Secure, and first-party cookies for the web origin; Render should use `CLIENT_URL=https://rmap-app.vercel.app`.
-
 ### **3.3 Usability**
 
 - **NFR-07:** The interface must be responsive on desktop and mobile.

@@ -4,7 +4,7 @@ import type { AxiosRequestConfig } from 'axios';
 
 import axios from 'axios';
 
-import { API_BASE_PATH, ENDPOINTS } from '@/constants/endpoints';
+import { API_BASE_URL, ENDPOINTS } from '@/constants/endpoints';
 
 interface RetryableRequestConfig extends AxiosRequestConfig {
   _retry?: boolean;
@@ -28,7 +28,7 @@ const processQueue = (error: unknown = null) => {
 };
 
 export const axiosInstance = axios.create({
-  baseURL: API_BASE_PATH,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },

@@ -1,4 +1,8 @@
-import { API_BASE_URL } from '@/constants/endpoints';
+import 'server-only';
+
+import { API_BASE_PATH } from '@/constants/endpoints';
+
+const API_PROXY_ORIGIN = process.env.API_PROXY_ORIGIN ?? 'http://localhost:3001';
 
 export class FetchError extends Error {
   constructor(
@@ -47,7 +51,7 @@ export async function fetchWrapper<T>(
     requestHeaders.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${API_PROXY_ORIGIN}${API_BASE_PATH}${path}`, {
     ...options,
     credentials: 'include',
     headers: requestHeaders,

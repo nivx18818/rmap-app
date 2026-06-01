@@ -8,9 +8,8 @@ export const COOKIE_NAMES = {
 const isProduction = process.env.NODE_ENV === 'production';
 
 const BASE_COOKIE_OPTIONS: CookieOptions = {
-  domain: process.env.COOKIE_DOMAIN,
   httpOnly: true,
-  sameSite: isProduction ? 'none' : 'lax',
+  sameSite: 'lax',
   secure: isProduction,
 };
 

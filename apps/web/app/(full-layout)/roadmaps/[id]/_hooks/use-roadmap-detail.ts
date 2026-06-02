@@ -10,7 +10,7 @@ import type { RoadmapDetail } from '../_types/roadmap-detail.types';
 
 const ROADMAP_DETAIL_ERROR_MESSAGE = 'Unable to load this roadmap detail.';
 
-export type RoadmapDetailMode = 'personal' | 'template';
+export type RoadmapDetailMode = 'authenticated' | 'template';
 
 interface UseRoadmapDetailOptions {
   isAuthenticated: boolean;
@@ -33,26 +33,28 @@ export function useRoadmapDetail({ isAuthenticated, roadmapId }: UseRoadmapDetai
     setRoadmap(null);
     setMode(null);
 
-    try {
-      const template = await publicTemplateService.getById(roadmapId);
-      setRoadmap(template);
-      setMode('template');
-      setIsLoading(false);
-      return;
-    } catch (templateError) {
-      if (!isAuthenticated || !isNotFoundError(templateError)) {
-        setRoadmap(null);
-        setMode(null);
-        setErrorMessage(ROADMAP_DETAIL_ERROR_MESSAGE);
+    if (isAuthenticated) {
+      try {
+        const response = await roadmapService.getById(roadmapId);
+        setRoadmap(response);
+        setMode('authenticated');
         setIsLoading(false);
         return;
+      } catch (roadmapError) {
+        if (!isNotFoundError(roadmapError)) {
+          setRoadmap(null);
+          setMode(null);
+          setErrorMessage(ROADMAP_DETAIL_ERROR_MESSAGE);
+          setIsLoading(false);
+          return;
+        }
       }
     }
 
     try {
-      const response = await roadmapService.getById(roadmapId);
-      setRoadmap(response);
-      setMode(response.isTemplate ? 'template' : 'personal');
+      const template = await publicTemplateService.getById(roadmapId);
+      setRoadmap(template);
+      setMode('template');
     } catch {
       setRoadmap(null);
       setMode(null);

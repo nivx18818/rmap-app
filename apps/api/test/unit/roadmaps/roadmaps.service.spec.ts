@@ -697,6 +697,60 @@ describe('RoadmapsService', () => {
       });
     });
 
+    it('should request only the current user progress when listing template nodes', async () => {
+      prisma.roadmapNode.findMany.mockResolvedValue([
+        {
+          id: 'template-node-1',
+          roadmapId,
+          parentId: null,
+          skillId: null,
+          name: 'Template Foundations',
+          description: null,
+          nodeType: NodeType.GROUP,
+          estimatedHours: null,
+          posX: 120,
+          posY: 200,
+          userNodeProgress: [
+            {
+              id: 'progress-current-user',
+              roadmapNodeId: 'template-node-1',
+              status: NodeStatus.IN_PROGRESS,
+              startedAt: new Date('2026-01-01T00:00:00Z'),
+              completedAt: null,
+              quizScorePct: null,
+              quizPassed: null,
+            },
+          ],
+        },
+      ]);
+
+      const result = await service.listNodes(MOCK_USER_ID, roadmapId, {});
+
+      expect(prisma.roadmapNode.findMany).toHaveBeenCalledWith(
+        expectObjectContaining({
+          select: expectObjectContaining({
+            userNodeProgress: expectObjectContaining({
+              where: { userId: MOCK_USER_ID },
+            }),
+          }),
+          where: {
+            roadmapId,
+            roadmap: { OR: [{ isTemplate: true }, { isTemplate: false, userId: MOCK_USER_ID }] },
+          },
+        }),
+      );
+      expect(result.nodes).toEqual([
+        expectObjectContaining({
+          id: 'template-node-1',
+          progress: expectObjectContaining({
+            id: 'progress-current-user',
+            roadmapNodeId: 'template-node-1',
+            status: NodeStatus.IN_PROGRESS,
+          }),
+        }),
+      ]);
+    });
+
     it('should filter by status across node types when nodeType is omitted', async () => {
       prisma.roadmapNode.findMany.mockResolvedValue([]);
 
@@ -1548,12 +1602,67 @@ describe('RoadmapsService', () => {
       );
     });
 
-    it('should throw 404 when roadmap is a template', async () => {
-      prisma.roadmap.findFirst.mockResolvedValue(null);
+    it('should return a template roadmap with the current user startedAt', async () => {
+      const roadmapId = 'template-1';
+      const userId = 'user-1';
+      const startedAt = new Date('2025-04-24T07:30:00.000Z');
 
-      await expect(service.getByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
-        RoadmapNotFoundException,
-      );
+      prisma.roadmap.findFirst.mockResolvedValue({
+        deadlineDate: null,
+        description: 'A backend template',
+        estimatedWeeks: 6,
+        generatedAt: new Date('2025-04-24T07:00:00.000Z'),
+        goalName: null,
+        hoursPerDay: null,
+        id: roadmapId,
+        isTemplate: true,
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+        title: 'Backend template',
+        updatedAt: new Date('2025-04-25T08:00:00.000Z'),
+        userId: null,
+      });
+      prisma.userNodeProgress.findMany.mockResolvedValue([
+        {
+          startedAt,
+          roadmapNode: { roadmapId },
+        },
+      ]);
+
+      await expect(service.getByIdForOwner(userId, roadmapId)).resolves.toEqual({
+        deadlineDate: null,
+        description: 'A backend template',
+        estimatedWeeks: 6,
+        generatedAt: '2025-04-24T07:00:00.000Z',
+        goalName: null,
+        hoursPerDay: null,
+        id: roadmapId,
+        isTemplate: true,
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+        startedAt: startedAt.toISOString(),
+        title: 'Backend template',
+        updatedAt: '2025-04-25T08:00:00.000Z',
+        userId: null,
+      });
+
+      expect(prisma.roadmap.findFirst).toHaveBeenCalledWith({
+        select: expectObjectContaining({ id: true, isTemplate: true }),
+        where: {
+          id: roadmapId,
+          OR: [{ isTemplate: true }, { isTemplate: false, userId }],
+        },
+      });
+      expect(prisma.userNodeProgress.findMany).toHaveBeenCalledWith({
+        where: {
+          userId,
+          startedAt: { not: null },
+          roadmapNode: { roadmapId: { in: [roadmapId] } },
+        },
+        orderBy: [{ startedAt: 'asc' }, { id: 'asc' }],
+        select: {
+          startedAt: true,
+          roadmapNode: { select: { roadmapId: true } },
+        },
+      });
     });
   });
 

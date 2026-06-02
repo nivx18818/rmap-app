@@ -99,7 +99,8 @@ export class RoadmapsController {
   /**
    * POST /roadmaps/:roadmapId/start
    *
-   * Starts an unstarted personal roadmap and unlocks the first learning group.
+   * Starts an unstarted user roadmap or template for the authenticated user and
+   * unlocks the first learning group.
    */
   @Post(':roadmapId/start')
   @HttpCode(HttpStatus.OK)

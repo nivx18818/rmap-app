@@ -25,13 +25,16 @@ export function RoadmapDetailContent({ roadmapId }: RoadmapDetailContentProps) {
     isAuthenticated,
     roadmapId,
   });
-  const isPersonalRoadmap = Boolean(isAuthenticated && mode === 'personal' && roadmap);
+  const isAuthenticatedRoadmapView = Boolean(
+    isAuthenticated && mode === 'authenticated' && roadmap,
+  );
+  const isPublicTemplatePreview = Boolean(!isAuthenticated && mode === 'template');
   const {
     errorMessage: progressErrorMessage,
     isLoading: isProgressLoading,
     refreshProgressSummary,
     summary: progressSummary,
-  } = useRoadmapProgressSummary({ enabled: isPersonalRoadmap, roadmapId });
+  } = useRoadmapProgressSummary({ enabled: isAuthenticatedRoadmapView, roadmapId });
 
   const { isRecreatingRoadmap, isStartingLearning, handleStartLearning, handleRecreateRoadmap } =
     useRoadmapActions({
@@ -42,13 +45,14 @@ export function RoadmapDetailContent({ roadmapId }: RoadmapDetailContentProps) {
     });
 
   const title = roadmap?.title ?? 'Roadmap';
-  const isPreviewRoadmap = Boolean(isPersonalRoadmap && roadmap && !roadmap.startedAt);
+  const canStartLearning = Boolean(isAuthenticatedRoadmapView && roadmap && !roadmap.startedAt);
+  const canRecreate = Boolean(isAuthenticatedRoadmapView && roadmap && !roadmap.isTemplate);
 
   const handleProgressUpdated = useCallback(() => {
-    if (!isPersonalRoadmap) return;
+    if (!isAuthenticatedRoadmapView) return;
 
     void refreshProgressSummary();
-  }, [isPersonalRoadmap, refreshProgressSummary]);
+  }, [isAuthenticatedRoadmapView, refreshProgressSummary]);
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-start overflow-x-hidden">
@@ -65,9 +69,9 @@ export function RoadmapDetailContent({ roadmapId }: RoadmapDetailContentProps) {
         progressSummary={progressSummary}
         isProgressLoading={isProgressLoading}
         onProgressRetry={handleProgressUpdated}
-        showPreviewActions={isPreviewRoadmap}
-        showProgress={isPersonalRoadmap}
-        canRecreate={isPersonalRoadmap}
+        showPreviewActions={canStartLearning}
+        showProgress={!isPublicTemplatePreview && isAuthenticatedRoadmapView}
+        canRecreate={canRecreate}
         isRecreatingRoadmap={isRecreatingRoadmap}
         isStartingLearning={isStartingLearning}
         onRecreateRoadmap={handleRecreateRoadmap}
@@ -75,7 +79,7 @@ export function RoadmapDetailContent({ roadmapId }: RoadmapDetailContentProps) {
       />
       <RoadmapGraph
         key={graphRefreshKey}
-        isPersonalRoadmap={isPersonalRoadmap}
+        isAuthenticatedRoadmapView={isAuthenticatedRoadmapView}
         mode={mode}
         roadmapId={roadmapId}
         roadmapTitle={title}

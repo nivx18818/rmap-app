@@ -10,7 +10,7 @@ import type { NodeType, ProgressStatus, RoadmapNode } from '../_types/roadmap-no
 import { ROADMAP_NODES_ERROR_MESSAGE } from '../_constants/roadmap-filter.constants';
 import { buildRoadmapNodesFilter, filterRoadmapNodes } from '../_utils/roadmap-filter.utils';
 
-type RoadmapNodesSource = 'personal' | 'template';
+type RoadmapNodesSource = 'authenticated' | 'template';
 
 interface UseRoadmapNodesOptions {
   enabled?: boolean;
@@ -26,7 +26,7 @@ export function useRoadmapNodes({
   nodeType,
   roadmapId,
   searchQuery,
-  source = 'personal',
+  source = 'authenticated',
   status,
 }: UseRoadmapNodesOptions) {
   const [roadmapNodes, setRoadmapNodes] = useState<RoadmapNode[]>([]);

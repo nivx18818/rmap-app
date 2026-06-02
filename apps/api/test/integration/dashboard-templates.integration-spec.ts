@@ -21,6 +21,11 @@ type ActivityBody = {
   activity: Array<{ activityDate: string; nodesCompleted: number }>;
 };
 
+type StartTemplateBody = {
+  roadmap: { id: string; isTemplate: boolean; startedAt: null | string };
+  unlockedNodes: string[];
+};
+
 describe('Learner dashboard and public templates (integration)', () => {
   const integration = setupIntegrationTest();
 
@@ -97,5 +102,27 @@ describe('Learner dashboard and public templates (integration)', () => {
       { activityDate: '2026-05-30', nodesCompleted: 2 },
       { activityDate: '2026-05-31', nodesCompleted: 0 },
     ]);
+
+    const startTemplateResponse = await request(integration.app.getHttpServer())
+      .post(`/api/v1/roadmaps/${seeded.templateId}/start`)
+      .set('Cookie', cookie)
+      .expect(200);
+    const startTemplateBody = startTemplateResponse.body as StartTemplateBody;
+
+    expect(startTemplateBody).toMatchObject({
+      roadmap: { id: seeded.templateId, isTemplate: true },
+      unlockedNodes: [seeded.templateNodeId],
+    });
+    expect(typeof startTemplateBody.roadmap.startedAt).toBe('string');
+
+    const learnerTemplateNodesResponse = await request(integration.app.getHttpServer())
+      .get(`/api/v1/roadmaps/${seeded.templateId}/nodes`)
+      .set('Cookie', cookie)
+      .expect(200);
+    const learnerTemplateNodesBody = learnerTemplateNodesResponse.body as TemplateNodesBody;
+    const learnerTemplateNode = learnerTemplateNodesBody.nodes[0];
+
+    expect(learnerTemplateNode?.id).toBe(seeded.templateNodeId);
+    expect(learnerTemplateNode?.progress?.status).toBe('IN_PROGRESS');
   });
 });

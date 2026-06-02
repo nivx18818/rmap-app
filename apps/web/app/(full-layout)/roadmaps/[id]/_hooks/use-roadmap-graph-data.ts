@@ -18,14 +18,14 @@ export function useRoadmapGraphData({ mode, roadmapId }: UseRoadmapGraphDataOpti
   const { displayMode, setDisplayMode } = useRoadmapDisplayMode();
   const { debouncedQuery, nodeType, query, setQuery, status, updateUrlFilters } =
     useRoadmapFilters();
-  const isTemplateRoadmap = mode === 'template';
-  const isPersonalRoadmap = mode === 'personal';
-  const effectiveStatus = isPersonalRoadmap ? status : null;
+  const isPublicTemplatePreview = mode === 'template';
+  const isAuthenticatedRoadmapView = mode === 'authenticated';
+  const effectiveStatus = isAuthenticatedRoadmapView ? status : null;
   const isSearchFilterActive = Boolean(
     query.trim() || debouncedQuery.trim() || effectiveStatus || nodeType,
   );
   const shouldApplyMatchedNodes = Boolean(debouncedQuery.trim() || effectiveStatus || nodeType);
-  const shouldFetchMatchedNodes = isPersonalRoadmap && shouldApplyMatchedNodes;
+  const shouldFetchMatchedNodes = isAuthenticatedRoadmapView && shouldApplyMatchedNodes;
   const {
     errorMessage: baseErrorMessage,
     isLoading: isBaseLoading,
@@ -36,7 +36,7 @@ export function useRoadmapGraphData({ mode, roadmapId }: UseRoadmapGraphDataOpti
     nodeType: null,
     roadmapId,
     searchQuery: '',
-    source: isTemplateRoadmap ? 'template' : 'personal',
+    source: isPublicTemplatePreview ? 'template' : 'authenticated',
     status: null,
   });
   const {
@@ -53,25 +53,25 @@ export function useRoadmapGraphData({ mode, roadmapId }: UseRoadmapGraphDataOpti
   });
   const templateMatchedRoadmapNodes = useMemo(
     () =>
-      isTemplateRoadmap && shouldApplyMatchedNodes
+      isPublicTemplatePreview && shouldApplyMatchedNodes
         ? filterRoadmapNodes(baseRoadmapNodes, {
             nodeType,
             searchQuery: debouncedQuery,
             status: null,
           })
         : [],
-    [baseRoadmapNodes, debouncedQuery, isTemplateRoadmap, nodeType, shouldApplyMatchedNodes],
+    [baseRoadmapNodes, debouncedQuery, isPublicTemplatePreview, nodeType, shouldApplyMatchedNodes],
   );
   const effectiveMatchedRoadmapNodes = useMemo(
     () =>
-      isTemplateRoadmap
+      isPublicTemplatePreview
         ? templateMatchedRoadmapNodes
         : shouldFetchMatchedNodes && !isMatchedLoading
           ? matchedRoadmapNodes
           : [],
     [
       isMatchedLoading,
-      isTemplateRoadmap,
+      isPublicTemplatePreview,
       matchedRoadmapNodes,
       shouldFetchMatchedNodes,
       templateMatchedRoadmapNodes,

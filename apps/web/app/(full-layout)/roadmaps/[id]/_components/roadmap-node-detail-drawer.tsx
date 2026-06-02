@@ -1,7 +1,7 @@
 'use client';
 
 import type { Route } from 'next';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
 import { Badge } from '@repo/design-system/components/ui/badge';
 import { Button } from '@repo/design-system/components/ui/button';
@@ -29,6 +29,11 @@ import { NODE_TYPE_LABELS, STATUS_LABELS } from '../_constants/roadmap-node.cons
 import { statusBadgeClasses } from '../_constants/roadmap-stack-list.constants';
 import { useResponsiveDrawerDirection } from '../_hooks/use-responsive-drawer-direction';
 import { useRoadmapNodeDetail } from '../_hooks/use-roadmap-node-detail';
+import {
+  parseRoadmapMarkdown,
+  type RoadmapMarkdownBlock,
+  type RoadmapMarkdownInlineNode,
+} from '../_utils/roadmap-markdown.utils';
 
 const RESOURCE_TYPE_LABELS = {
   ARTICLE: 'Article',
@@ -78,6 +83,116 @@ function RoadmapNodeDetailDrawerSkeleton() {
   );
 }
 
+function isSafeMarkdownHref(href: string): boolean {
+  return /^(https?:\/\/|mailto:)/i.test(href);
+}
+
+function renderRoadmapMarkdownInlineNodes(
+  nodes: RoadmapMarkdownInlineNode[],
+  keyPrefix: string,
+): ReactNode[] {
+  return nodes.map((node, index) => {
+    const key = `${keyPrefix}-${index}`;
+
+    if (node.type === 'text') return node.text;
+
+    if (node.type === 'bold') {
+      return (
+        <strong key={key} className="text-foreground font-semibold">
+          {renderRoadmapMarkdownInlineNodes(node.children, key)}
+        </strong>
+      );
+    }
+
+    if (node.type === 'italic') {
+      return (
+        <em key={key} className="italic">
+          {renderRoadmapMarkdownInlineNodes(node.children, key)}
+        </em>
+      );
+    }
+
+    if (node.type === 'code') {
+      return (
+        <code
+          key={key}
+          className="bg-muted text-foreground rounded px-1 py-0.5 font-mono text-[0.85em]"
+        >
+          {node.text}
+        </code>
+      );
+    }
+
+    return (
+      <a
+        key={key}
+        className="text-primary font-medium underline-offset-4 hover:underline"
+        href={isSafeMarkdownHref(node.href) ? node.href : '#'}
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        {renderRoadmapMarkdownInlineNodes(node.children, key)}
+      </a>
+    );
+  });
+}
+
+function RoadmapMarkdownBlockView({
+  block,
+  index,
+}: {
+  block: RoadmapMarkdownBlock;
+  index: number;
+}) {
+  if (block.type === 'heading') {
+    return (
+      <h4 className="text-foreground pt-2 text-sm font-semibold first:pt-0">
+        {renderRoadmapMarkdownInlineNodes(block.children, `heading-${index}`)}
+      </h4>
+    );
+  }
+
+  if (block.type === 'paragraph') {
+    return (
+      <p className="text-muted-foreground text-sm leading-6">
+        {renderRoadmapMarkdownInlineNodes(block.children, `paragraph-${index}`)}
+      </p>
+    );
+  }
+
+  const ListTag = block.type === 'ordered-list' ? 'ol' : 'ul';
+  const listClasses =
+    block.type === 'ordered-list'
+      ? 'text-muted-foreground list-decimal space-y-1 pl-5 text-sm leading-6'
+      : 'text-muted-foreground list-disc space-y-1 pl-5 text-sm leading-6';
+
+  return (
+    <ListTag className={listClasses}>
+      {block.items.map((item, itemIndex) => (
+        <li key={itemIndex}>
+          {renderRoadmapMarkdownInlineNodes(item, `list-${index}-${itemIndex}`)}
+        </li>
+      ))}
+    </ListTag>
+  );
+}
+
+function RoadmapMarkdownDescription({ value }: { value: string }) {
+  const blocks = parseRoadmapMarkdown(value);
+
+  if (blocks.length === 0) {
+    return <p className="text-muted-foreground text-sm leading-6">{value}</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {blocks.map((block, index) => (
+        <RoadmapMarkdownBlockView key={index} block={block} index={index} />
+      ))}
+    </div>
+  );
+}
+
 function RoadmapNodeDetailBody({ nodeDetail }: { nodeDetail: RoadmapNodeDetail }) {
   const description =
     nodeDetail.skillDescription ??
@@ -91,7 +206,7 @@ function RoadmapNodeDetailBody({ nodeDetail }: { nodeDetail: RoadmapNodeDetail }
         <h3 className="text-foreground text-sm font-semibold">
           {nodeDetail.nodeType === 'MILESTONE' ? 'Project brief' : 'Description'}
         </h3>
-        <p className="text-muted-foreground text-sm leading-6">{description}</p>
+        <RoadmapMarkdownDescription value={description} />
       </section>
 
       <Separator />

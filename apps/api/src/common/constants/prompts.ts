@@ -57,6 +57,46 @@ export const getNodeQuizGenerationPrompt = (skill: {
     '- Do not include explanations, markdown fences, comments, or extra keys.',
   ].join('\n');
 
+export const getMilestoneTestSuiteGenerationPrompt = (milestone: {
+  name: string;
+  projectBrief: string;
+  roleCategory: null | string;
+}): string =>
+  [
+    'You are a senior Node.js project evaluator.',
+    `Milestone name: "${milestone.name}"`,
+    `Project brief: "${milestone.projectBrief}"`,
+    `Role category: "${milestone.roleCategory ?? 'GENERAL'}"`,
+    '',
+    'TASK:',
+    'Generate an AI test suite for a learner-submitted Node.js/TypeScript repository.',
+    'The suite must verify practical implementation outcomes from the project brief.',
+    '',
+    'Output JSON only, no markdown fences, with this exact shape:',
+    '{',
+    '  "title": "string",',
+    '  "summary": "string",',
+    '  "testCases": [',
+    '    { "name": "string", "description": "string" }',
+    '  ],',
+    '  "testFileContent": "string"',
+    '}',
+    '',
+    'Strict rules:',
+    '- Return exactly 6 testCases.',
+    '- Each test case name must be unique and must map to one check in testFileContent.',
+    '- All title, summary, name, description, and testFileContent fields must be non-empty strings.',
+    '- testFileContent must be complete JavaScript for Node.js 22 using ESM syntax.',
+    '- testFileContent must not require external npm packages beyond what the submitted repo installs.',
+    '- testFileContent must run from the repository root and may inspect source files, package.json, and local HTTP handlers if they can run without network access.',
+    '- testFileContent must not make network calls, contact external services, or require secrets.',
+    '- testFileContent must execute all 6 checks even when earlier checks fail.',
+    '- testFileContent must print one final line beginning with RMAP_MILESTONE_RESULTS: followed by compact JSON.',
+    '- The marker JSON must have this shape: {"totalTests":6,"passedTests":number,"tests":[{"name":"string","passed":boolean,"message":"string"}]}.',
+    '- The platform passes the suite only when passedTests / totalTests * 100 is at least 80%; do not encode a required passed-test count in testFileContent.',
+    '- Do not include markdown fences, comments outside the JSON string, or extra top-level keys.',
+  ].join('\n');
+
 export const getRoadmapGenerationPrompt = (input: {
   goal: string;
   roleCategory: string;

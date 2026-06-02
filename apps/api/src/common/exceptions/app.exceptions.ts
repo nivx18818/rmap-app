@@ -545,6 +545,18 @@ export class NodeQuizGenerationUnavailableException extends HttpException {
   }
 }
 
+export class MilestoneTestSuiteGenerationUnavailableException extends HttpException {
+  constructor() {
+    super(
+      {
+        code: ErrorCode.MILESTONE_TEST_SUITE_GENERATION_UNAVAILABLE,
+        message: getErrorMessage(ErrorCode.MILESTONE_TEST_SUITE_GENERATION_UNAVAILABLE),
+      },
+      HttpStatus.SERVICE_UNAVAILABLE,
+    );
+  }
+}
+
 export const ErrorCodeToException = {
   // 400 - Bad Request
   [ErrorCode.BAD_REQUEST]: AppBadRequestException,
@@ -600,6 +612,8 @@ export const ErrorCodeToException = {
   // 503 - Service Unavailable
   [ErrorCode.ROADMAP_GENERATION_UNAVAILABLE]: RoadmapGenerationUnavailableException,
   [ErrorCode.NODE_QUIZ_GENERATION_UNAVAILABLE]: NodeQuizGenerationUnavailableException,
+  [ErrorCode.MILESTONE_TEST_SUITE_GENERATION_UNAVAILABLE]:
+    MilestoneTestSuiteGenerationUnavailableException,
   // 422 - Unprocessable Entity
   [ErrorCode.QUIZ_NOT_PASSED]: QuizNotPassedException,
   [ErrorCode.QUIZ_NODE_TYPE_INVALID]: QuizNodeTypeInvalidException,

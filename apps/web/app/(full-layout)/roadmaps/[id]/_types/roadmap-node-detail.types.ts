@@ -2,6 +2,7 @@ import type { NodeProgress, NodeType, RoadmapNode } from './roadmap-node.types';
 
 export type ResourceType = 'ARTICLE' | 'COURSE' | 'DOCS' | 'YOUTUBE';
 export type MilestoneSubmissionStatus = 'ERROR' | 'FAILED' | 'PASSED' | 'RUNNING';
+export type MilestoneTestSuiteStatus = 'FAILED' | 'GENERATING' | 'NOT_GENERATED' | 'READY';
 
 export interface RoadmapNodeResource {
   id: number;
@@ -20,9 +21,12 @@ export interface RoadmapNodePrerequisite {
 export interface MilestoneSubmission {
   id: string;
   repoUrl: string;
-  testCommand: string;
+  testSuiteId: string | null;
   status: MilestoneSubmissionStatus;
   outputLog: string | null;
+  passRatePct: number | null;
+  passedTests: number | null;
+  totalTests: number | null;
   attemptNumber: number;
   createdAt: string;
   completedAt: string | null;
@@ -38,7 +42,21 @@ export interface LatestMilestoneSubmissionResponse {
 
 export interface SubmitMilestoneSubmissionPayload {
   repoUrl: string;
-  testCommand?: string;
+}
+
+export interface MilestoneTestCase {
+  description: string;
+  name: string;
+}
+
+export interface MilestoneTestSuite {
+  generatedAt: string | null;
+  id: string;
+  passThresholdPct: number;
+  status: MilestoneTestSuiteStatus;
+  summary: string;
+  testCases: MilestoneTestCase[];
+  title: string;
 }
 
 export interface RoadmapNodeDetail {
@@ -48,6 +66,7 @@ export interface RoadmapNodeDetail {
   name: string;
   nodeType: NodeType;
   latestSubmission: MilestoneSubmission | null;
+  milestoneTestSuite: MilestoneTestSuite | null;
   prerequisites: RoadmapNodePrerequisite[];
   progress: NodeProgress | null;
   projectBrief?: string;
@@ -62,6 +81,7 @@ export interface RoadmapNodeDetailApiResponse {
     skillName: string;
   }>;
   latestSubmission: MilestoneSubmission | null;
+  milestoneTestSuite: MilestoneTestSuite | null;
   resources: RoadmapNodeResource[] | null;
   skill: {
     defaultEstimatedHours: number | null;

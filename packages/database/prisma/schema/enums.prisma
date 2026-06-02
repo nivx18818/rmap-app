@@ -44,6 +44,13 @@ enum QuizGenerationStatus {
   FAILED
 }
 
+enum MilestoneTestSuiteStatus {
+  NOT_GENERATED
+  GENERATING
+  READY
+  FAILED
+}
+
 enum MilestoneSubmissionStatus {
   RUNNING
   PASSED

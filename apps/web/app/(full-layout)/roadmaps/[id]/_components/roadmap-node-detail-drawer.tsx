@@ -43,7 +43,6 @@ const RESOURCE_TYPE_LABELS = {
   YOUTUBE: 'YouTube',
 } as const satisfies Record<RoadmapNodeDetail['resources'][number]['resourceType'], string>;
 
-const DEFAULT_MILESTONE_TEST_COMMAND = 'npm test';
 const OUTPUT_LOG_PREVIEW_LENGTH = 1800;
 
 function formatOutputLog(outputLog: string | null): string {
@@ -196,6 +195,38 @@ function RoadmapMarkdownDescription({ value }: { value: string }) {
   );
 }
 
+function MilestoneTestSuiteView({ nodeDetail }: { nodeDetail: RoadmapNodeDetail }) {
+  const testSuite = nodeDetail.milestoneTestSuite;
+
+  if (!testSuite) {
+    return (
+      <p className="text-muted-foreground text-sm">
+        The generated test suite will appear when this milestone is unlocked.
+      </p>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h4 className="text-foreground text-sm font-medium">{testSuite.title}</h4>
+          <Badge variant="secondary">{testSuite.passThresholdPct}% pass threshold</Badge>
+        </div>
+        <p className="text-muted-foreground text-sm leading-6">{testSuite.summary}</p>
+      </div>
+      <ul className="flex flex-col gap-2">
+        {testSuite.testCases.map((testCase, index) => (
+          <li key={`${testCase.name}-${index}`} className="rounded-md border p-3">
+            <p className="text-foreground text-sm font-medium">{testCase.name}</p>
+            <p className="text-muted-foreground mt-1 text-sm leading-6">{testCase.description}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function RoadmapNodeDetailBody({ nodeDetail }: { nodeDetail: RoadmapNodeDetail }) {
   const description =
     nodeDetail.skillDescription ??
@@ -203,12 +234,28 @@ function RoadmapNodeDetailBody({ nodeDetail }: { nodeDetail: RoadmapNodeDetail }
     nodeDetail.description ??
     'No description available for this node yet.';
 
+  if (nodeDetail.nodeType === 'MILESTONE') {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-4">
+        <section className="flex flex-col gap-2">
+          <h3 className="text-foreground text-sm font-semibold">Project brief</h3>
+          <RoadmapMarkdownDescription value={description} />
+        </section>
+
+        <Separator />
+
+        <section className="flex flex-col gap-3">
+          <h3 className="text-foreground text-sm font-semibold">Test suite</h3>
+          <MilestoneTestSuiteView nodeDetail={nodeDetail} />
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-4">
       <section className="flex flex-col gap-2">
-        <h3 className="text-foreground text-sm font-semibold">
-          {nodeDetail.nodeType === 'MILESTONE' ? 'Project brief' : 'Description'}
-        </h3>
+        <h3 className="text-foreground text-sm font-semibold">Description</h3>
         <RoadmapMarkdownDescription value={description} />
       </section>
 
@@ -273,18 +320,12 @@ function RoadmapNodeDetailActions({
   actionErrorMessage: string | null;
   isMarkingComplete: boolean;
   nodeDetail: RoadmapNodeDetail;
-  onMarkComplete: (options?: { forceComplete?: boolean }) => void;
-  onSubmitMilestoneSubmission: (payload: {
-    repoUrl: string;
-    testCommand?: string;
-  }) => Promise<void>;
+  onMarkComplete: () => void;
+  onSubmitMilestoneSubmission: (payload: { repoUrl: string }) => Promise<void>;
   roadmapId: string;
 }) {
   const [isSubmittingMilestone, setIsSubmittingMilestone] = useState(false);
   const [repoUrl, setRepoUrl] = useState(nodeDetail.latestSubmission?.repoUrl ?? '');
-  const [testCommand, setTestCommand] = useState(
-    nodeDetail.latestSubmission?.testCommand ?? DEFAULT_MILESTONE_TEST_COMMAND,
-  );
   const status = nodeDetail.progress?.status ?? 'LOCKED';
   const isLeafNode = nodeDetail.nodeType === 'OPTIONAL' || nodeDetail.nodeType === 'REQUIRED';
   const isMilestone = nodeDetail.nodeType === 'MILESTONE';
@@ -292,14 +333,11 @@ function RoadmapNodeDetailActions({
   const quizHref = `/roadmaps/${roadmapId}/nodes/${nodeDetail.id}/quiz` as Route<string>;
   const canTakeQuiz = isLeafNode && status === 'IN_PROGRESS';
   const canMarkComplete =
-    status === 'IN_PROGRESS' &&
-    ((isMilestone && latestSubmission?.status === 'PASSED') ||
-      (isLeafNode && nodeDetail.progress?.quizPassed === true));
-  const shouldShowComplete = status === 'IN_PROGRESS' && (isLeafNode || isMilestone);
+    status === 'IN_PROGRESS' && isLeafNode && nodeDetail.progress?.quizPassed === true;
+  const shouldShowComplete = status === 'IN_PROGRESS' && isLeafNode;
 
   useEffect(() => {
     setRepoUrl(nodeDetail.latestSubmission?.repoUrl ?? '');
-    setTestCommand(nodeDetail.latestSubmission?.testCommand ?? DEFAULT_MILESTONE_TEST_COMMAND);
   }, [nodeDetail.id, nodeDetail.latestSubmission]);
 
   const handleMilestoneSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -312,7 +350,6 @@ function RoadmapNodeDetailActions({
     try {
       await onSubmitMilestoneSubmission({
         repoUrl: repoUrl.trim(),
-        testCommand: testCommand.trim() || undefined,
       });
     } finally {
       setIsSubmittingMilestone(false);
@@ -332,7 +369,7 @@ function RoadmapNodeDetailActions({
   if (status === 'COMPLETED') {
     return (
       <p className="text-muted-foreground px-4 py-4 text-sm">
-        {isMilestone ? 'This milestone is complete.' : 'This node is complete.'}
+        {isMilestone ? 'Milestone completed automatically.' : 'This node is complete.'}
       </p>
     );
   }
@@ -343,8 +380,8 @@ function RoadmapNodeDetailActions({
         <DrawerFooter>
           <LoadingState
             className="py-2"
-            message="Running your tests..."
-            description="We are cloning your repository, installing dependencies, and running your Node.js test suite."
+            message="Running generated tests..."
+            description="We are cloning your repository, installing dependencies, injecting your generated test suite, and running it in the sandbox."
           />
           {actionErrorMessage ? (
             <p className="text-destructive text-xs">{actionErrorMessage}</p>
@@ -357,10 +394,9 @@ function RoadmapNodeDetailActions({
       <DrawerFooter>
         {latestSubmission?.status === 'PASSED' ? (
           <div className="border-chart-2 bg-chart-2/10 flex flex-col gap-2 rounded-md border p-3">
-            <p className="text-foreground text-sm font-medium">Tests passed!</p>
+            <p className="text-foreground text-sm font-medium">Milestone completed automatically</p>
             <p className="text-muted-foreground text-xs">
-              Attempt {latestSubmission.attemptNumber} passed. You can now mark this milestone
-              complete.
+              Attempt {latestSubmission.attemptNumber} passed the generated tests.
             </p>
           </div>
         ) : null}
@@ -369,9 +405,17 @@ function RoadmapNodeDetailActions({
           <div className="border-border bg-muted/30 flex flex-col gap-2 rounded-md border p-3">
             <p className="text-foreground text-sm font-medium">
               {latestSubmission.status === 'FAILED'
-                ? 'Tests did not pass.'
+                ? 'Generated tests did not pass.'
                 : 'Test execution hit a server-side error.'}
             </p>
+            {latestSubmission.passRatePct !== null &&
+            latestSubmission.passedTests !== null &&
+            latestSubmission.totalTests !== null ? (
+              <p className="text-muted-foreground text-xs">
+                {latestSubmission.passedTests}/{latestSubmission.totalTests} tests passed (
+                {latestSubmission.passRatePct}%).
+              </p>
+            ) : null}
             <pre className="bg-background text-muted-foreground max-h-48 overflow-auto rounded border p-3 text-xs whitespace-pre-wrap">
               {formatOutputLog(latestSubmission.outputLog)}
             </pre>
@@ -389,18 +433,6 @@ function RoadmapNodeDetailActions({
                 onChange={(event) => setRepoUrl(event.target.value)}
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="milestone-test-command">Test command</Label>
-              <Input
-                id="milestone-test-command"
-                placeholder={DEFAULT_MILESTONE_TEST_COMMAND}
-                value={testCommand}
-                onChange={(event) => setTestCommand(event.target.value)}
-              />
-              <p className="text-muted-foreground text-xs">
-                Allowed: npm test or npm run &lt;script&gt;.
-              </p>
-            </div>
             <Button disabled={!repoUrl.trim() || isSubmittingMilestone} type="submit">
               {isSubmittingMilestone
                 ? 'Submitting...'
@@ -409,28 +441,6 @@ function RoadmapNodeDetailActions({
                   : 'Submit project'}
             </Button>
           </form>
-        ) : null}
-
-        {latestSubmission?.status === 'PASSED' ? (
-          <Button
-            variant="outline"
-            disabled={isMarkingComplete}
-            type="button"
-            onClick={() => onMarkComplete()}
-          >
-            {isMarkingComplete ? 'Marking complete...' : 'Mark complete'}
-          </Button>
-        ) : null}
-
-        {latestSubmission?.status === 'ERROR' ? (
-          <Button
-            variant="outline"
-            disabled={isMarkingComplete}
-            type="button"
-            onClick={() => onMarkComplete({ forceComplete: true })}
-          >
-            {isMarkingComplete ? 'Marking complete...' : 'Force complete after review'}
-          </Button>
         ) : null}
 
         {actionErrorMessage ? (
@@ -492,6 +502,11 @@ export function RoadmapNodeDetailDrawer({
     roadmapNodes,
   });
   const status = nodeDetail?.progress?.status ?? 'LOCKED';
+  const selectedRoadmapNode = roadmapNodes.find((node) => node.id === selectedNodeId);
+  const isPreparingMilestoneSuite =
+    isLoading &&
+    selectedRoadmapNode?.nodeType === 'MILESTONE' &&
+    selectedRoadmapNode.progress?.status !== 'LOCKED';
   const description = nodeDetail
     ? `${NODE_TYPE_LABELS[nodeDetail.nodeType]}${nodeDetail.estimatedHours ? ` - ${nodeDetail.estimatedHours} hours` : ''}`
     : 'Loading node detail';
@@ -516,7 +531,16 @@ export function RoadmapNodeDetailDrawer({
         <Separator />
 
         {isLoading ? (
-          <RoadmapNodeDetailDrawerSkeleton />
+          isPreparingMilestoneSuite ? (
+            <div className="px-4 py-8">
+              <LoadingState
+                message="We are preparing a test suite for you"
+                description="This can take a few moments while the generated milestone tests are created."
+              />
+            </div>
+          ) : (
+            <RoadmapNodeDetailDrawerSkeleton />
+          )
         ) : errorMessage ? (
           <div className="flex flex-col gap-2 px-4 py-4">
             <h3 className="text-foreground text-sm font-semibold">Unable to load node</h3>

@@ -4,6 +4,7 @@ import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import {
   MilestoneSubmissionStatus,
+  MilestoneTestSuiteStatus,
   NodeStatus,
   NodeType,
   QuizGenerationStatus,
@@ -14,10 +15,9 @@ import {
   DeadlineInPastException,
   InvalidStatusTransitionException,
   MilestoneSubmissionInProgressException,
-  MilestoneSubmissionInvalidCommandException,
   MilestoneSubmissionInvalidStateException,
   MilestoneSubmissionInvalidUrlException,
-  MilestoneTestsNotPassedException,
+  MilestoneTestSuiteGenerationUnavailableException,
   NodeQuizGenerationUnavailableException,
   QuizNotPassedException,
   QuizSubmissionInvalidException,
@@ -51,6 +51,7 @@ function makeTxMock() {
     milestoneSubmission: {
       create: jest.fn(),
       findFirst: jest.fn().mockResolvedValue(null),
+      update: jest.fn(),
     },
     roadmap: {
       create: jest.fn().mockResolvedValue(MOCK_ROADMAP),
@@ -129,6 +130,9 @@ interface RoadmapNodeDetailSelection {
     quizScorePct: number | null;
     quizPassed: boolean | null;
   }>;
+  roadmap: {
+    roleCategory: RoleCategory | null;
+  };
   skill: {
     id: string;
     name: string;
@@ -150,18 +154,42 @@ interface RoadmapNodeDetailSelection {
     }>;
   } | null;
   milestoneSubmissions: MilestoneSubmissionSelection[];
+  milestoneTestSuite: MilestoneTestSuiteSelection | null;
 }
 
 interface MilestoneSubmissionSelection {
   id: string;
   repoUrl: string;
-  testCommand: string;
+  testSuiteId: string | null;
   status: MilestoneSubmissionStatus;
   outputLog: string | null;
+  passRatePct: number | null;
+  passedTests: number | null;
+  totalTests: number | null;
   attemptNumber: number;
   createdAt: Date;
   completedAt: Date | null;
 }
+
+interface MilestoneTestSuiteSelection {
+  id: string;
+  roadmapNodeId: string;
+  status: MilestoneTestSuiteStatus;
+  title: string | null;
+  summary: string | null;
+  testCases: Array<{ description: string; name: string }> | null;
+  testFileContent: string | null;
+  passThresholdPct: number;
+  generationStartedAt: Date | null;
+  generatedAt: Date | null;
+}
+
+type CompleteMilestoneSubmission = (
+  submissionId: string,
+  status: MilestoneSubmissionStatus,
+  outputLog: string,
+  testResult?: { passRatePct: number; passedTests: number; totalTests: number },
+) => Promise<void>;
 
 type RoadmapNodeFindFirstSelection = RoadmapNodeQuizSelection | RoadmapNodeDetailSelection;
 
@@ -177,8 +205,22 @@ interface RoadmapsPrismaMock {
       | { status: MilestoneSubmissionStatus }
       | null
     >;
-    findUnique: AsyncMock<{ id: string; repoUrl: string; testCommand: string } | null>;
+    findUnique: AsyncMock<{
+      id: string;
+      repoUrl: string;
+      roadmapNodeId: string;
+      testSuite: { id: string; passThresholdPct: number; testFileContent: string | null } | null;
+      userId: string;
+    } | null>;
     update: AsyncMock<MilestoneSubmissionSelection>;
+  };
+  milestoneTestSuite: {
+    create: AsyncMock<{ id: string }>;
+    findUnique: AsyncMock<
+      MilestoneTestSuiteSelection | { id: string; status: MilestoneTestSuiteStatus } | null
+    >;
+    update: AsyncMock<MilestoneTestSuiteSelection>;
+    updateMany: AsyncMock<{ count: number }>;
   };
   quizQuestion: {
     count: AsyncMock<number>;
@@ -226,6 +268,37 @@ const makeGeneratedQuizQuestions = () =>
     correctOption: 'A' as const,
   }));
 
+const makeGeneratedMilestoneTestSuite = () => ({
+  title: 'API Capstone Generated Suite',
+  summary: 'Checks the submitted API project against the milestone brief.',
+  testCases: Array.from({ length: 6 }, (_, index) => ({
+    name: `Generated milestone test ${index + 1}`,
+    description: `Verifies milestone requirement ${index + 1}.`,
+  })),
+  testFileContent:
+    'console.log(\'RMAP_MILESTONE_RESULTS:{"totalTests":6,"passedTests":6,"tests":[]}\');',
+});
+
+const makeMilestoneTestSuite = (
+  overrides: Partial<MilestoneTestSuiteSelection> = {},
+): MilestoneTestSuiteSelection => ({
+  id: 'suite-1',
+  roadmapNodeId: 'milestone-1',
+  status: MilestoneTestSuiteStatus.READY,
+  title: 'API Capstone Generated Suite',
+  summary: 'Checks the submitted API project against the milestone brief.',
+  testCases: Array.from({ length: 6 }, (_, index) => ({
+    name: `Generated milestone test ${index + 1}`,
+    description: `Verifies milestone requirement ${index + 1}.`,
+  })),
+  testFileContent:
+    'console.log(\'RMAP_MILESTONE_RESULTS:{"totalTests":6,"passedTests":6,"tests":[]}\');',
+  passThresholdPct: 80,
+  generationStartedAt: null,
+  generatedAt: new Date('2026-01-04T00:00:00Z'),
+  ...overrides,
+});
+
 const expectAnyDate = (): Date => expect.any(Date) as Date;
 
 const expectObjectContaining = <T extends object>(value: T): T =>
@@ -256,10 +329,27 @@ const createPrismaMock = (txMock: TransactionMock): RoadmapsPrismaMock => ({
       unknown[]
     >(),
     findUnique: jest.fn<
-      Promise<{ id: string; repoUrl: string; testCommand: string } | null>,
+      Promise<{
+        id: string;
+        repoUrl: string;
+        roadmapNodeId: string;
+        testSuite: { id: string; passThresholdPct: number; testFileContent: string | null } | null;
+        userId: string;
+      } | null>,
       unknown[]
     >(),
     update: jest.fn<Promise<MilestoneSubmissionSelection>, unknown[]>(),
+  },
+  milestoneTestSuite: {
+    create: jest.fn<Promise<{ id: string }>, unknown[]>(),
+    findUnique: jest.fn<
+      Promise<
+        MilestoneTestSuiteSelection | { id: string; status: MilestoneTestSuiteStatus } | null
+      >,
+      unknown[]
+    >(),
+    update: jest.fn<Promise<MilestoneTestSuiteSelection>, unknown[]>(),
+    updateMany: jest.fn<Promise<{ count: number }>, unknown[]>(),
   },
   quizQuestion: {
     count: jest.fn<Promise<number>, unknown[]>(),
@@ -323,6 +413,7 @@ describe('RoadmapsService', () => {
         {
           provide: AiService,
           useValue: {
+            generateMilestoneTestSuite: jest.fn(),
             generateNodeQuiz: jest.fn(),
             generateRoadmap: jest.fn().mockResolvedValue(JSON.stringify(MOCK_AI_OUTPUT)),
           },
@@ -1048,6 +1139,10 @@ describe('RoadmapsService', () => {
       posX: 140,
       posY: 240,
       milestoneSubmissions: [],
+      milestoneTestSuite: null,
+      roadmap: {
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+      },
       userNodeProgress: [
         {
           id: 'progress-1',
@@ -1181,6 +1276,7 @@ describe('RoadmapsService', () => {
         ],
         prerequisites: [{ skillId: 'skill-prereq-1', skillName: 'HTTP Basics' }],
         latestSubmission: null,
+        milestoneTestSuite: null,
       });
     });
 
@@ -1319,6 +1415,7 @@ describe('RoadmapsService', () => {
       expect(result.prerequisites).toEqual([]);
       expect(result.node.progress).toBeNull();
       expect(result.latestSubmission).toBeNull();
+      expect(result.milestoneTestSuite).toBeNull();
     });
 
     it('should return null skill and resources for a milestone node', async () => {
@@ -1328,6 +1425,17 @@ describe('RoadmapsService', () => {
           nodeType: NodeType.MILESTONE,
           estimatedHours: null,
           skill: null,
+          userNodeProgress: [
+            {
+              id: 'progress-1',
+              roadmapNodeId: nodeId,
+              status: NodeStatus.LOCKED,
+              startedAt,
+              completedAt: null,
+              quizScorePct: null,
+              quizPassed: null,
+            },
+          ],
         }),
       );
 
@@ -1337,6 +1445,122 @@ describe('RoadmapsService', () => {
       expect(result.resources).toBeNull();
       expect(result.prerequisites).toEqual([]);
       expect(result.latestSubmission).toBeNull();
+      expect(result.milestoneTestSuite).toBeNull();
+    });
+
+    it('should generate a missing unlocked milestone test suite and return it', async () => {
+      const generatedSuite = makeGeneratedMilestoneTestSuite();
+      const storedSuite = makeMilestoneTestSuite({ roadmapNodeId: nodeId });
+
+      prisma.roadmapNode.findFirst.mockResolvedValue(
+        makeNodeDetail({
+          skillId: null,
+          nodeType: NodeType.MILESTONE,
+          estimatedHours: null,
+          skill: null,
+          milestoneTestSuite: null,
+        }),
+      );
+      prisma.milestoneTestSuite.findUnique.mockResolvedValue(null);
+      prisma.milestoneTestSuite.create.mockResolvedValue({ id: 'suite-1' });
+      prisma.milestoneTestSuite.update.mockResolvedValue(storedSuite);
+      aiService.generateMilestoneTestSuite.mockResolvedValue(generatedSuite);
+
+      const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
+
+      expect(aiService.generateMilestoneTestSuite).toHaveBeenCalledWith({
+        name: 'REST API',
+        projectBrief: 'Build production REST APIs',
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+      });
+      expect(prisma.milestoneTestSuite.create).toHaveBeenCalledWith(
+        expectObjectContaining({
+          data: expectObjectContaining({
+            roadmapNodeId: nodeId,
+            status: MilestoneTestSuiteStatus.GENERATING,
+          }),
+        }),
+      );
+      expect(prisma.milestoneTestSuite.update).toHaveBeenCalledWith(
+        expectObjectContaining({
+          data: expectObjectContaining({
+            status: MilestoneTestSuiteStatus.READY,
+            testCases: generatedSuite.testCases,
+          }),
+        }),
+      );
+      expect(result.milestoneTestSuite?.id).toBe('suite-1');
+      expect(result.milestoneTestSuite?.testCases[0]?.name).toBe('Generated milestone test 1');
+    });
+
+    it('should wait for in-progress milestone test suite generation', async () => {
+      const readySuite = makeMilestoneTestSuite({ roadmapNodeId: nodeId });
+
+      prisma.roadmapNode.findFirst.mockResolvedValue(
+        makeNodeDetail({
+          skillId: null,
+          nodeType: NodeType.MILESTONE,
+          estimatedHours: null,
+          skill: null,
+          milestoneTestSuite: makeMilestoneTestSuite({
+            roadmapNodeId: nodeId,
+            status: MilestoneTestSuiteStatus.GENERATING,
+            title: null,
+            summary: null,
+            testCases: null,
+            testFileContent: null,
+          }),
+        }),
+      );
+      prisma.milestoneTestSuite.findUnique
+        .mockResolvedValueOnce(
+          makeMilestoneTestSuite({
+            roadmapNodeId: nodeId,
+            status: MilestoneTestSuiteStatus.GENERATING,
+            title: null,
+            summary: null,
+            testCases: null,
+            testFileContent: null,
+          }),
+        )
+        .mockResolvedValueOnce(readySuite);
+
+      const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
+
+      expect(aiService.generateMilestoneTestSuite).not.toHaveBeenCalled();
+      expect(prisma.milestoneTestSuite.create).not.toHaveBeenCalled();
+      expect(result.milestoneTestSuite?.id).toBe('suite-1');
+    });
+
+    it('should mark failed milestone test suite generation and throw unavailable', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(
+        makeNodeDetail({
+          skillId: null,
+          nodeType: NodeType.MILESTONE,
+          estimatedHours: null,
+          skill: null,
+          milestoneTestSuite: null,
+        }),
+      );
+      prisma.milestoneTestSuite.findUnique.mockResolvedValue(null);
+      prisma.milestoneTestSuite.create.mockResolvedValue({ id: 'suite-1' });
+      prisma.milestoneTestSuite.update.mockResolvedValue(
+        makeMilestoneTestSuite({ roadmapNodeId: nodeId, status: MilestoneTestSuiteStatus.FAILED }),
+      );
+      aiService.generateMilestoneTestSuite.mockRejectedValue(
+        new MilestoneTestSuiteGenerationUnavailableException(),
+      );
+
+      await expect(service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId)).rejects.toThrow(
+        MilestoneTestSuiteGenerationUnavailableException,
+      );
+      expect(prisma.milestoneTestSuite.update).toHaveBeenCalledWith({
+        where: { roadmapNodeId: nodeId },
+        data: {
+          generationStartedAt: null,
+          status: MilestoneTestSuiteStatus.FAILED,
+        },
+      });
     });
 
     it('should include the latest submission for a milestone node', async () => {
@@ -1349,13 +1573,17 @@ describe('RoadmapsService', () => {
           nodeType: NodeType.MILESTONE,
           estimatedHours: null,
           skill: null,
+          milestoneTestSuite: makeMilestoneTestSuite({ roadmapNodeId: nodeId }),
           milestoneSubmissions: [
             {
               id: 'submission-1',
               repoUrl: 'https://github.com/acme/api-project',
-              testCommand: 'npm test',
+              testSuiteId: 'suite-1',
               status: MilestoneSubmissionStatus.PASSED,
               outputLog: 'ok',
+              passRatePct: 100,
+              passedTests: 6,
+              totalTests: 6,
               attemptNumber: 2,
               createdAt,
               completedAt,
@@ -1369,13 +1597,19 @@ describe('RoadmapsService', () => {
       expect(result.latestSubmission).toEqual({
         id: 'submission-1',
         repoUrl: 'https://github.com/acme/api-project',
-        testCommand: 'npm test',
+        testSuiteId: 'suite-1',
         status: MilestoneSubmissionStatus.PASSED,
         outputLog: 'ok',
+        passRatePct: 100,
+        passedTests: 6,
+        totalTests: 6,
         attemptNumber: 2,
         createdAt: createdAt.toISOString(),
         completedAt: completedAt.toISOString(),
       });
+      expect(result.milestoneTestSuite?.id).toBe('suite-1');
+      expect(result.milestoneTestSuite?.passThresholdPct).toBe(80);
+      expect(result.milestoneTestSuite?.testCases).toHaveLength(6);
     });
 
     it('should throw RoadmapNodeNotFoundException when the node is not found', async () => {
@@ -2510,9 +2744,12 @@ describe('RoadmapsService', () => {
     const submission = {
       id: 'submission-1',
       repoUrl: 'https://github.com/acme/api-project',
-      testCommand: 'npm test',
+      testSuiteId: 'suite-1',
       status: MilestoneSubmissionStatus.RUNNING,
       outputLog: null,
+      passRatePct: null,
+      passedTests: null,
+      totalTests: null,
       attemptNumber: 3,
       createdAt,
       completedAt: null,
@@ -2521,7 +2758,11 @@ describe('RoadmapsService', () => {
     beforeEach(() => {
       prisma.roadmapNode.findFirst.mockResolvedValue({
         id: nodeId,
+        description: 'Build and test an API',
+        name: 'API Capstone',
         nodeType: NodeType.MILESTONE,
+        roadmap: { roleCategory: RoleCategory.WEB_DEVELOPMENT },
+        milestoneTestSuite: makeMilestoneTestSuite({ roadmapNodeId: nodeId }),
         skillId: null,
         userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
       });
@@ -2551,7 +2792,8 @@ describe('RoadmapsService', () => {
             repoUrl: 'https://github.com/acme/api-project',
             roadmapNodeId: nodeId,
             status: MilestoneSubmissionStatus.RUNNING,
-            testCommand: 'npm test',
+            testCommand: 'node .rmap/milestone-test.mjs',
+            testSuiteId: 'suite-1',
             userId: MOCK_USER_ID,
           },
         }),
@@ -2575,16 +2817,6 @@ describe('RoadmapsService', () => {
           repoUrl: 'https://example.com/acme/api-project',
         }),
       ).rejects.toThrow(MilestoneSubmissionInvalidUrlException);
-      expect(prisma.roadmapNode.findFirst).not.toHaveBeenCalled();
-    });
-
-    it('should reject unsafe test commands with a custom exception', async () => {
-      await expect(
-        service.submitMilestoneSubmission(MOCK_USER_ID, roadmapId, nodeId, {
-          repoUrl: 'https://github.com/acme/api-project',
-          testCommand: 'npm test && curl https://example.com',
-        }),
-      ).rejects.toThrow(MilestoneSubmissionInvalidCommandException);
       expect(prisma.roadmapNode.findFirst).not.toHaveBeenCalled();
     });
 
@@ -2660,9 +2892,12 @@ describe('RoadmapsService', () => {
       prisma.milestoneSubmission.findFirst.mockResolvedValue({
         id: 'submission-1',
         repoUrl: 'https://github.com/acme/api-project',
-        testCommand: 'npm test',
+        testSuiteId: 'suite-1',
         status: MilestoneSubmissionStatus.PASSED,
         outputLog: 'ok',
+        passRatePct: 83.33,
+        passedTests: 5,
+        totalTests: 6,
         attemptNumber: 1,
         createdAt,
         completedAt,
@@ -2679,9 +2914,12 @@ describe('RoadmapsService', () => {
         submission: {
           id: 'submission-1',
           repoUrl: 'https://github.com/acme/api-project',
-          testCommand: 'npm test',
+          testSuiteId: 'suite-1',
           status: MilestoneSubmissionStatus.PASSED,
           outputLog: 'ok',
+          passRatePct: 83.33,
+          passedTests: 5,
+          totalTests: 6,
           attemptNumber: 1,
           createdAt: createdAt.toISOString(),
           completedAt: completedAt.toISOString(),
@@ -2696,6 +2934,94 @@ describe('RoadmapsService', () => {
         service.getLatestMilestoneSubmission(MOCK_USER_ID, roadmapId, nodeId),
       ).rejects.toThrow(RoadmapNodeNotFoundException);
       expect(prisma.milestoneSubmission.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('milestone submission completion', () => {
+    const completeMilestoneSubmission = (): CompleteMilestoneSubmission => {
+      const target = service as unknown as {
+        completeMilestoneSubmission: CompleteMilestoneSubmission;
+      };
+
+      return target.completeMilestoneSubmission.bind(service) as CompleteMilestoneSubmission;
+    };
+
+    it('should auto-complete the milestone and unlock next nodes when generated tests pass', async () => {
+      txMock.milestoneSubmission.update.mockResolvedValue({
+        roadmapNode: { roadmapId: 'roadmap-1' },
+        roadmapNodeId: 'milestone-1',
+        userId: MOCK_USER_ID,
+      });
+      txMock.userNodeProgress.findUnique.mockResolvedValue({ status: NodeStatus.IN_PROGRESS });
+      txMock.roadmapNode.findFirst
+        .mockResolvedValueOnce({
+          nodeType: NodeType.MILESTONE,
+          parentId: null,
+          posY: 150,
+        })
+        .mockResolvedValueOnce({ id: 'group-2' });
+      txMock.userNodeProgress.findMany.mockResolvedValueOnce([{ roadmapNodeId: 'leaf-4' }]);
+
+      await completeMilestoneSubmission()('submission-1', MilestoneSubmissionStatus.PASSED, 'ok', {
+        passRatePct: 83.33,
+        passedTests: 5,
+        totalTests: 6,
+      });
+
+      expect(txMock.milestoneSubmission.update).toHaveBeenCalledWith(
+        expectObjectContaining({
+          data: expectObjectContaining({
+            passRatePct: 83.33,
+            passedTests: 5,
+            status: MilestoneSubmissionStatus.PASSED,
+            totalTests: 6,
+          }),
+        }),
+      );
+      expect(txMock.userNodeProgress.update).toHaveBeenCalledWith(
+        expectObjectContaining({
+          data: expectObjectContaining({ status: NodeStatus.COMPLETED }),
+          where: {
+            userId_roadmapNodeId: {
+              roadmapNodeId: 'milestone-1',
+              userId: MOCK_USER_ID,
+            },
+          },
+        }),
+      );
+      expect(txMock.userNodeProgress.updateMany).toHaveBeenCalledWith(
+        expectObjectContaining({
+          data: expectObjectContaining({ status: NodeStatus.IN_PROGRESS }),
+          where: { userId: MOCK_USER_ID, roadmapNodeId: { in: ['leaf-4'] } },
+        }),
+      );
+    });
+
+    it('should record failed generated test metrics without completing progress', async () => {
+      txMock.milestoneSubmission.update.mockResolvedValue({
+        roadmapNode: { roadmapId: 'roadmap-1' },
+        roadmapNodeId: 'milestone-1',
+        userId: MOCK_USER_ID,
+      });
+
+      await completeMilestoneSubmission()('submission-1', MilestoneSubmissionStatus.FAILED, 'no', {
+        passRatePct: 66.67,
+        passedTests: 4,
+        totalTests: 6,
+      });
+
+      expect(txMock.milestoneSubmission.update).toHaveBeenCalledWith(
+        expectObjectContaining({
+          data: expectObjectContaining({
+            passRatePct: 66.67,
+            passedTests: 4,
+            status: MilestoneSubmissionStatus.FAILED,
+            totalTests: 6,
+          }),
+        }),
+      );
+      expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
+      expect(txMock.userNodeProgress.updateMany).not.toHaveBeenCalled();
     });
   });
 
@@ -2932,13 +3258,9 @@ describe('RoadmapsService', () => {
       expect(result.unlockedNodes).toEqual([milestoneId]);
     });
 
-    it('should unlock next GROUP leaves after completing a milestone', async () => {
+    it('should reject manual milestone completion because generated tests complete it automatically', async () => {
       const milestoneId = 'milestone-1';
-      const nextGroupId = 'group-2';
 
-      prisma.milestoneSubmission.findFirst.mockResolvedValue({
-        status: MilestoneSubmissionStatus.PASSED,
-      });
       prisma.userNodeProgress.findUnique.mockResolvedValue({
         status: NodeStatus.IN_PROGRESS,
         quizPassed: null,
@@ -2949,99 +3271,14 @@ describe('RoadmapsService', () => {
         parentId: null,
         posY: 150,
         skillId: null,
-      });
-      txMock.userNodeProgress.update.mockResolvedValue({
-        ...mockUpdatedProgress,
-        roadmapNodeId: milestoneId,
-        status: NodeStatus.COMPLETED,
-      });
-      txMock.roadmapNode.findFirst
-        .mockResolvedValueOnce({ nodeType: NodeType.MILESTONE, parentId: null, posY: 150 })
-        .mockResolvedValueOnce({ id: nextGroupId });
-      txMock.userNodeProgress.findMany.mockResolvedValueOnce([{ roadmapNodeId: 'leaf-4' }]);
-
-      const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, milestoneId, {
-        status: NodeStatus.COMPLETED,
-      });
-
-      expect(txMock.roadmapNode.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expectObjectContaining({
-            roadmapId,
-            parentId: null,
-            nodeType: NodeType.GROUP,
-            posY: { gt: 150 },
-          }),
-        }),
-      );
-      expect(txMock.userNodeProgress.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { userId: MOCK_USER_ID, roadmapNodeId: { in: ['leaf-4'] } },
-          data: expectObjectContaining({ status: NodeStatus.IN_PROGRESS }),
-        }),
-      );
-      expect(result.unlockedNodes).toEqual(['leaf-4']);
-    });
-
-    it('should reject milestone completion when the latest submission has not passed', async () => {
-      const milestoneId = 'milestone-1';
-
-      prisma.roadmapNode.findFirst.mockResolvedValue({
-        id: milestoneId,
-        nodeType: NodeType.MILESTONE,
-        parentId: null,
-        posY: 150,
-        skillId: null,
-      });
-      prisma.userNodeProgress.findUnique.mockResolvedValue({
-        status: NodeStatus.IN_PROGRESS,
-        quizPassed: null,
-      });
-      prisma.milestoneSubmission.findFirst.mockResolvedValue({
-        status: MilestoneSubmissionStatus.FAILED,
       });
 
       await expect(
         service.updateNodeProgress(MOCK_USER_ID, roadmapId, milestoneId, {
           status: NodeStatus.COMPLETED,
         }),
-      ).rejects.toThrow(MilestoneTestsNotPassedException);
+      ).rejects.toThrow(RoadmapNodeProgressInvalidUpdateException);
       expect(prisma.$transaction).not.toHaveBeenCalled();
-    });
-
-    it('should allow force completion when the latest milestone submission errored', async () => {
-      const milestoneId = 'milestone-1';
-
-      prisma.roadmapNode.findFirst.mockResolvedValue({
-        id: milestoneId,
-        nodeType: NodeType.MILESTONE,
-        parentId: null,
-        posY: 150,
-        skillId: null,
-      });
-      prisma.userNodeProgress.findUnique.mockResolvedValue({
-        status: NodeStatus.IN_PROGRESS,
-        quizPassed: null,
-      });
-      prisma.milestoneSubmission.findFirst.mockResolvedValue({
-        status: MilestoneSubmissionStatus.ERROR,
-      });
-      txMock.userNodeProgress.update.mockResolvedValue({
-        ...mockUpdatedProgress,
-        roadmapNodeId: milestoneId,
-        status: NodeStatus.COMPLETED,
-      });
-      txMock.roadmapNode.findFirst
-        .mockResolvedValueOnce({ nodeType: NodeType.MILESTONE, parentId: null, posY: 150 })
-        .mockResolvedValueOnce(null);
-
-      const result = await service.updateNodeProgress(MOCK_USER_ID, roadmapId, milestoneId, {
-        status: NodeStatus.COMPLETED,
-        forceComplete: true,
-      });
-
-      expect(result.progress.status).toBe(NodeStatus.COMPLETED);
-      expect(prisma.$transaction).toHaveBeenCalled();
     });
   });
 });

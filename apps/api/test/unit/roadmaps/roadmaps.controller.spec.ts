@@ -89,6 +89,7 @@ describe('RoadmapsController', () => {
       resources: null,
       prerequisites: [],
       latestSubmission: null,
+      milestoneTestSuite: null,
     };
 
     mockRoadmapsService.getNodeDetail.mockResolvedValue(mockResponse);
@@ -365,15 +366,17 @@ describe('RoadmapsController', () => {
     };
     const dto = {
       repoUrl: 'https://github.com/acme/api-project',
-      testCommand: 'npm test',
     };
     const mockResponse = {
       submission: {
         id: 'submission-1',
         repoUrl: dto.repoUrl,
-        testCommand: dto.testCommand,
+        testSuiteId: 'suite-1',
         status: 'RUNNING',
         outputLog: null,
+        passRatePct: null,
+        passedTests: null,
+        totalTests: null,
         attemptNumber: 1,
         createdAt: '2026-01-01T00:00:00.000Z',
         completedAt: null,

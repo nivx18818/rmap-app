@@ -1,7 +1,7 @@
 'use client';
 
 import { toast } from '@repo/design-system/lib/toast';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { roadmapService } from '@/services/roadmap.service';
 
@@ -37,11 +37,13 @@ export function useRoadmapNodeDetail({
   const [isMarkingComplete, setIsMarkingComplete] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [actionErrorMessage, setActionErrorMessage] = useState<string | null>(null);
+  const latestSubmissionStatusRef = useRef<string | null>(null);
 
   const refreshNodeDetail = useCallback(
     async (options: RefreshNodeDetailOptions = {}) => {
       if (!nodeId) {
         setNodeDetail(null);
+        latestSubmissionStatusRef.current = null;
         setErrorMessage(null);
         setActionErrorMessage(null);
         setIsLoading(false);
@@ -58,6 +60,7 @@ export function useRoadmapNodeDetail({
                 estimatedHours: selectedNode.estimatedHours,
                 id: selectedNode.id,
                 latestSubmission: null,
+                milestoneTestSuite: null,
                 name: selectedNode.name,
                 nodeType: selectedNode.nodeType,
                 prerequisites: [],
@@ -70,6 +73,7 @@ export function useRoadmapNodeDetail({
               }
             : null,
         );
+        latestSubmissionStatusRef.current = null;
         setErrorMessage(selectedNode ? null : NODE_DETAIL_ERROR_MESSAGE);
         setActionErrorMessage(null);
         setIsLoading(false);
@@ -83,9 +87,27 @@ export function useRoadmapNodeDetail({
 
       try {
         const response = await roadmapService.getNodeDetail(roadmapId, nodeId);
+        const previousSubmissionStatus = latestSubmissionStatusRef.current;
+        const nextSubmissionStatus = response.latestSubmission
+          ? `${response.latestSubmission.id}:${response.latestSubmission.status}`
+          : null;
+
         setNodeDetail(response);
+        latestSubmissionStatusRef.current = nextSubmissionStatus;
+
+        if (
+          options.silent &&
+          previousSubmissionStatus?.endsWith(':RUNNING') &&
+          response.latestSubmission?.status === 'PASSED'
+        ) {
+          toast.success('Milestone completed automatically', {
+            description: 'Generated tests passed and roadmap progress was updated.',
+          });
+          onProgressUpdated?.();
+        }
       } catch {
         setNodeDetail(null);
+        latestSubmissionStatusRef.current = null;
         setErrorMessage(NODE_DETAIL_ERROR_MESSAGE);
       } finally {
         if (!options.silent) {
@@ -93,47 +115,39 @@ export function useRoadmapNodeDetail({
         }
       }
     },
-    [canFetchProtectedDetail, nodeId, roadmapId, roadmapNodes],
+    [canFetchProtectedDetail, nodeId, onProgressUpdated, roadmapId, roadmapNodes],
   );
 
-  const markComplete = useCallback(
-    async (options: { forceComplete?: boolean } = {}) => {
-      if (!canFetchProtectedDetail || !nodeId) return;
+  const markComplete = useCallback(async () => {
+    if (!canFetchProtectedDetail || !nodeId) return;
 
-      setIsMarkingComplete(true);
-      setActionErrorMessage(null);
+    setIsMarkingComplete(true);
+    setActionErrorMessage(null);
 
-      try {
-        const response = await roadmapService.updateNodeProgress(
-          roadmapId,
-          nodeId,
-          'COMPLETED',
-          options,
-        );
-        setNodeDetail((currentNodeDetail) =>
-          currentNodeDetail?.id === nodeId
-            ? { ...currentNodeDetail, progress: response.progress }
-            : currentNodeDetail,
-        );
-        toast.success('Node completed', {
-          description:
-            response.unlockedNodes.length > 0
-              ? `${response.unlockedNodes.length} new node${response.unlockedNodes.length === 1 ? '' : 's'} unlocked.`
-              : 'Roadmap progress updated.',
-        });
-        onProgressUpdated?.();
-      } catch {
-        setActionErrorMessage(MARK_COMPLETE_ERROR_MESSAGE);
-        toast.error(MARK_COMPLETE_ERROR_MESSAGE);
-      } finally {
-        setIsMarkingComplete(false);
-      }
-    },
-    [canFetchProtectedDetail, nodeId, onProgressUpdated, roadmapId],
-  );
+    try {
+      const response = await roadmapService.updateNodeProgress(roadmapId, nodeId, 'COMPLETED');
+      setNodeDetail((currentNodeDetail) =>
+        currentNodeDetail?.id === nodeId
+          ? { ...currentNodeDetail, progress: response.progress }
+          : currentNodeDetail,
+      );
+      toast.success('Node completed', {
+        description:
+          response.unlockedNodes.length > 0
+            ? `${response.unlockedNodes.length} new node${response.unlockedNodes.length === 1 ? '' : 's'} unlocked.`
+            : 'Roadmap progress updated.',
+      });
+      onProgressUpdated?.();
+    } catch {
+      setActionErrorMessage(MARK_COMPLETE_ERROR_MESSAGE);
+      toast.error(MARK_COMPLETE_ERROR_MESSAGE);
+    } finally {
+      setIsMarkingComplete(false);
+    }
+  }, [canFetchProtectedDetail, nodeId, onProgressUpdated, roadmapId]);
 
   const submitMilestoneSubmission = useCallback(
-    async (payload: { repoUrl: string; testCommand?: string }) => {
+    async (payload: { repoUrl: string }) => {
       if (!canFetchProtectedDetail || !nodeId) return;
 
       setActionErrorMessage(null);

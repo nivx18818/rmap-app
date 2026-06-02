@@ -6,6 +6,12 @@ import axios from 'axios';
 
 import { API_BASE_PATH, ENDPOINTS } from '@/constants/endpoints';
 
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    skipAuthRedirect?: boolean;
+  }
+}
+
 interface RetryableRequestConfig extends AxiosRequestConfig {
   _retry?: boolean;
 }
@@ -45,8 +51,14 @@ axiosInstance.interceptors.response.use(
 
     const originalRequest = error.config as RetryableRequestConfig;
     const isAuthRequest = originalRequest.url?.startsWith('/auth/');
+    const shouldSkipAuthRedirect = originalRequest.skipAuthRedirect === true;
 
-    if (error.response?.status === 401 && !originalRequest._retry && !isAuthRequest) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isAuthRequest &&
+      !shouldSkipAuthRedirect
+    ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });

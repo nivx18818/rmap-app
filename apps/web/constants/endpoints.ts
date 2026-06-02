@@ -30,7 +30,9 @@ export const ENDPOINTS = {
       `/roadmaps/${roadmapId}/nodes/${nodeId}/quiz/submit`,
   },
   templates: {
+    getById: (templateId: string) => `/templates/${templateId}`,
     list: '/templates',
+    nodes: (templateId: string) => `/templates/${templateId}/nodes`,
   },
   users: {
     me: '/users/me',

@@ -1,4 +1,4 @@
-import type { RoadmapNodesFilter } from '../_types/roadmap-node.types';
+import type { RoadmapNode, RoadmapNodesFilter } from '../_types/roadmap-node.types';
 import type { NodeType, ProgressStatus } from '../_types/roadmap-node.types';
 
 import {
@@ -55,4 +55,27 @@ export function buildRoadmapNodesFilter({
     q: searchQuery.trim() || undefined,
     status: status ?? undefined,
   };
+}
+
+export function filterRoadmapNodes(
+  nodes: RoadmapNode[],
+  {
+    nodeType,
+    searchQuery,
+    status,
+  }: {
+    nodeType: NodeType | null;
+    searchQuery: string;
+    status: ProgressStatus | null;
+  },
+): RoadmapNode[] {
+  const trimmedQuery = searchQuery.trim().toLowerCase();
+
+  return nodes.filter((node) => {
+    if (nodeType && node.nodeType !== nodeType) return false;
+    if (status && node.progress?.status !== status) return false;
+    if (trimmedQuery && !node.name.toLowerCase().includes(trimmedQuery)) return false;
+
+    return true;
+  });
 }

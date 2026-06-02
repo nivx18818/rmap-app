@@ -3,6 +3,8 @@
 import { SectionContainer } from '@repo/design-system/components/common/section-container';
 import { useCallback, useEffect, useMemo } from 'react';
 
+import type { RoadmapDetailMode } from '../_hooks/use-roadmap-detail';
+
 import { useRoadmapFlowState } from '../_hooks/use-roadmap-flow-state';
 import { useRoadmapGraphData } from '../_hooks/use-roadmap-graph-data';
 import { useRoadmapNodeSelection } from '../_hooks/use-roadmap-node-selection';
@@ -14,12 +16,20 @@ import { RoadmapSkillTree } from './roadmap-skill-tree';
 import { RoadmapStackList } from './roadmap-stack-list';
 
 interface RoadmapGraphProps {
+  isAuthenticatedRoadmapView: boolean;
+  mode: RoadmapDetailMode | null;
   onProgressUpdated?: () => void;
   roadmapId: string;
   roadmapTitle: string;
 }
 
-export function RoadmapGraph({ onProgressUpdated, roadmapId, roadmapTitle }: RoadmapGraphProps) {
+export function RoadmapGraph({
+  isAuthenticatedRoadmapView,
+  mode,
+  onProgressUpdated,
+  roadmapId,
+  roadmapTitle,
+}: RoadmapGraphProps) {
   const {
     baseRoadmapNodes,
     debouncedQuery,
@@ -39,7 +49,7 @@ export function RoadmapGraph({ onProgressUpdated, roadmapId, roadmapTitle }: Roa
     stackListNodes,
     status,
     updateUrlFilters,
-  } = useRoadmapGraphData({ roadmapId });
+  } = useRoadmapGraphData({ mode, roadmapId });
   const { clearSelectedNode, selectNode, selectedNodeId } = useRoadmapNodeSelection();
   const { desktopFlowLayout, edges, layoutRoadmapNodes, nodes, onEdgesChange, onNodesChange } =
     useRoadmapFlowState({
@@ -82,6 +92,7 @@ export function RoadmapGraph({ onProgressUpdated, roadmapId, roadmapTitle }: Roa
     <>
       <SectionContainer className="relative z-10 flex flex-col gap-5 pb-8">
         <RoadmapFilterBar
+          canFilterByStatus={isAuthenticatedRoadmapView}
           displayMode={displayMode}
           isMatchingLoading={shouldFetchMatchedNodes && isMatchedLoading}
           isSearchActive={isSearchFilterActive}
@@ -141,8 +152,10 @@ export function RoadmapGraph({ onProgressUpdated, roadmapId, roadmapTitle }: Roa
       ) : null}
 
       <RoadmapNodeDetailDrawer
+        canManageProgress={isAuthenticatedRoadmapView}
         onProgressUpdated={handleProgressUpdated}
         roadmapId={roadmapId}
+        roadmapNodes={baseRoadmapNodes}
         selectedNodeId={effectiveSelectedNodeId}
         onOpenChange={(isOpen) => {
           if (!isOpen) clearSelectedNode();

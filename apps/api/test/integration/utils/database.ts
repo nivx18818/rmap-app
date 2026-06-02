@@ -2,6 +2,7 @@ import type { User } from '@repo/db/prisma/client';
 
 import {
   MilestoneSubmissionStatus,
+  MilestoneTestSuiteStatus,
   NodeStatus,
   NodeType,
   QuizGenerationStatus,
@@ -47,6 +48,7 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
   assertSafeToResetDatabase();
 
   await prisma.milestoneSubmission.deleteMany();
+  await prisma.milestoneTestSuite.deleteMany();
   await prisma.dailyActivity.deleteMany();
   await prisma.userNodeProgress.deleteMany();
   await prisma.refreshToken.deleteMany();
@@ -420,15 +422,36 @@ export async function seedPassedMilestoneSubmission(
   prisma: PrismaService,
   options: { milestoneNodeId: string; userId: string },
 ): Promise<void> {
+  const testSuite = await prisma.milestoneTestSuite.create({
+    data: {
+      generatedAt: new Date('2026-05-02T00:00:00.000Z'),
+      passThresholdPct: 80,
+      roadmapNodeId: options.milestoneNodeId,
+      status: MilestoneTestSuiteStatus.READY,
+      summary: 'Generated integration test suite',
+      testCases: Array.from({ length: 6 }, (_value, index) => ({
+        name: `Integration test ${index + 1}`,
+        description: `Checks integration milestone requirement ${index + 1}`,
+      })),
+      testFileContent:
+        'console.log(\'RMAP_MILESTONE_RESULTS:{"totalTests":6,"passedTests":6,"tests":[]}\');',
+      title: 'Integration Milestone Suite',
+    },
+  });
+
   await prisma.milestoneSubmission.create({
     data: {
       attemptNumber: 1,
       completedAt: new Date('2026-05-02T00:00:00.000Z'),
       outputLog: 'All tests passed',
+      passRatePct: 100,
+      passedTests: 6,
       repoUrl: 'https://github.com/example/project',
       roadmapNodeId: options.milestoneNodeId,
       status: MilestoneSubmissionStatus.PASSED,
-      testCommand: 'npm test',
+      testCommand: 'node .rmap/milestone-test.mjs',
+      testSuiteId: testSuite.id,
+      totalTests: 6,
       userId: options.userId,
     },
   });

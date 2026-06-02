@@ -40,6 +40,7 @@ model RoadmapNode {
   skill                Skill?                @relation(fields: [skillId], references: [id], onDelete: Cascade)
   userNodeProgress     UserNodeProgress[]
   milestoneSubmissions MilestoneSubmission[]
+  milestoneTestSuite   MilestoneTestSuite?
 
   @@index([roadmapId])
   @@index([parentId])
@@ -78,21 +79,47 @@ model DailyActivity {
   @@map("daily_activity")
 }
 
+model MilestoneTestSuite {
+  id                  String                   @id @default(dbgenerated("gen_random_uuid()"))
+  roadmapNodeId       String                   @unique @map("roadmap_node_id")
+  status              MilestoneTestSuiteStatus @default(NOT_GENERATED)
+  title               String?
+  summary             String?                  @db.Text
+  testCases           Json?                    @map("test_cases")
+  testFileContent     String?                  @map("test_file_content") @db.Text
+  passThresholdPct    Int                      @default(80) @map("pass_threshold_pct")
+  generationStartedAt DateTime?                @map("generation_started_at")
+  generatedAt         DateTime?                @map("generated_at")
+  createdAt           DateTime                 @default(now()) @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+
+  roadmapNode RoadmapNode           @relation(fields: [roadmapNodeId], references: [id], onDelete: Cascade)
+  submissions MilestoneSubmission[]
+
+  @@map("milestone_test_suites")
+}
+
 model MilestoneSubmission {
   id            String                    @id @default(dbgenerated("gen_random_uuid()"))
   userId        String                    @map("user_id")
   roadmapNodeId String                    @map("roadmap_node_id")
+  testSuiteId   String?                   @map("test_suite_id")
   repoUrl       String                    @map("repo_url") @db.Text
   testCommand   String                    @default("npm test") @map("test_command")
   status        MilestoneSubmissionStatus
   outputLog     String?                   @map("output_log") @db.Text
+  passRatePct   Decimal?                  @map("pass_rate_pct") @db.Decimal(5, 2)
+  passedTests   Int?                      @map("passed_tests")
+  totalTests    Int?                      @map("total_tests")
   attemptNumber Int                       @default(1) @map("attempt_number")
   createdAt     DateTime                  @default(now()) @map("created_at")
   completedAt   DateTime?                 @map("completed_at")
 
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  roadmapNode RoadmapNode @relation(fields: [roadmapNodeId], references: [id], onDelete: Cascade)
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roadmapNode RoadmapNode         @relation(fields: [roadmapNodeId], references: [id], onDelete: Cascade)
+  testSuite   MilestoneTestSuite? @relation(fields: [testSuiteId], references: [id], onDelete: SetNull)
 
   @@index([userId, roadmapNodeId])
+  @@index([testSuiteId])
   @@map("milestone_submissions")
 }

@@ -2,12 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import {
+  getMilestoneTestSuiteGenerationPrompt,
   getNodeQuizGenerationPrompt,
   getOnboardingQuizPrompt,
   getRoadmapGenerationPrompt,
 } from '@/common/constants/prompts';
 import {
   ExternalServiceErrorException,
+  MilestoneTestSuiteGenerationUnavailableException,
   NodeQuizGenerationUnavailableException,
   RoadmapGenerationUnavailableException,
 } from '@/common/exceptions/app.exceptions';
@@ -30,11 +32,33 @@ export interface GeneratedNodeQuizQuestion {
   correctOption: 'A' | 'B' | 'C' | 'D';
 }
 
+export interface GenerateMilestoneTestSuiteInput {
+  name: string;
+  projectBrief: string;
+  roleCategory: null | string;
+}
+
+export interface GeneratedMilestoneTestCase {
+  description: string;
+  name: string;
+}
+
+export interface GeneratedMilestoneTestSuite {
+  summary: string;
+  testCases: GeneratedMilestoneTestCase[];
+  testFileContent: string;
+  title: string;
+}
+
 interface GeneratedNodeQuizPayload {
   questions: GeneratedNodeQuizQuestion[];
 }
 
+type GeneratedMilestoneTestSuitePayload = GeneratedMilestoneTestSuite;
+
 const NODE_QUIZ_GENERATION_QUESTION_COUNT = 8;
+const MILESTONE_TEST_SUITE_CASE_COUNT = 6;
+const MILESTONE_RESULT_MARKER = 'RMAP_MILESTONE_RESULTS:';
 const VALID_NODE_QUIZ_OPTIONS = new Set(['A', 'B', 'C', 'D']);
 
 @Injectable()
@@ -120,6 +144,28 @@ export class AiService {
     }
   }
 
+  async generateMilestoneTestSuite(
+    input: GenerateMilestoneTestSuiteInput,
+  ): Promise<GeneratedMilestoneTestSuite> {
+    const prompt = getMilestoneTestSuiteGenerationPrompt(input);
+
+    try {
+      const responseText = await this.generateContent(prompt, { temperature: 0.2 });
+      const payload = this.parseMilestoneTestSuiteResponse(responseText);
+
+      this.logger.log(
+        `AI milestone test suite generated successfully for milestone "${input.name}"`,
+      );
+      return payload;
+    } catch (err) {
+      this.logger.error(
+        `Gemini generateContent failed for milestone test suite "${input.name}"`,
+        err,
+      );
+      throw new MilestoneTestSuiteGenerationUnavailableException();
+    }
+  }
+
   async generateRoadmap(input: GenerateRoadmapInput): Promise<string> {
     const prompt = getRoadmapGenerationPrompt(input);
 
@@ -153,6 +199,24 @@ export class AiService {
     return parsed;
   }
 
+  private parseMilestoneTestSuiteResponse(
+    responseText: string,
+  ): GeneratedMilestoneTestSuitePayload {
+    let parsed: unknown;
+
+    try {
+      parsed = JSON.parse(this.stripMarkdownFences(responseText));
+    } catch {
+      throw new Error('Milestone test suite AI response is not valid JSON');
+    }
+
+    if (!this.isValidMilestoneTestSuitePayload(parsed)) {
+      throw new Error('Milestone test suite AI response failed validation');
+    }
+
+    return parsed;
+  }
+
   private isValidNodeQuizPayload(payload: unknown): payload is GeneratedNodeQuizPayload {
     if (!payload || typeof payload !== 'object') return false;
 
@@ -168,6 +232,35 @@ export class AiService {
       const normalizedQuestionText = question.questionText.trim().toLowerCase();
       if (questionTexts.has(normalizedQuestionText)) return false;
       questionTexts.add(normalizedQuestionText);
+    }
+
+    return true;
+  }
+
+  private isValidMilestoneTestSuitePayload(
+    payload: unknown,
+  ): payload is GeneratedMilestoneTestSuitePayload {
+    if (!payload || typeof payload !== 'object') return false;
+
+    const candidate = payload as Partial<Record<keyof GeneratedMilestoneTestSuitePayload, unknown>>;
+    const { summary, testCases, testFileContent, title } = candidate;
+
+    if (!this.isNonEmptyString(title)) return false;
+    if (!this.isNonEmptyString(summary)) return false;
+    if (!this.isNonEmptyString(testFileContent)) return false;
+    if (!testFileContent.includes(MILESTONE_RESULT_MARKER)) return false;
+    if (testFileContent.trim().startsWith('```')) return false;
+    if (!Array.isArray(testCases)) return false;
+    if (testCases.length !== MILESTONE_TEST_SUITE_CASE_COUNT) return false;
+
+    const testCaseNames = new Set<string>();
+
+    for (const testCase of testCases) {
+      if (!this.isValidMilestoneTestCase(testCase)) return false;
+
+      const normalizedName = testCase.name.trim().toLowerCase();
+      if (testCaseNames.has(normalizedName)) return false;
+      testCaseNames.add(normalizedName);
     }
 
     return true;
@@ -192,6 +285,18 @@ export class AiService {
     );
 
     return new Set(optionTexts).size === optionTexts.length;
+  }
+
+  private isValidMilestoneTestCase(testCase: unknown): testCase is GeneratedMilestoneTestCase {
+    if (!testCase || typeof testCase !== 'object') return false;
+
+    const candidate = testCase as Partial<Record<keyof GeneratedMilestoneTestCase, unknown>>;
+
+    return this.isNonEmptyString(candidate.name) && this.isNonEmptyString(candidate.description);
+  }
+
+  private isNonEmptyString(value: unknown): value is string {
+    return typeof value === 'string' && value.trim().length > 0;
   }
 
   private stripMarkdownFences(text: string): string {

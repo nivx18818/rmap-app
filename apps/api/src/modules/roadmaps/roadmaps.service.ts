@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
   MilestoneSubmissionStatus,
+  MilestoneTestSuiteStatus,
   NodeStatus,
   NodeType,
   QuizGenerationStatus,
@@ -9,7 +10,7 @@ import {
   type Roadmap,
 } from '@repo/db/prisma/client';
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -18,10 +19,9 @@ import {
   InternalServerErrorException,
   InvalidStatusTransitionException,
   MilestoneSubmissionInProgressException,
-  MilestoneSubmissionInvalidCommandException,
   MilestoneSubmissionInvalidStateException,
   MilestoneSubmissionInvalidUrlException,
-  MilestoneTestsNotPassedException,
+  MilestoneTestSuiteGenerationUnavailableException,
   NodeQuizGenerationUnavailableException,
   QuizSubmissionInvalidException,
   QuizNodeNotInProgressException,
@@ -65,7 +65,11 @@ import type {
   TimelineWarningResponse,
 } from './types/roadmap-progress.types';
 
-import { AiService, type GeneratedNodeQuizQuestion } from '../ai/ai.service';
+import {
+  AiService,
+  type GeneratedMilestoneTestSuite,
+  type GeneratedNodeQuizQuestion,
+} from '../ai/ai.service';
 import { DagreLayoutService } from './dagre-layout.service';
 
 /** Number of milliseconds in a day. */
@@ -83,14 +87,21 @@ const QUIZ_GENERATION_POLL_INTERVAL_MS = 1_500;
 const QUIZ_PASSING_SCORE_PCT = 60;
 const QUIZ_REVIEW_SUGGESTION = 'You should review this part before continuing.';
 const NODE_DETAIL_RESOURCE_LIMIT = 2;
-const DEFAULT_MILESTONE_TEST_COMMAND = 'npm test';
+const MILESTONE_PASS_THRESHOLD_PCT = 80;
+const MILESTONE_TEST_SUITE_CASE_COUNT = 6;
+const MILESTONE_TEST_SUITE_POLL_TIMEOUT_MS = 45_000;
+const MILESTONE_TEST_SUITE_POLL_INTERVAL_MS = 1_500;
+const MILESTONE_TEST_FILE_DIRECTORY = '.rmap';
+const MILESTONE_TEST_FILE_NAME = 'milestone-test.mjs';
+const MILESTONE_TEST_FILE_RELATIVE_PATH = `${MILESTONE_TEST_FILE_DIRECTORY}/${MILESTONE_TEST_FILE_NAME}`;
+const MILESTONE_GENERATED_TEST_COMMAND = `node ${MILESTONE_TEST_FILE_RELATIVE_PATH}`;
+const MILESTONE_RESULT_MARKER = 'RMAP_MILESTONE_RESULTS:';
 const MILESTONE_EXECUTION_TIMEOUT_MS = 120_000;
 const MILESTONE_OUTPUT_LOG_LIMIT = 20_000;
 const MILESTONE_SANDBOX_IMAGE = 'node:22-alpine';
 const MILESTONE_SANDBOX_MEMORY = '512m';
 const MILESTONE_SANDBOX_CPUS = '1';
 const GITHUB_REPO_URL_PATTERN = /^https:\/\/github\.com\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
-const MILESTONE_TEST_COMMAND_PATTERN = /^npm (test|run [a-zA-Z0-9_-]+)$/;
 const ESCAPE_CHARACTER = String.fromCharCode(27);
 const ANSI_ESCAPE_PATTERN = new RegExp(
   `${ESCAPE_CHARACTER}(?:[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])`,
@@ -128,13 +139,29 @@ const ROADMAP_SELECT = {
 const MILESTONE_SUBMISSION_SELECT = {
   id: true,
   repoUrl: true,
-  testCommand: true,
+  testSuiteId: true,
   status: true,
   outputLog: true,
+  passRatePct: true,
+  passedTests: true,
+  totalTests: true,
   attemptNumber: true,
   createdAt: true,
   completedAt: true,
 } satisfies Prisma.MilestoneSubmissionSelect;
+
+const MILESTONE_TEST_SUITE_SELECT = {
+  id: true,
+  roadmapNodeId: true,
+  status: true,
+  title: true,
+  summary: true,
+  testCases: true,
+  testFileContent: true,
+  passThresholdPct: true,
+  generationStartedAt: true,
+  generatedAt: true,
+} satisfies Prisma.MilestoneTestSuiteSelect;
 
 type SelectedRoadmap = Pick<Roadmap, keyof typeof ROADMAP_SELECT>;
 
@@ -184,12 +211,41 @@ type DailyActivityRecord = {
 type MilestoneSubmissionRecord = {
   id: string;
   repoUrl: string;
-  testCommand: string;
+  testSuiteId: string | null;
   status: MilestoneSubmissionStatus;
   outputLog: string | null;
+  passRatePct: Prisma.Decimal | number | null;
+  passedTests: number | null;
+  totalTests: number | null;
   attemptNumber: number;
   createdAt: Date;
   completedAt: Date | null;
+};
+
+type MilestoneTestSuiteRecord = {
+  id: string;
+  roadmapNodeId: string;
+  status: MilestoneTestSuiteStatus;
+  title: string | null;
+  summary: string | null;
+  testCases: Prisma.JsonValue | null;
+  testFileContent: string | null;
+  passThresholdPct: number;
+  generationStartedAt: Date | null;
+  generatedAt: Date | null;
+};
+
+type MilestoneTestSuiteInput = {
+  id: string;
+  name: string;
+  projectBrief: string;
+  roleCategory: null | string;
+};
+
+type MilestoneTestResult = {
+  passRatePct: number;
+  passedTests: number;
+  totalTests: number;
 };
 
 type DockerCommandResult = {
@@ -434,6 +490,11 @@ export class RoadmapsService {
         estimatedHours: true,
         posX: true,
         posY: true,
+        roadmap: {
+          select: {
+            roleCategory: true,
+          },
+        },
         userNodeProgress: {
           where: { userId },
           select: {
@@ -451,6 +512,9 @@ export class RoadmapsService {
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           select: MILESTONE_SUBMISSION_SELECT,
           take: 1,
+        },
+        milestoneTestSuite: {
+          select: MILESTONE_TEST_SUITE_SELECT,
         },
         skill: {
           select: {
@@ -500,6 +564,17 @@ export class RoadmapsService {
       node.nodeType === NodeType.MILESTONE
         ? this.formatMilestoneSubmission(node.milestoneSubmissions[0] ?? null)
         : null;
+    const milestoneTestSuite =
+      node.nodeType === NodeType.MILESTONE
+        ? await this.resolveMilestoneTestSuiteForNodeDetail({
+            existingSuite: node.milestoneTestSuite,
+            nodeId: node.id,
+            nodeName: node.name,
+            projectBrief: node.description ?? node.name,
+            roleCategory: node.roadmap.roleCategory,
+            status: node.userNodeProgress[0]?.status ?? NodeStatus.LOCKED,
+          })
+        : null;
 
     if (!LEAF_NODE_TYPES.includes(node.nodeType) || !node.skill) {
       return {
@@ -508,6 +583,7 @@ export class RoadmapsService {
         resources: null,
         prerequisites: [],
         latestSubmission,
+        milestoneTestSuite,
       };
     }
 
@@ -549,6 +625,7 @@ export class RoadmapsService {
         skillName: prerequisite.prerequisiteSkill.name,
       })),
       latestSubmission,
+      milestoneTestSuite,
     };
   }
 
@@ -746,9 +823,8 @@ export class RoadmapsService {
     dto: SubmitMilestoneSubmissionDto,
   ): Promise<MilestoneSubmissionEnvelopeResponse> {
     const repoUrl = dto.repoUrl.trim();
-    const testCommand = dto.testCommand?.trim() || DEFAULT_MILESTONE_TEST_COMMAND;
 
-    this.assertMilestoneSubmissionPayload(repoUrl, testCommand);
+    this.assertMilestoneSubmissionPayload(repoUrl);
 
     const node = await this.prisma.roadmapNode.findFirst({
       where: {
@@ -758,7 +834,17 @@ export class RoadmapsService {
       },
       select: {
         id: true,
+        description: true,
+        name: true,
         nodeType: true,
+        roadmap: {
+          select: {
+            roleCategory: true,
+          },
+        },
+        milestoneTestSuite: {
+          select: MILESTONE_TEST_SUITE_SELECT,
+        },
         userNodeProgress: {
           where: { userId },
           select: { status: true },
@@ -787,6 +873,19 @@ export class RoadmapsService {
       throw new MilestoneSubmissionInvalidStateException(
         'Completed milestones cannot receive new submissions',
       );
+    }
+
+    const testSuite = await this.resolveMilestoneTestSuiteForNodeDetail({
+      existingSuite: node.milestoneTestSuite,
+      nodeId: node.id,
+      nodeName: node.name,
+      projectBrief: node.description ?? node.name,
+      roleCategory: node.roadmap.roleCategory,
+      status: currentStatus,
+    });
+
+    if (!testSuite) {
+      throw new MilestoneTestSuiteGenerationUnavailableException();
     }
 
     const submission = await this.prisma.$transaction(async (tx) => {
@@ -818,7 +917,8 @@ export class RoadmapsService {
           repoUrl,
           roadmapNodeId: node.id,
           status: MilestoneSubmissionStatus.RUNNING,
-          testCommand,
+          testCommand: MILESTONE_GENERATED_TEST_COMMAND,
+          testSuiteId: testSuite.id,
           userId,
         },
         select: MILESTONE_SUBMISSION_SELECT,
@@ -1291,64 +1391,279 @@ export class RoadmapsService {
     return {
       id: submission.id,
       repoUrl: submission.repoUrl,
-      testCommand: submission.testCommand,
+      testSuiteId: submission.testSuiteId,
       status: submission.status,
       outputLog: submission.outputLog,
+      passRatePct: toNumberOrNull(submission.passRatePct),
+      passedTests: submission.passedTests,
+      totalTests: submission.totalTests,
       attemptNumber: submission.attemptNumber,
       createdAt: submission.createdAt.toISOString(),
       completedAt: submission.completedAt?.toISOString() ?? null,
     };
   }
 
-  private assertMilestoneSubmissionPayload(repoUrl: string, testCommand: string): void {
+  private formatMilestoneTestSuite(suite: MilestoneTestSuiteRecord | null) {
+    if (!suite || suite.status !== MilestoneTestSuiteStatus.READY) {
+      return null;
+    }
+
+    const testCases = this.parseStoredMilestoneTestCases(suite.testCases);
+
+    if (
+      !suite.title ||
+      !suite.summary ||
+      !suite.testFileContent ||
+      testCases.length !== MILESTONE_TEST_SUITE_CASE_COUNT
+    ) {
+      return null;
+    }
+
+    return {
+      id: suite.id,
+      status: suite.status,
+      title: suite.title,
+      summary: suite.summary,
+      testCases,
+      passThresholdPct: suite.passThresholdPct,
+      generatedAt: suite.generatedAt?.toISOString() ?? null,
+    };
+  }
+
+  private parseStoredMilestoneTestCases(testCases: Prisma.JsonValue | null) {
+    if (!Array.isArray(testCases)) {
+      return [];
+    }
+
+    return testCases
+      .filter((testCase): testCase is { description: string; name: string } => {
+        if (!testCase || typeof testCase !== 'object' || Array.isArray(testCase)) {
+          return false;
+        }
+
+        const candidate = testCase as { description?: unknown; name?: unknown };
+
+        return (
+          typeof candidate.name === 'string' &&
+          typeof candidate.description === 'string' &&
+          candidate.name.trim().length > 0 &&
+          candidate.description.trim().length > 0
+        );
+      })
+      .map((testCase) => ({
+        description: testCase.description,
+        name: testCase.name,
+      }));
+  }
+
+  private async resolveMilestoneTestSuiteForNodeDetail(input: {
+    existingSuite: MilestoneTestSuiteRecord | null;
+    nodeId: string;
+    nodeName: string;
+    projectBrief: string;
+    roleCategory: null | string;
+    status: NodeStatus;
+  }) {
+    const formattedExistingSuite = this.formatMilestoneTestSuite(input.existingSuite);
+
+    if (formattedExistingSuite) {
+      return formattedExistingSuite;
+    }
+
+    if (input.status === NodeStatus.LOCKED) {
+      return null;
+    }
+
+    const suite = await this.generateOrWaitForMilestoneTestSuite({
+      id: input.nodeId,
+      name: input.nodeName,
+      projectBrief: input.projectBrief,
+      roleCategory: input.roleCategory,
+    });
+
+    return this.formatMilestoneTestSuite(suite);
+  }
+
+  private async generateOrWaitForMilestoneTestSuite(
+    input: MilestoneTestSuiteInput,
+  ): Promise<MilestoneTestSuiteRecord> {
+    const existingSuite = await this.prisma.milestoneTestSuite.findUnique({
+      where: { roadmapNodeId: input.id },
+      select: MILESTONE_TEST_SUITE_SELECT,
+    });
+
+    if (existingSuite?.status === MilestoneTestSuiteStatus.READY) {
+      return existingSuite;
+    }
+
+    if (existingSuite?.status === MilestoneTestSuiteStatus.GENERATING) {
+      return this.waitForMilestoneTestSuite(input.id);
+    }
+
+    const claimed = await this.claimMilestoneTestSuiteGeneration(input.id);
+
+    if (!claimed) {
+      return this.waitForMilestoneTestSuite(input.id);
+    }
+
+    try {
+      return await this.generateAndStoreMilestoneTestSuite(input);
+    } catch (err) {
+      await this.markMilestoneTestSuiteGenerationFailed(input.id);
+
+      if (err instanceof MilestoneTestSuiteGenerationUnavailableException) {
+        throw err;
+      }
+
+      this.logger.error(`Failed to generate milestone test suite for node ${input.id}`, err);
+      throw new MilestoneTestSuiteGenerationUnavailableException();
+    }
+  }
+
+  private async claimMilestoneTestSuiteGeneration(roadmapNodeId: string): Promise<boolean> {
+    const now = new Date();
+    const existingSuite = await this.prisma.milestoneTestSuite.findUnique({
+      where: { roadmapNodeId },
+      select: { id: true, status: true },
+    });
+
+    if (!existingSuite) {
+      try {
+        await this.prisma.milestoneTestSuite.create({
+          data: {
+            generationStartedAt: now,
+            passThresholdPct: MILESTONE_PASS_THRESHOLD_PCT,
+            roadmapNodeId,
+            status: MilestoneTestSuiteStatus.GENERATING,
+          },
+          select: { id: true },
+        });
+        return true;
+      } catch (err) {
+        if (this.isPrismaErrorCode(err, 'P2002')) {
+          return false;
+        }
+
+        throw err;
+      }
+    }
+
+    if (
+      existingSuite.status === MilestoneTestSuiteStatus.READY ||
+      existingSuite.status === MilestoneTestSuiteStatus.GENERATING
+    ) {
+      return false;
+    }
+
+    const result = await this.prisma.milestoneTestSuite.updateMany({
+      where: {
+        roadmapNodeId,
+        status: {
+          in: [MilestoneTestSuiteStatus.NOT_GENERATED, MilestoneTestSuiteStatus.FAILED],
+        },
+      },
+      data: {
+        generatedAt: null,
+        generationStartedAt: now,
+        status: MilestoneTestSuiteStatus.GENERATING,
+      },
+    });
+
+    return result.count > 0;
+  }
+
+  private async generateAndStoreMilestoneTestSuite(
+    input: MilestoneTestSuiteInput,
+  ): Promise<MilestoneTestSuiteRecord> {
+    const generatedSuite = await this.aiService.generateMilestoneTestSuite({
+      name: input.name,
+      projectBrief: input.projectBrief,
+      roleCategory: input.roleCategory,
+    });
+
+    this.assertGeneratedMilestoneTestSuite(generatedSuite);
+
+    return this.prisma.milestoneTestSuite.update({
+      where: { roadmapNodeId: input.id },
+      data: {
+        generatedAt: new Date(),
+        generationStartedAt: null,
+        passThresholdPct: MILESTONE_PASS_THRESHOLD_PCT,
+        status: MilestoneTestSuiteStatus.READY,
+        summary: generatedSuite.summary.trim(),
+        testCases: generatedSuite.testCases as unknown as Prisma.InputJsonValue,
+        testFileContent: generatedSuite.testFileContent.trim(),
+        title: generatedSuite.title.trim(),
+      },
+      select: MILESTONE_TEST_SUITE_SELECT,
+    });
+  }
+
+  private assertGeneratedMilestoneTestSuite(suite: GeneratedMilestoneTestSuite): void {
+    if (suite.testCases.length !== MILESTONE_TEST_SUITE_CASE_COUNT) {
+      throw new Error(`Expected ${MILESTONE_TEST_SUITE_CASE_COUNT} generated milestone tests`);
+    }
+
+    if (!suite.testFileContent.includes(MILESTONE_RESULT_MARKER)) {
+      throw new Error('Generated milestone test file does not emit structured results');
+    }
+  }
+
+  private async waitForMilestoneTestSuite(
+    roadmapNodeId: string,
+  ): Promise<MilestoneTestSuiteRecord> {
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt <= MILESTONE_TEST_SUITE_POLL_TIMEOUT_MS) {
+      const suite = await this.prisma.milestoneTestSuite.findUnique({
+        where: { roadmapNodeId },
+        select: MILESTONE_TEST_SUITE_SELECT,
+      });
+
+      if (suite?.status === MilestoneTestSuiteStatus.READY) {
+        return suite;
+      }
+
+      if (suite?.status === MilestoneTestSuiteStatus.FAILED) {
+        throw new MilestoneTestSuiteGenerationUnavailableException();
+      }
+
+      await this.delay(MILESTONE_TEST_SUITE_POLL_INTERVAL_MS);
+    }
+
+    throw new MilestoneTestSuiteGenerationUnavailableException();
+  }
+
+  private async markMilestoneTestSuiteGenerationFailed(roadmapNodeId: string): Promise<void> {
+    try {
+      await this.prisma.milestoneTestSuite.update({
+        where: { roadmapNodeId },
+        data: {
+          generationStartedAt: null,
+          status: MilestoneTestSuiteStatus.FAILED,
+        },
+      });
+    } catch (err) {
+      this.logger.error(
+        `Failed to mark milestone test suite generation failed for node ${roadmapNodeId}`,
+        err,
+      );
+    }
+  }
+
+  private isPrismaErrorCode(error: unknown, code: string): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: unknown }).code === code
+    );
+  }
+
+  private assertMilestoneSubmissionPayload(repoUrl: string): void {
     if (!GITHUB_REPO_URL_PATTERN.test(repoUrl)) {
       throw new MilestoneSubmissionInvalidUrlException();
     }
-
-    if (!MILESTONE_TEST_COMMAND_PATTERN.test(testCommand)) {
-      throw new MilestoneSubmissionInvalidCommandException();
-    }
-  }
-
-  private parseMilestoneTestCommand(testCommand: string): string[] {
-    if (testCommand === DEFAULT_MILESTONE_TEST_COMMAND) {
-      return ['npm', 'test'];
-    }
-
-    const npmRunMatch = /^npm run ([a-zA-Z0-9_-]+)$/.exec(testCommand);
-    if (!npmRunMatch) {
-      throw new MilestoneSubmissionInvalidCommandException();
-    }
-
-    return ['npm', 'run', npmRunMatch[1]!];
-  }
-
-  private async assertMilestoneCompletionAllowed(
-    userId: string,
-    roadmapNodeId: string,
-    forceComplete: boolean,
-  ): Promise<void> {
-    const latestSubmission = await this.prisma.milestoneSubmission.findFirst({
-      where: { roadmapNodeId, userId },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      select: { status: true },
-    });
-
-    if (latestSubmission?.status === MilestoneSubmissionStatus.PASSED) {
-      return;
-    }
-
-    if (latestSubmission?.status === MilestoneSubmissionStatus.ERROR && forceComplete) {
-      return;
-    }
-
-    if (latestSubmission?.status === MilestoneSubmissionStatus.ERROR) {
-      throw new MilestoneTestsNotPassedException(
-        'Milestone test execution errored. Retry submission or force completion after manual review.',
-      );
-    }
-
-    throw new MilestoneTestsNotPassedException();
   }
 
   private queueMilestoneSubmissionExecution(submissionId: string): void {
@@ -1363,7 +1678,15 @@ export class RoadmapsService {
       select: {
         id: true,
         repoUrl: true,
-        testCommand: true,
+        roadmapNodeId: true,
+        testSuite: {
+          select: {
+            id: true,
+            passThresholdPct: true,
+            testFileContent: true,
+          },
+        },
+        userId: true,
       },
     });
 
@@ -1376,6 +1699,19 @@ export class RoadmapsService {
     let outputLog = '';
 
     try {
+      if (!submission.testSuite?.testFileContent) {
+        outputLog = this.appendOutputLog(
+          outputLog,
+          '\n[error]\nGenerated milestone test suite is not available.\n',
+        );
+        await this.completeMilestoneSubmission(
+          submission.id,
+          MilestoneSubmissionStatus.ERROR,
+          outputLog,
+        );
+        return;
+      }
+
       const cloneResult = await this.runDockerCommand(
         this.buildCloneDockerArgs(submission.id, submission.repoUrl, workspacePath),
         this.remainingMilestoneExecutionMs(startedAt),
@@ -1417,21 +1753,61 @@ export class RoadmapsService {
         return;
       }
 
+      await this.writeMilestoneTestFile(workspacePath, submission.testSuite.testFileContent);
+      outputLog = this.appendOutputLog(
+        outputLog,
+        `\n[inject: ok]\nWrote generated test suite to ${MILESTONE_TEST_FILE_RELATIVE_PATH}\n`,
+      );
+
       const testResult = await this.runDockerCommand(
-        this.buildTestDockerArgs(submission.id, workspacePath, submission.testCommand),
+        this.buildTestDockerArgs(submission.id, workspacePath),
         this.remainingMilestoneExecutionMs(startedAt),
         this.buildMilestoneContainerName(submission.id, 'test'),
       );
       outputLog = this.appendOutputLog(outputLog, this.formatStageOutput('test', testResult));
 
-      const finalStatus =
-        testResult.timedOut || testResult.exitCode === null
-          ? MilestoneSubmissionStatus.ERROR
-          : testResult.exitCode === 0
-            ? MilestoneSubmissionStatus.PASSED
-            : MilestoneSubmissionStatus.FAILED;
+      if (testResult.timedOut || testResult.exitCode === null) {
+        await this.completeMilestoneSubmission(
+          submission.id,
+          MilestoneSubmissionStatus.ERROR,
+          outputLog,
+        );
+        return;
+      }
 
-      await this.completeMilestoneSubmission(submission.id, finalStatus, outputLog);
+      const parsedTestResult = this.parseMilestoneTestResult(testResult.output);
+
+      if (!parsedTestResult) {
+        outputLog = this.appendOutputLog(
+          outputLog,
+          '\n[result]\nGenerated tests did not emit structured RMap results.\n',
+        );
+        await this.completeMilestoneSubmission(
+          submission.id,
+          MilestoneSubmissionStatus.ERROR,
+          outputLog,
+        );
+        return;
+      }
+
+      const finalStatus =
+        parsedTestResult.passRatePct >= submission.testSuite.passThresholdPct
+          ? MilestoneSubmissionStatus.PASSED
+          : MilestoneSubmissionStatus.FAILED;
+      outputLog = this.appendOutputLog(
+        outputLog,
+        this.formatMilestoneTestResultSummary(
+          parsedTestResult,
+          submission.testSuite.passThresholdPct,
+        ),
+      );
+
+      await this.completeMilestoneSubmission(
+        submission.id,
+        finalStatus,
+        outputLog,
+        parsedTestResult,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown milestone execution error';
       outputLog = this.appendOutputLog(outputLog, `\n[error]\n${message}\n`);
@@ -1491,11 +1867,7 @@ export class RoadmapsService {
     ];
   }
 
-  private buildTestDockerArgs(
-    submissionId: string,
-    workspacePath: string,
-    testCommand: string,
-  ): string[] {
+  private buildTestDockerArgs(submissionId: string, workspacePath: string): string[] {
     return [
       'run',
       '--rm',
@@ -1512,8 +1884,18 @@ export class RoadmapsService {
       '-w',
       '/workspace/app',
       MILESTONE_SANDBOX_IMAGE,
-      ...this.parseMilestoneTestCommand(testCommand),
+      'node',
+      MILESTONE_TEST_FILE_RELATIVE_PATH,
     ];
+  }
+
+  private async writeMilestoneTestFile(
+    workspacePath: string,
+    testFileContent: string,
+  ): Promise<void> {
+    const testDirectoryPath = join(workspacePath, 'app', MILESTONE_TEST_FILE_DIRECTORY);
+    await mkdir(testDirectoryPath, { recursive: true });
+    await writeFile(join(testDirectoryPath, MILESTONE_TEST_FILE_NAME), testFileContent, 'utf8');
   }
 
   private buildMilestoneContainerName(submissionId: string, stage: string): string {
@@ -1577,20 +1959,133 @@ export class RoadmapsService {
     submissionId: string,
     status: MilestoneSubmissionStatus,
     outputLog: string,
+    testResult?: MilestoneTestResult,
   ): Promise<void> {
-    await this.prisma.milestoneSubmission.update({
-      where: { id: submissionId },
-      data: {
-        completedAt: new Date(),
-        outputLog: this.sanitizeMilestoneOutputLog(outputLog),
-        status,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      const now = new Date();
+      const submission = await tx.milestoneSubmission.update({
+        where: { id: submissionId },
+        data: {
+          completedAt: now,
+          outputLog: this.sanitizeMilestoneOutputLog(outputLog),
+          passRatePct: testResult?.passRatePct,
+          passedTests: testResult?.passedTests,
+          status,
+          totalTests: testResult?.totalTests,
+        },
+        select: {
+          roadmapNode: {
+            select: {
+              roadmapId: true,
+            },
+          },
+          roadmapNodeId: true,
+          userId: true,
+        },
+      });
+
+      if (status !== MilestoneSubmissionStatus.PASSED) {
+        return;
+      }
+
+      const currentProgress = await tx.userNodeProgress.findUnique({
+        where: {
+          userId_roadmapNodeId: {
+            roadmapNodeId: submission.roadmapNodeId,
+            userId: submission.userId,
+          },
+        },
+        select: { status: true },
+      });
+
+      if (currentProgress?.status === NodeStatus.COMPLETED) {
+        return;
+      }
+
+      await tx.userNodeProgress.update({
+        where: {
+          userId_roadmapNodeId: {
+            roadmapNodeId: submission.roadmapNodeId,
+            userId: submission.userId,
+          },
+        },
+        data: {
+          completedAt: now,
+          status: NodeStatus.COMPLETED,
+        },
+      });
+
+      await this.applyCompletionSideEffects(
+        submission.userId,
+        submission.roadmapNodeId,
+        submission.roadmapNode.roadmapId,
+        now,
+        tx,
+      );
     });
   }
 
   private formatStageOutput(stage: string, result: DockerCommandResult): string {
     const status = result.timedOut ? 'timed out' : `exit code ${result.exitCode ?? 'unknown'}`;
     return `\n[${stage}: ${status}]\n${result.output}`;
+  }
+
+  private parseMilestoneTestResult(output: string): MilestoneTestResult | null {
+    const markerIndex = output.lastIndexOf(MILESTONE_RESULT_MARKER);
+
+    if (markerIndex === -1) {
+      return null;
+    }
+
+    const markerPayload = output.slice(markerIndex + MILESTONE_RESULT_MARKER.length);
+    const jsonLine = markerPayload.split(/\r?\n/, 1)[0]?.trim();
+
+    if (!jsonLine) {
+      return null;
+    }
+
+    let parsed: unknown;
+
+    try {
+      parsed = JSON.parse(jsonLine);
+    } catch {
+      return null;
+    }
+
+    if (!parsed || typeof parsed !== 'object') {
+      return null;
+    }
+
+    const result = parsed as { passedTests?: unknown; totalTests?: unknown };
+    const { passedTests, totalTests } = result;
+
+    if (
+      typeof passedTests !== 'number' ||
+      typeof totalTests !== 'number' ||
+      !Number.isInteger(passedTests) ||
+      !Number.isInteger(totalTests) ||
+      totalTests !== MILESTONE_TEST_SUITE_CASE_COUNT ||
+      passedTests < 0 ||
+      passedTests > totalTests
+    ) {
+      return null;
+    }
+
+    return {
+      passRatePct: this.roundToTwo((passedTests / totalTests) * 100),
+      passedTests,
+      totalTests,
+    };
+  }
+
+  private formatMilestoneTestResultSummary(
+    result: MilestoneTestResult,
+    passThresholdPct: number,
+  ): string {
+    return (
+      `\n[result]\n${result.passedTests}/${result.totalTests} generated tests passed ` +
+      `(${result.passRatePct}%). Threshold: ${passThresholdPct}%.\n`
+    );
   }
 
   private appendOutputLog(currentLog: string, nextOutput: string): string {
@@ -1731,6 +2226,10 @@ export class RoadmapsService {
 
   private roundToOne(value: number): number {
     return Math.round(value * 10) / 10;
+  }
+
+  private roundToTwo(value: number): number {
+    return Math.round(value * 100) / 100;
   }
 
   private toUtcDateKey(date: Date): string {
@@ -2072,11 +2571,9 @@ export class RoadmapsService {
     }
 
     if (node.nodeType === NodeType.MILESTONE && dto.status === NodeStatus.COMPLETED) {
-      if (currentProgress.quizPassed !== null) {
-        throw new RoadmapNodeProgressInvalidUpdateException('Milestone nodes skip quiz validation');
-      }
-
-      await this.assertMilestoneCompletionAllowed(userId, nodeId, dto.forceComplete === true);
+      throw new RoadmapNodeProgressInvalidUpdateException(
+        'Milestone completion is automatic after generated tests pass',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {

@@ -59,6 +59,13 @@ export const QuizGenerationStatus = {
   FAILED: 'FAILED',
 } as const;
 
+export const MilestoneTestSuiteStatus = {
+  NOT_GENERATED: 'NOT_GENERATED',
+  GENERATING: 'GENERATING',
+  READY: 'READY',
+  FAILED: 'FAILED',
+} as const;
+
 export const MilestoneSubmissionStatus = {
   RUNNING: 'RUNNING',
   PASSED: 'PASSED',

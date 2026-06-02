@@ -44,6 +44,7 @@ function mapNodeDetailResponse(response: RoadmapNodeDetailApiResponse): RoadmapN
     name: response.node.name,
     nodeType: response.node.nodeType,
     latestSubmission: response.latestSubmission,
+    milestoneTestSuite: response.milestoneTestSuite,
     prerequisites: response.prerequisites.map((prerequisite) => ({
       id: prerequisite.skillId,
       name: prerequisite.skillName,
@@ -170,15 +171,10 @@ export const roadmapService = {
     return response.data;
   },
 
-  updateNodeProgress: async (
-    roadmapId: string,
-    nodeId: string,
-    status: ProgressStatus,
-    options: { forceComplete?: boolean } = {},
-  ) => {
+  updateNodeProgress: async (roadmapId: string, nodeId: string, status: ProgressStatus) => {
     const response = await axiosInstance.patch<UpdateRoadmapNodeProgressResponse>(
       ENDPOINTS.roadmaps.nodeProgress(roadmapId, nodeId),
-      { forceComplete: options.forceComplete, status },
+      { status },
     );
     return response.data;
   },

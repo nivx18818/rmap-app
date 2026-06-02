@@ -1,4 +1,9 @@
-import type { MilestoneSubmissionStatus, NodeStatus, NodeType } from '@repo/db/prisma/client';
+import type {
+  MilestoneSubmissionStatus,
+  MilestoneTestSuiteStatus,
+  NodeStatus,
+  NodeType,
+} from '@repo/db/prisma/client';
 
 import type { RoadmapResponseDto } from '../dto/roadmap-response.dto';
 
@@ -55,9 +60,12 @@ export interface PrerequisiteResponse {
 export interface MilestoneSubmissionResponse {
   id: string;
   repoUrl: string;
-  testCommand: string;
+  testSuiteId: string | null;
   status: MilestoneSubmissionStatus;
   outputLog: string | null;
+  passRatePct: number | null;
+  passedTests: number | null;
+  totalTests: number | null;
   attemptNumber: number;
   createdAt: string;
   completedAt: string | null;
@@ -71,12 +79,28 @@ export interface LatestMilestoneSubmissionResponse {
   submission: MilestoneSubmissionResponse | null;
 }
 
+export interface MilestoneTestCaseResponse {
+  description: string;
+  name: string;
+}
+
+export interface MilestoneTestSuiteResponse {
+  generatedAt: string | null;
+  id: string;
+  passThresholdPct: number;
+  status: MilestoneTestSuiteStatus;
+  summary: string;
+  testCases: MilestoneTestCaseResponse[];
+  title: string;
+}
+
 export interface NodeDetailResponse {
   node: RoadmapNodeWithUserProgressResponse;
   skill: SkillDetailResponse | null;
   resources: ResourceResponse[] | null;
   prerequisites: PrerequisiteResponse[];
   latestSubmission: MilestoneSubmissionResponse | null;
+  milestoneTestSuite: MilestoneTestSuiteResponse | null;
 }
 
 export interface UpdateNodeProgressResponse {

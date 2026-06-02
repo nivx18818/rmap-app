@@ -63,6 +63,7 @@ export enum ErrorCode {
   // 503 - Service Unavailable
   ROADMAP_GENERATION_UNAVAILABLE = 50300,
   NODE_QUIZ_GENERATION_UNAVAILABLE = 50301,
+  MILESTONE_TEST_SUITE_GENERATION_UNAVAILABLE = 50302,
 }
 
 export const ErrorMessages: Record<ErrorCode, string> = {
@@ -130,6 +131,8 @@ export const ErrorMessages: Record<ErrorCode, string> = {
     'Roadmap generation is temporarily unavailable. Please try again later and explore default templates while waiting.',
   [ErrorCode.NODE_QUIZ_GENERATION_UNAVAILABLE]:
     'Quiz generation is temporarily unavailable. Please try again in a few moments.',
+  [ErrorCode.MILESTONE_TEST_SUITE_GENERATION_UNAVAILABLE]:
+    'Milestone test suite generation is temporarily unavailable. Please try again in a few moments.',
 };
 
 export function getErrorMessage(code: ErrorCode): string {

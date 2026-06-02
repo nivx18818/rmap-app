@@ -24,6 +24,7 @@ export interface RoadmapHeroProps {
   progressErrorMessage?: null | string;
   progressSummary?: null | RoadmapProgressSummary;
   showPreviewActions?: boolean;
+  showProgress?: boolean;
   title: string;
 }
 
@@ -41,6 +42,7 @@ export function RoadmapHero({
   progressErrorMessage,
   progressSummary,
   showPreviewActions = false,
+  showProgress = true,
   title,
 }: RoadmapHeroProps) {
   const isActionBusy = isRecreatingRoadmap || isStartingLearning;
@@ -83,17 +85,19 @@ export function RoadmapHero({
           isLoading={isLoading}
         />
 
-        <motion.div
-          className="border-primary/10 bg-primary/5 flex w-full flex-col gap-4 rounded-lg border p-4 shadow-sm backdrop-blur-sm"
-          variants={itemVariants}
-        >
-          <HeroProgress
-            isProgressLoading={isProgressLoading}
-            onProgressRetry={onProgressRetry}
-            progressErrorMessage={progressErrorMessage}
-            progressSummary={progressSummary}
-          />
-        </motion.div>
+        {showProgress ? (
+          <motion.div
+            className="border-primary/10 bg-primary/5 flex w-full flex-col gap-4 rounded-lg border p-4 shadow-sm backdrop-blur-sm"
+            variants={itemVariants}
+          >
+            <HeroProgress
+              isProgressLoading={isProgressLoading}
+              onProgressRetry={onProgressRetry}
+              progressErrorMessage={progressErrorMessage}
+              progressSummary={progressSummary}
+            />
+          </motion.div>
+        ) : null}
       </motion.div>
     </SectionContainer>
   );

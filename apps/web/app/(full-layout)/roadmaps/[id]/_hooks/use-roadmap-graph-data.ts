@@ -2,29 +2,41 @@
 
 import { useCallback, useMemo } from 'react';
 
+import type { RoadmapDetailMode } from './use-roadmap-detail';
+
+import { filterRoadmapNodes } from '../_utils/roadmap-filter.utils';
 import { useRoadmapDisplayMode } from './use-roadmap-display-mode';
 import { useRoadmapFilters } from './use-roadmap-filters';
 import { useRoadmapNodes } from './use-roadmap-nodes';
 
 interface UseRoadmapGraphDataOptions {
+  mode: RoadmapDetailMode | null;
   roadmapId: string;
 }
 
-export function useRoadmapGraphData({ roadmapId }: UseRoadmapGraphDataOptions) {
+export function useRoadmapGraphData({ mode, roadmapId }: UseRoadmapGraphDataOptions) {
   const { displayMode, setDisplayMode } = useRoadmapDisplayMode();
   const { debouncedQuery, nodeType, query, setQuery, status, updateUrlFilters } =
     useRoadmapFilters();
-  const isSearchFilterActive = Boolean(query.trim() || debouncedQuery.trim() || status || nodeType);
-  const shouldFetchMatchedNodes = Boolean(debouncedQuery.trim() || status || nodeType);
+  const isTemplateRoadmap = mode === 'template';
+  const isPersonalRoadmap = mode === 'personal';
+  const effectiveStatus = isPersonalRoadmap ? status : null;
+  const isSearchFilterActive = Boolean(
+    query.trim() || debouncedQuery.trim() || effectiveStatus || nodeType,
+  );
+  const shouldApplyMatchedNodes = Boolean(debouncedQuery.trim() || effectiveStatus || nodeType);
+  const shouldFetchMatchedNodes = isPersonalRoadmap && shouldApplyMatchedNodes;
   const {
     errorMessage: baseErrorMessage,
     isLoading: isBaseLoading,
     refreshRoadmapNodes: refreshBaseRoadmapNodes,
     roadmapNodes: baseRoadmapNodes,
   } = useRoadmapNodes({
+    enabled: mode !== null,
     nodeType: null,
     roadmapId,
     searchQuery: '',
+    source: isTemplateRoadmap ? 'template' : 'personal',
     status: null,
   });
   const {
@@ -37,11 +49,33 @@ export function useRoadmapGraphData({ roadmapId }: UseRoadmapGraphDataOptions) {
     nodeType,
     roadmapId,
     searchQuery: debouncedQuery,
-    status,
+    status: effectiveStatus,
   });
+  const templateMatchedRoadmapNodes = useMemo(
+    () =>
+      isTemplateRoadmap && shouldApplyMatchedNodes
+        ? filterRoadmapNodes(baseRoadmapNodes, {
+            nodeType,
+            searchQuery: debouncedQuery,
+            status: null,
+          })
+        : [],
+    [baseRoadmapNodes, debouncedQuery, isTemplateRoadmap, nodeType, shouldApplyMatchedNodes],
+  );
   const effectiveMatchedRoadmapNodes = useMemo(
-    () => (shouldFetchMatchedNodes && !isMatchedLoading ? matchedRoadmapNodes : []),
-    [isMatchedLoading, matchedRoadmapNodes, shouldFetchMatchedNodes],
+    () =>
+      isTemplateRoadmap
+        ? templateMatchedRoadmapNodes
+        : shouldFetchMatchedNodes && !isMatchedLoading
+          ? matchedRoadmapNodes
+          : [],
+    [
+      isMatchedLoading,
+      isTemplateRoadmap,
+      matchedRoadmapNodes,
+      shouldFetchMatchedNodes,
+      templateMatchedRoadmapNodes,
+    ],
   );
   const matchedNodeIds = useMemo(
     () => new Set(effectiveMatchedRoadmapNodes.map((node) => node.id)),
@@ -76,7 +110,7 @@ export function useRoadmapGraphData({ roadmapId }: UseRoadmapGraphDataOptions) {
     setQuery,
     shouldFetchMatchedNodes,
     stackListNodes,
-    status,
+    status: effectiveStatus,
     updateUrlFilters,
   };
 }

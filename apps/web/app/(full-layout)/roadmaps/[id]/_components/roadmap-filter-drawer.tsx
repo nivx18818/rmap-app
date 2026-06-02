@@ -25,6 +25,7 @@ import { NODE_TYPE_LABELS, STATUS_LABELS } from '../_constants/roadmap-node.cons
 import { useResponsiveDrawerDirection } from '../_hooks/use-responsive-drawer-direction';
 
 interface RoadmapFilterDrawerProps {
+  canFilterByStatus?: boolean;
   nodeType: NodeType | null;
   onNodeTypeChange: (nodeType: NodeType | null) => void;
   onStatusChange: (status: ProgressStatus | null) => void;
@@ -32,6 +33,7 @@ interface RoadmapFilterDrawerProps {
 }
 
 export function RoadmapFilterDrawer({
+  canFilterByStatus = true,
   nodeType,
   onNodeTypeChange,
   onStatusChange,
@@ -41,12 +43,14 @@ export function RoadmapFilterDrawer({
   const drawerDirection = useResponsiveDrawerDirection();
   const [draftNodeType, setDraftNodeType] = useState(nodeType);
   const [draftStatus, setDraftStatus] = useState(status);
-  const activeFilterCount = (status === null ? 0 : 1) + (nodeType === null ? 0 : 1);
-  const draftActiveFilterCount = (draftStatus === null ? 0 : 1) + (draftNodeType === null ? 0 : 1);
+  const activeFilterCount =
+    (canFilterByStatus && status !== null ? 1 : 0) + (nodeType === null ? 0 : 1);
+  const draftActiveFilterCount =
+    (canFilterByStatus && draftStatus !== null ? 1 : 0) + (draftNodeType === null ? 0 : 1);
   const hasActiveFilters = activeFilterCount > 0;
 
   const applyDraftFilters = () => {
-    if (draftStatus !== status) {
+    if (canFilterByStatus && draftStatus !== status) {
       onStatusChange(draftStatus);
     }
 
@@ -60,7 +64,9 @@ export function RoadmapFilterDrawer({
   const clearFiltersToAll = () => {
     setDraftStatus(null);
     setDraftNodeType(null);
-    onStatusChange(null);
+    if (canFilterByStatus) {
+      onStatusChange(null);
+    }
     onNodeTypeChange(null);
     setIsFilterDrawerOpen(false);
   };
@@ -100,7 +106,11 @@ export function RoadmapFilterDrawer({
       <DrawerContent className="max-h-[85vh] lg:h-full lg:max-h-none lg:w-104 lg:max-w-none lg:rounded-none">
         <DrawerHeader className="gap-1 text-left">
           <DrawerTitle>Filters</DrawerTitle>
-          <DrawerDescription>Refine roadmap nodes by progress and type.</DrawerDescription>
+          <DrawerDescription>
+            {canFilterByStatus
+              ? 'Refine roadmap nodes by progress and type.'
+              : 'Refine roadmap nodes by type.'}
+          </DrawerDescription>
         </DrawerHeader>
 
         <Separator />
@@ -112,31 +122,35 @@ export function RoadmapFilterDrawer({
             </span>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <span className="text-muted-foreground text-xs font-medium">Status</span>
-            <div className="flex flex-wrap gap-2">
-              {STATUS_FILTER_OPTIONS.map((option) => {
-                const isAll = option === 'ALL';
-                const isActive = isAll ? draftStatus === null : draftStatus === option;
+          {canFilterByStatus ? (
+            <>
+              <div className="flex flex-col gap-2">
+                <span className="text-muted-foreground text-xs font-medium">Status</span>
+                <div className="flex flex-wrap gap-2">
+                  {STATUS_FILTER_OPTIONS.map((option) => {
+                    const isAll = option === 'ALL';
+                    const isActive = isAll ? draftStatus === null : draftStatus === option;
 
-                return (
-                  <Button
-                    key={option}
-                    size="sm"
-                    variant={isActive ? 'default' : 'outline'}
-                    className="h-8"
-                    type="button"
-                    aria-pressed={isActive}
-                    onClick={() => setDraftStatus(isAll ? null : option)}
-                  >
-                    {isAll ? 'All' : STATUS_LABELS[option]}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
+                    return (
+                      <Button
+                        key={option}
+                        size="sm"
+                        variant={isActive ? 'default' : 'outline'}
+                        className="h-8"
+                        type="button"
+                        aria-pressed={isActive}
+                        onClick={() => setDraftStatus(isAll ? null : option)}
+                      >
+                        {isAll ? 'All' : STATUS_LABELS[option]}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
 
-          <Separator />
+              <Separator />
+            </>
+          ) : null}
 
           <div className="flex flex-col gap-2">
             <span className="text-muted-foreground text-xs font-medium">Node type</span>

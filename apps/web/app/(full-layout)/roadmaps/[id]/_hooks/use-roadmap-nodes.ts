@@ -2,18 +2,22 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+import { publicTemplateService } from '@/services/public-template.service';
 import { roadmapService } from '@/services/roadmap.service';
 
 import type { NodeType, ProgressStatus, RoadmapNode } from '../_types/roadmap-node.types';
 
 import { ROADMAP_NODES_ERROR_MESSAGE } from '../_constants/roadmap-filter.constants';
-import { buildRoadmapNodesFilter } from '../_utils/roadmap-filter.utils';
+import { buildRoadmapNodesFilter, filterRoadmapNodes } from '../_utils/roadmap-filter.utils';
+
+type RoadmapNodesSource = 'personal' | 'template';
 
 interface UseRoadmapNodesOptions {
   enabled?: boolean;
   nodeType: NodeType | null;
   roadmapId: string;
   searchQuery: string;
+  source?: RoadmapNodesSource;
   status: ProgressStatus | null;
 }
 
@@ -22,6 +26,7 @@ export function useRoadmapNodes({
   nodeType,
   roadmapId,
   searchQuery,
+  source = 'personal',
   status,
 }: UseRoadmapNodesOptions) {
   const [roadmapNodes, setRoadmapNodes] = useState<RoadmapNode[]>([]);
@@ -40,19 +45,26 @@ export function useRoadmapNodes({
     setErrorMessage(null);
 
     try {
-      const response = await roadmapService.getRoadmapNodes(
-        roadmapId,
-        buildRoadmapNodesFilter({ nodeType, searchQuery, status }),
-      );
+      const response =
+        source === 'template'
+          ? await publicTemplateService.getNodes(roadmapId)
+          : await roadmapService.getRoadmapNodes(
+              roadmapId,
+              buildRoadmapNodesFilter({ nodeType, searchQuery, status }),
+            );
 
-      setRoadmapNodes(response.nodes);
+      setRoadmapNodes(
+        source === 'template'
+          ? filterRoadmapNodes(response.nodes, { nodeType, searchQuery, status: null })
+          : response.nodes,
+      );
     } catch {
       setErrorMessage(ROADMAP_NODES_ERROR_MESSAGE);
       setRoadmapNodes([]);
     } finally {
       setIsLoading(false);
     }
-  }, [enabled, nodeType, roadmapId, searchQuery, status]);
+  }, [enabled, nodeType, roadmapId, searchQuery, source, status]);
 
   useEffect(() => {
     void refreshRoadmapNodes();

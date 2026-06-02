@@ -9,15 +9,26 @@ import type { RoadmapProgressSummary } from '../_types/roadmap-progress.types';
 const ROADMAP_PROGRESS_ERROR_MESSAGE = 'Unable to load roadmap progress.';
 
 interface UseRoadmapProgressSummaryOptions {
+  enabled?: boolean;
   roadmapId: string;
 }
 
-export function useRoadmapProgressSummary({ roadmapId }: UseRoadmapProgressSummaryOptions) {
+export function useRoadmapProgressSummary({
+  enabled = true,
+  roadmapId,
+}: UseRoadmapProgressSummaryOptions) {
   const [summary, setSummary] = useState<RoadmapProgressSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const refreshProgressSummary = useCallback(async () => {
+    if (!enabled) {
+      setSummary(null);
+      setIsLoading(false);
+      setErrorMessage(null);
+      return;
+    }
+
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -30,7 +41,7 @@ export function useRoadmapProgressSummary({ roadmapId }: UseRoadmapProgressSumma
     } finally {
       setIsLoading(false);
     }
-  }, [roadmapId]);
+  }, [enabled, roadmapId]);
 
   useEffect(() => {
     void refreshProgressSummary();

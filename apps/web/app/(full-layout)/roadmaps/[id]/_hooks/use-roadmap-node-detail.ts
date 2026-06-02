@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { roadmapService } from '@/services/roadmap.service';
 
 import type { RoadmapNodeDetail } from '../_types/roadmap-node-detail.types';
+import type { RoadmapNode } from '../_types/roadmap-node.types';
 
 const NODE_DETAIL_ERROR_MESSAGE = 'Unable to load this node detail.';
 const MARK_COMPLETE_ERROR_MESSAGE = 'Unable to mark this node complete. Please try again.';
@@ -13,9 +14,11 @@ const MILESTONE_SUBMIT_ERROR_MESSAGE = 'Unable to submit this project. Please tr
 const RUNNING_SUBMISSION_REFRESH_MS = 3_000;
 
 interface UseRoadmapNodeDetailOptions {
+  canFetchProtectedDetail?: boolean;
   nodeId: string | null;
   onProgressUpdated?: () => void;
   roadmapId: string;
+  roadmapNodes?: RoadmapNode[];
 }
 
 interface RefreshNodeDetailOptions {
@@ -23,9 +26,11 @@ interface RefreshNodeDetailOptions {
 }
 
 export function useRoadmapNodeDetail({
+  canFetchProtectedDetail = true,
   nodeId,
   onProgressUpdated,
   roadmapId,
+  roadmapNodes = [],
 }: UseRoadmapNodeDetailOptions) {
   const [nodeDetail, setNodeDetail] = useState<RoadmapNodeDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,6 +43,34 @@ export function useRoadmapNodeDetail({
       if (!nodeId) {
         setNodeDetail(null);
         setErrorMessage(null);
+        setActionErrorMessage(null);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!canFetchProtectedDetail) {
+        const selectedNode = roadmapNodes.find((node) => node.id === nodeId);
+
+        setNodeDetail(
+          selectedNode
+            ? {
+                description: selectedNode.description,
+                estimatedHours: selectedNode.estimatedHours,
+                id: selectedNode.id,
+                latestSubmission: null,
+                name: selectedNode.name,
+                nodeType: selectedNode.nodeType,
+                prerequisites: [],
+                progress: null,
+                projectBrief:
+                  selectedNode.nodeType === 'MILESTONE'
+                    ? (selectedNode.description ?? undefined)
+                    : undefined,
+                resources: [],
+              }
+            : null,
+        );
+        setErrorMessage(selectedNode ? null : NODE_DETAIL_ERROR_MESSAGE);
         setActionErrorMessage(null);
         setIsLoading(false);
         return;
@@ -60,12 +93,12 @@ export function useRoadmapNodeDetail({
         }
       }
     },
-    [nodeId, roadmapId],
+    [canFetchProtectedDetail, nodeId, roadmapId, roadmapNodes],
   );
 
   const markComplete = useCallback(
     async (options: { forceComplete?: boolean } = {}) => {
-      if (!nodeId) return;
+      if (!canFetchProtectedDetail || !nodeId) return;
 
       setIsMarkingComplete(true);
       setActionErrorMessage(null);
@@ -96,12 +129,12 @@ export function useRoadmapNodeDetail({
         setIsMarkingComplete(false);
       }
     },
-    [nodeId, onProgressUpdated, roadmapId],
+    [canFetchProtectedDetail, nodeId, onProgressUpdated, roadmapId],
   );
 
   const submitMilestoneSubmission = useCallback(
     async (payload: { repoUrl: string; testCommand?: string }) => {
-      if (!nodeId) return;
+      if (!canFetchProtectedDetail || !nodeId) return;
 
       setActionErrorMessage(null);
 
@@ -116,7 +149,7 @@ export function useRoadmapNodeDetail({
         setActionErrorMessage(MILESTONE_SUBMIT_ERROR_MESSAGE);
       }
     },
-    [nodeId, roadmapId],
+    [canFetchProtectedDetail, nodeId, roadmapId],
   );
 
   useEffect(() => {
@@ -124,14 +157,14 @@ export function useRoadmapNodeDetail({
   }, [refreshNodeDetail]);
 
   useEffect(() => {
-    if (nodeDetail?.latestSubmission?.status !== 'RUNNING') return;
+    if (!canFetchProtectedDetail || nodeDetail?.latestSubmission?.status !== 'RUNNING') return;
 
     const intervalId = window.setInterval(() => {
       void refreshNodeDetail({ silent: true });
     }, RUNNING_SUBMISSION_REFRESH_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [nodeDetail?.latestSubmission?.status, refreshNodeDetail]);
+  }, [canFetchProtectedDetail, nodeDetail?.latestSubmission?.status, refreshNodeDetail]);
 
   return {
     actionErrorMessage,

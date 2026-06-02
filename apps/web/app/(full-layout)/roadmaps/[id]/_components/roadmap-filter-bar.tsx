@@ -17,6 +17,7 @@ import { RoadmapFilterLegend } from './roadmap-filter-legend';
 import { RoadmapSearchInput } from './roadmap-search-input';
 
 interface RoadmapFilterBarProps {
+  canFilterByStatus?: boolean;
   displayMode: RoadmapDisplayMode;
   isMatchingLoading: boolean;
   isSearchActive: boolean;
@@ -32,6 +33,7 @@ interface RoadmapFilterBarProps {
 }
 
 export function RoadmapFilterBar({
+  canFilterByStatus = true,
   displayMode,
   isMatchingLoading,
   isSearchActive,
@@ -54,7 +56,7 @@ export function RoadmapFilterBar({
   const trimmedQuery = query.trim();
   const activeDescriptions = [
     nodeType ? `${NODE_TYPE_LABELS[nodeType]} nodes` : null,
-    status ? `${STATUS_LABELS[status].toLowerCase()} status` : null,
+    canFilterByStatus && status ? `${STATUS_LABELS[status].toLowerCase()} status` : null,
     trimmedQuery ? `search "${trimmedQuery}"` : null,
   ].filter(Boolean);
   const description =
@@ -86,6 +88,7 @@ export function RoadmapFilterBar({
               query={query}
             />
             <RoadmapFilterDrawer
+              canFilterByStatus={canFilterByStatus}
               nodeType={nodeType}
               onNodeTypeChange={onNodeTypeChange}
               onStatusChange={onStatusChange}
@@ -97,8 +100,9 @@ export function RoadmapFilterBar({
       </div>
 
       <span className="sr-only">
-        Current filters use status {status ? STATUS_URL_VALUES[status] : 'all'} and node type{' '}
-        {nodeType ? NODE_TYPE_URL_VALUES[nodeType] : 'all'}.
+        Current filters use status{' '}
+        {canFilterByStatus ? (status ? STATUS_URL_VALUES[status] : 'all') : 'unavailable'} and node
+        type {nodeType ? NODE_TYPE_URL_VALUES[nodeType] : 'all'}.
       </span>
     </div>
   );

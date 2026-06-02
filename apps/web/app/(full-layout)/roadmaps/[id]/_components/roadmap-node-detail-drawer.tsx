@@ -24,6 +24,7 @@ import { useEffect, useState } from 'react';
 import { LoadingState } from '@/components/shared/loading-state';
 
 import type { RoadmapNodeDetail } from '../_types/roadmap-node-detail.types';
+import type { RoadmapNode } from '../_types/roadmap-node.types';
 
 import { NODE_TYPE_LABELS, STATUS_LABELS } from '../_constants/roadmap-node.constants';
 import { statusBadgeClasses } from '../_constants/roadmap-stack-list.constants';
@@ -60,9 +61,11 @@ function formatOutputLog(outputLog: string | null): string {
 }
 
 interface RoadmapNodeDetailDrawerProps {
+  canManageProgress?: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onProgressUpdated?: () => void;
   roadmapId: string;
+  roadmapNodes?: RoadmapNode[];
   selectedNodeId: string | null;
 }
 
@@ -465,9 +468,11 @@ function RoadmapNodeDetailActions({
 }
 
 export function RoadmapNodeDetailDrawer({
+  canManageProgress = true,
   onOpenChange,
   onProgressUpdated,
   roadmapId,
+  roadmapNodes = [],
   selectedNodeId,
 }: RoadmapNodeDetailDrawerProps) {
   const drawerDirection = useResponsiveDrawerDirection();
@@ -480,9 +485,11 @@ export function RoadmapNodeDetailDrawer({
     nodeDetail,
     submitMilestoneSubmission,
   } = useRoadmapNodeDetail({
+    canFetchProtectedDetail: canManageProgress,
     nodeId: selectedNodeId,
     onProgressUpdated,
     roadmapId,
+    roadmapNodes,
   });
   const status = nodeDetail?.progress?.status ?? 'LOCKED';
   const description = nodeDetail
@@ -498,7 +505,7 @@ export function RoadmapNodeDetailDrawer({
               <DrawerTitle>{nodeDetail?.name ?? 'Roadmap node'}</DrawerTitle>
               <DrawerDescription>{description}</DrawerDescription>
             </div>
-            {nodeDetail ? (
+            {nodeDetail && canManageProgress ? (
               <Badge variant="outline" className={cn('shrink-0', statusBadgeClasses[status])}>
                 {STATUS_LABELS[status]}
               </Badge>
@@ -526,7 +533,7 @@ export function RoadmapNodeDetailDrawer({
           </div>
         )}
 
-        {nodeDetail ? (
+        {nodeDetail && canManageProgress ? (
           <>
             <Separator />
             <RoadmapNodeDetailActions

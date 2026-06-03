@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { NodeStatus, NodeType, type Prisma } from '@repo/db/prisma/client';
 
 import {
+  ActiveRoadmapLimitExceededException,
   InvalidStatusTransitionException,
   QuizNotPassedException,
   RoadmapNodeProgressInvalidUpdateException,
@@ -23,7 +24,12 @@ import type { RoadmapTransaction } from '../utils/roadmap-records';
 import { toNumberOrNull } from '../utils/number';
 import { getRoadmapAccessWhere, getRoadmapRelationAccessWhere } from '../utils/roadmap-access';
 import { formatRoadmap } from '../utils/roadmap-formatters';
-import { LEAF_NODE_TYPES, ROADMAP_SELECT, VALID_TRANSITIONS } from '../utils/roadmap.constants';
+import {
+  LEAF_NODE_TYPES,
+  MAX_ACTIVE_LEARNING_ROADMAPS,
+  ROADMAP_SELECT,
+  VALID_TRANSITIONS,
+} from '../utils/roadmap.constants';
 import {
   calculateDeadlineTimelineWarning,
   calculatePercent,
@@ -275,6 +281,12 @@ export class RoadmapProgressService {
         };
       }
 
+      const activeLearningRoadmaps = await this.countActiveLearningRoadmaps(tx, userId, roadmap.id);
+
+      if (activeLearningRoadmaps >= MAX_ACTIVE_LEARNING_ROADMAPS) {
+        throw new ActiveRoadmapLimitExceededException();
+      }
+
       const now = new Date();
       const unlockedNodes: string[] = [];
 
@@ -285,6 +297,41 @@ export class RoadmapProgressService {
         roadmap: formatRoadmap(roadmap, now),
         unlockedNodes,
       };
+    });
+  }
+
+  private async countActiveLearningRoadmaps(
+    tx: RoadmapTransaction,
+    userId: string,
+    excludedRoadmapId: string,
+  ): Promise<number> {
+    return tx.roadmap.count({
+      where: {
+        id: { not: excludedRoadmapId },
+        OR: [{ isTemplate: false, userId }, { isTemplate: true }],
+        nodes: {
+          some: {
+            userNodeProgress: {
+              some: {
+                userId,
+                startedAt: { not: null },
+              },
+            },
+          },
+        },
+        NOT: {
+          nodes: {
+            every: {
+              userNodeProgress: {
+                some: {
+                  userId,
+                  status: NodeStatus.COMPLETED,
+                },
+              },
+            },
+          },
+        },
+      },
     });
   }
 

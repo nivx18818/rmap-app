@@ -26,6 +26,12 @@ import {
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
 import type { ActivityQueryDto } from './dto/activity-query.dto';
+import type { DashboardSearchQueryDto } from './dto/dashboard-search-query.dto';
+import type {
+  DashboardHomePaceWarningResponse,
+  DashboardHomeResponse,
+  DashboardHomeRoadmapResponse,
+} from './types/dashboard-home-response.types';
 import type {
   ActivitySummaryResponse,
   DailyActivityEntryResponse,
@@ -35,10 +41,18 @@ import type {
   DashboardSkillCategoryResponse,
   DashboardSummaryResponse,
 } from './types/dashboard-response.types';
+import type {
+  DashboardSearchResponse,
+  DashboardSearchRoadmapResponse,
+  DashboardSearchSkillResponse,
+} from './types/dashboard-search-response.types';
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const PACE_WARNING_THRESHOLD_PCT = 15;
 const DASHBOARD_ACTIVITY_DAYS = 30;
+const DEFAULT_NODE_ESTIMATED_HOURS = 3;
+const DASHBOARD_SEARCH_ROADMAPS_PER_PAGE = 5;
+const DASHBOARD_SEARCH_SKILLS_PER_PAGE = 10;
 
 type DailyActivityRecord = {
   activityDate: Date;
@@ -69,6 +83,35 @@ type DashboardRoadmapRecord = {
   title: string;
   updatedAt: Date;
   userId: string | null;
+};
+
+type DashboardHomeRoadmapNodeRecord = DashboardRoadmapNodeRecord & {
+  description: string | null;
+  name: string;
+  parentId: string | null;
+  posY: Prisma.Decimal | number;
+};
+
+type DashboardHomeRoadmapRecord = Omit<DashboardRoadmapRecord, 'nodes'> & {
+  nodes: DashboardHomeRoadmapNodeRecord[];
+};
+
+type DashboardSearchRoadmapRecord = {
+  description: string | null;
+  estimatedWeeks: number | null;
+  goalName: string | null;
+  id: string;
+  isTemplate: boolean;
+  roleCategory: RoleCategory;
+  title: string;
+};
+
+type DashboardSearchSkillRecord = {
+  defaultEstimatedHours: Prisma.Decimal | number | null;
+  description: string | null;
+  id: string;
+  name: string;
+  roleCategory: RoleCategory | null;
 };
 
 const toNumberOrNull = (value: Prisma.Decimal | number | null) =>
@@ -131,28 +174,7 @@ export class DashboardService {
     }
 
     const streakDays = calculateStreakDays(user.dailyActivity);
-    const rawRoadmaps = await this.prisma.roadmap.findMany({
-      where: {
-        OR: [
-          { isTemplate: false, userId },
-          {
-            isTemplate: true,
-            nodes: {
-              some: {
-                userNodeProgress: {
-                  some: {
-                    userId,
-                    startedAt: { not: null },
-                  },
-                },
-              },
-            },
-          },
-        ],
-      },
-      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
-      select: this.getDashboardRoadmapSelect(userId),
-    });
+    const rawRoadmaps = await this.findDashboardRoadmaps(userId);
 
     const roadmaps = rawRoadmaps.map((roadmap) => this.formatRoadmapSummary(roadmap, streakDays));
 
@@ -170,6 +192,141 @@ export class DashboardService {
       summary: this.formatSummary(rawRoadmaps, roadmaps, streakDays),
       skillCategories: this.formatSkillCategories(rawRoadmaps),
       roadmapStatus: this.formatRoadmapStatus(rawRoadmaps, roadmaps),
+    };
+  }
+
+  async getHome(userId: string): Promise<DashboardHomeResponse> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        dailyActivity: {
+          orderBy: [{ activityDate: 'desc' }, { id: 'asc' }],
+          select: {
+            activityDate: true,
+            nodesCompleted: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new UserNotFoundException(userId);
+    }
+
+    const streakDays = calculateStreakDays(user.dailyActivity);
+    const activeRoadmaps = (await this.findHomeRoadmaps(userId)).filter(
+      (roadmap) => this.getStartedAt(roadmap) !== null && !this.isRoadmapCompleted(roadmap),
+    );
+
+    return {
+      activeRoadmaps: activeRoadmaps.map((roadmap) => this.formatHomeRoadmap(roadmap)),
+      metrics: this.formatHomeMetrics(activeRoadmaps, streakDays),
+    };
+  }
+
+  async search(
+    userId: string,
+    query: DashboardSearchQueryDto = {},
+  ): Promise<DashboardSearchResponse> {
+    const searchQuery = (query.query ?? '').trim();
+    const roadmapPage = query.roadmapPage ?? 1;
+    const skillPage = query.skillPage ?? 1;
+
+    if (searchQuery.length === 0) {
+      return this.formatEmptySearchResponse(searchQuery, roadmapPage, skillPage);
+    }
+
+    const roadmapWhere = this.getDashboardSearchRoadmapWhere(userId, searchQuery);
+    const skillWhere = this.getDashboardSearchSkillWhere(searchQuery);
+    const [roadmaps, roadmapsTotal, skills, skillsTotal] = await this.prisma.$transaction([
+      this.prisma.roadmap.findMany({
+        orderBy: [{ isTemplate: 'desc' }, { updatedAt: 'desc' }, { id: 'asc' }],
+        select: {
+          description: true,
+          estimatedWeeks: true,
+          goalName: true,
+          id: true,
+          isTemplate: true,
+          roleCategory: true,
+          title: true,
+        },
+        skip: (roadmapPage - 1) * DASHBOARD_SEARCH_ROADMAPS_PER_PAGE,
+        take: DASHBOARD_SEARCH_ROADMAPS_PER_PAGE,
+        where: roadmapWhere,
+      }),
+      this.prisma.roadmap.count({ where: roadmapWhere }),
+      this.prisma.skill.findMany({
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
+        select: {
+          defaultEstimatedHours: true,
+          description: true,
+          id: true,
+          name: true,
+          roleCategory: true,
+        },
+        skip: (skillPage - 1) * DASHBOARD_SEARCH_SKILLS_PER_PAGE,
+        take: DASHBOARD_SEARCH_SKILLS_PER_PAGE,
+        where: skillWhere,
+      }),
+      this.prisma.skill.count({ where: skillWhere }),
+    ]);
+
+    return {
+      query: searchQuery,
+      roadmaps: {
+        data: roadmaps.map((roadmap) => this.formatSearchRoadmap(roadmap)),
+        meta: this.formatPaginationMeta(
+          roadmapPage,
+          DASHBOARD_SEARCH_ROADMAPS_PER_PAGE,
+          roadmapsTotal,
+        ),
+      },
+      skills: {
+        data: skills.map((skill) => this.formatSearchSkill(skill)),
+        meta: this.formatPaginationMeta(skillPage, DASHBOARD_SEARCH_SKILLS_PER_PAGE, skillsTotal),
+      },
+      meta: {
+        totalResults: roadmapsTotal + skillsTotal,
+        roadmapPageSize: DASHBOARD_SEARCH_ROADMAPS_PER_PAGE,
+        skillPageSize: DASHBOARD_SEARCH_SKILLS_PER_PAGE,
+      },
+    };
+  }
+
+  private async findDashboardRoadmaps(userId: string): Promise<DashboardRoadmapRecord[]> {
+    return this.prisma.roadmap.findMany({
+      where: this.getUserRoadmapsWhere(userId),
+      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+      select: this.getDashboardRoadmapSelect(userId),
+    });
+  }
+
+  private async findHomeRoadmaps(userId: string): Promise<DashboardHomeRoadmapRecord[]> {
+    return this.prisma.roadmap.findMany({
+      where: this.getUserRoadmapsWhere(userId),
+      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+      select: this.getHomeRoadmapSelect(userId),
+    });
+  }
+
+  private getUserRoadmapsWhere(userId: string): Prisma.RoadmapWhereInput {
+    return {
+      OR: [
+        { isTemplate: false, userId },
+        {
+          isTemplate: true,
+          nodes: {
+            some: {
+              userNodeProgress: {
+                some: {
+                  userId,
+                  startedAt: { not: null },
+                },
+              },
+            },
+          },
+        },
+      ],
     };
   }
 
@@ -199,6 +356,70 @@ export class DashboardService {
         },
       },
     } satisfies Prisma.RoadmapSelect;
+  }
+
+  private getHomeRoadmapSelect(userId: string) {
+    return {
+      deadlineDate: true,
+      description: true,
+      estimatedWeeks: true,
+      generatedAt: true,
+      goalName: true,
+      hoursPerDay: true,
+      id: true,
+      isTemplate: true,
+      roleCategory: true,
+      title: true,
+      updatedAt: true,
+      userId: true,
+      nodes: {
+        select: {
+          description: true,
+          id: true,
+          name: true,
+          nodeType: true,
+          parentId: true,
+          estimatedHours: true,
+          posY: true,
+          userNodeProgress: {
+            where: { userId },
+            select: { status: true, startedAt: true },
+          },
+        },
+      },
+    } satisfies Prisma.RoadmapSelect;
+  }
+
+  private getDashboardSearchRoadmapWhere(userId: string, query: string): Prisma.RoadmapWhereInput {
+    return {
+      AND: [
+        {
+          OR: [
+            { isTemplate: true },
+            {
+              isTemplate: false,
+              userId,
+            },
+          ],
+        },
+        {
+          OR: [
+            { title: { contains: query, mode: 'insensitive' } },
+            { goalName: { contains: query, mode: 'insensitive' } },
+            { description: { contains: query, mode: 'insensitive' } },
+          ],
+        },
+      ],
+    };
+  }
+
+  private getDashboardSearchSkillWhere(query: string): Prisma.SkillWhereInput {
+    return {
+      name: {
+        contains: query,
+        mode: 'insensitive',
+      },
+    };
   }
 
   private formatRoadmapSummary(
@@ -245,6 +466,244 @@ export class DashboardService {
           )
         : null,
     };
+  }
+
+  private formatHomeRoadmap(roadmap: DashboardHomeRoadmapRecord): DashboardHomeRoadmapResponse {
+    const startedAt = this.getStartedAt(roadmap);
+    const orderedProgressNodes = this.getOrderedChapterNodes(roadmap);
+    const currentGroup = this.findCurrentGroup(roadmap);
+    const planNode = currentGroup
+      ? this.findPlanNodeInGroup(roadmap, currentGroup.id)
+      : this.findPlanNodeInGroup(roadmap, null);
+    const currentChapterIndex = currentGroup
+      ? orderedProgressNodes.findIndex((node) => node.id === currentGroup.id) + 1
+      : 0;
+    const requiredNodes = roadmap.nodes.filter((node) => node.nodeType === NodeType.REQUIRED);
+    const requiredNodesCompleted = requiredNodes.filter((node) =>
+      this.isNodeCompleted(node),
+    ).length;
+    const completedHours = roadmap.nodes
+      .filter((node) => this.isNodeCompleted(node))
+      .reduce((total, node) => total + (toNumberOrNull(node.estimatedHours) ?? 0), 0);
+
+    return {
+      roadmapId: roadmap.id,
+      title: roadmap.title,
+      goalName: roadmap.goalName,
+      isTemplate: roadmap.isTemplate,
+      roleCategory: roadmap.roleCategory,
+      startedAt: startedAt?.toISOString() ?? '',
+      currentGroup: currentGroup ? { id: currentGroup.id, name: currentGroup.name } : null,
+      planNode: planNode
+        ? {
+            id: planNode.id,
+            name: planNode.name,
+            description: planNode.description,
+            nodeType: planNode.nodeType,
+            estimatedHours: toNumberOrNull(planNode.estimatedHours) ?? DEFAULT_NODE_ESTIMATED_HOURS,
+          }
+        : null,
+      chapter: {
+        current: currentChapterIndex,
+        total: orderedProgressNodes.length,
+        label: `Chapter ${currentChapterIndex}/${orderedProgressNodes.length}`,
+      },
+      progress: {
+        requiredNodesCompleted,
+        requiredNodesTotal: requiredNodes.length,
+        requiredCompletionPct: this.calculatePercent(requiredNodesCompleted, requiredNodes.length),
+      },
+      nextUnlock: this.findNextUnlockGroup(roadmap, currentGroup),
+      paceWarning: this.formatHomePaceWarning(
+        this.calculateTimelineWarning(
+          roadmap.generatedAt,
+          toNumberOrNull(roadmap.hoursPerDay),
+          completedHours,
+        ),
+      ),
+    };
+  }
+
+  private formatHomeMetrics(
+    activeRoadmaps: DashboardHomeRoadmapRecord[],
+    streakDays: number,
+  ): DashboardHomeResponse['metrics'] {
+    const allNodes = activeRoadmaps.flatMap((roadmap) => roadmap.nodes);
+    const completedNodes = allNodes.filter((node) => this.isNodeCompleted(node)).length;
+    const requiredNodes = allNodes.filter((node) => node.nodeType === NodeType.REQUIRED);
+    const requiredNodesCompleted = requiredNodes.filter((node) =>
+      this.isNodeCompleted(node),
+    ).length;
+
+    return {
+      roadmapCompletionPct: this.calculatePercent(completedNodes, allNodes.length),
+      streakDays,
+      readinessPct: this.calculatePercent(requiredNodesCompleted, requiredNodes.length),
+    };
+  }
+
+  private formatHomePaceWarning(
+    warning: TimelineWarningResponse | null,
+  ): DashboardHomePaceWarningResponse | null {
+    if (!warning) {
+      return null;
+    }
+
+    return {
+      ...warning,
+      title: `You are ${warning.paceDeficitPct}% behind your target pace.`,
+      message: 'Finish 1 skill node today to back the track.',
+      actionLabel: 'Adjust plan',
+    };
+  }
+
+  private formatEmptySearchResponse(
+    query: string,
+    roadmapPage: number,
+    skillPage: number,
+  ): DashboardSearchResponse {
+    return {
+      query,
+      roadmaps: {
+        data: [],
+        meta: this.formatPaginationMeta(roadmapPage, DASHBOARD_SEARCH_ROADMAPS_PER_PAGE, 0),
+      },
+      skills: {
+        data: [],
+        meta: this.formatPaginationMeta(skillPage, DASHBOARD_SEARCH_SKILLS_PER_PAGE, 0),
+      },
+      meta: {
+        totalResults: 0,
+        roadmapPageSize: DASHBOARD_SEARCH_ROADMAPS_PER_PAGE,
+        skillPageSize: DASHBOARD_SEARCH_SKILLS_PER_PAGE,
+      },
+    };
+  }
+
+  private formatSearchRoadmap(
+    roadmap: DashboardSearchRoadmapRecord,
+  ): DashboardSearchRoadmapResponse {
+    return {
+      roadmapId: roadmap.id,
+      title: roadmap.title,
+      description: roadmap.description,
+      goalName: roadmap.goalName,
+      isTemplate: roadmap.isTemplate,
+      roadmapType: roadmap.isTemplate ? 'template' : 'ai',
+      roleCategory: roadmap.roleCategory,
+      categoryLabel: this.formatRoleCategory(roadmap.roleCategory),
+      estimatedWeeks: roadmap.estimatedWeeks,
+      durationLabel: this.formatDurationLabel(roadmap.estimatedWeeks),
+    };
+  }
+
+  private formatSearchSkill(skill: DashboardSearchSkillRecord): DashboardSearchSkillResponse {
+    return {
+      skillId: skill.id,
+      name: skill.name,
+      description: skill.description,
+      roleCategory: skill.roleCategory,
+      categoryLabel: skill.roleCategory ? this.formatRoleCategory(skill.roleCategory) : null,
+      defaultEstimatedHours: toNumberOrNull(skill.defaultEstimatedHours),
+    };
+  }
+
+  private formatPaginationMeta(page: number, perPage: number, total: number) {
+    return {
+      page,
+      perPage,
+      total,
+      totalPages: Math.ceil(total / perPage),
+    };
+  }
+
+  private formatDurationLabel(estimatedWeeks: number | null): string | null {
+    if (!estimatedWeeks || estimatedWeeks <= 0) {
+      return null;
+    }
+
+    if (estimatedWeeks < 4) {
+      return `${estimatedWeeks} week${estimatedWeeks === 1 ? '' : 's'}`;
+    }
+
+    const months = Math.max(1, Math.round(estimatedWeeks / 4));
+
+    return `${months} month${months === 1 ? '' : 's'}`;
+  }
+
+  private getOrderedChapterNodes(
+    roadmap: DashboardHomeRoadmapRecord,
+  ): DashboardHomeRoadmapNodeRecord[] {
+    return roadmap.nodes
+      .filter((node) => node.nodeType === NodeType.GROUP || node.nodeType === NodeType.MILESTONE)
+      .sort((first, second) => this.compareNodesByPosition(first, second));
+  }
+
+  private findCurrentGroup(
+    roadmap: DashboardHomeRoadmapRecord,
+  ): DashboardHomeRoadmapNodeRecord | null {
+    const inProgressGroup = roadmap.nodes
+      .filter(
+        (node) =>
+          node.nodeType === NodeType.GROUP &&
+          node.userNodeProgress[0]?.status === NodeStatus.IN_PROGRESS,
+      )
+      .sort((first, second) => this.compareNodesByPosition(first, second))[0];
+
+    if (inProgressGroup) {
+      return inProgressGroup;
+    }
+
+    const inProgressLeaf = roadmap.nodes
+      .filter(
+        (node) =>
+          (node.nodeType === NodeType.REQUIRED || node.nodeType === NodeType.OPTIONAL) &&
+          node.userNodeProgress[0]?.status === NodeStatus.IN_PROGRESS,
+      )
+      .sort((first, second) => this.compareNodesByPosition(first, second))[0];
+
+    return inProgressLeaf?.parentId
+      ? (roadmap.nodes.find((node) => node.id === inProgressLeaf.parentId) ?? null)
+      : null;
+  }
+
+  private findPlanNodeInGroup(
+    roadmap: DashboardHomeRoadmapRecord,
+    groupId: string | null,
+  ): DashboardHomeRoadmapNodeRecord | null {
+    const inProgressLeaves = roadmap.nodes
+      .filter(
+        (node) =>
+          node.parentId === groupId &&
+          (node.nodeType === NodeType.REQUIRED || node.nodeType === NodeType.OPTIONAL) &&
+          node.userNodeProgress[0]?.status === NodeStatus.IN_PROGRESS,
+      )
+      .sort((first, second) => {
+        if (first.nodeType !== second.nodeType) {
+          return first.nodeType === NodeType.REQUIRED ? -1 : 1;
+        }
+
+        return this.compareNodesByPosition(first, second);
+      });
+
+    return inProgressLeaves[0] ?? null;
+  }
+
+  private findNextUnlockGroup(
+    roadmap: DashboardHomeRoadmapRecord,
+    currentGroup: DashboardHomeRoadmapNodeRecord | null,
+  ): { id: string; name: string } | null {
+    const lockedGroups = roadmap.nodes
+      .filter(
+        (node) =>
+          node.nodeType === NodeType.GROUP &&
+          node.userNodeProgress[0]?.status === NodeStatus.LOCKED &&
+          (!currentGroup || Number(node.posY) > Number(currentGroup.posY)),
+      )
+      .sort((first, second) => this.compareNodesByPosition(first, second));
+    const nextGroup = lockedGroups[0];
+
+    return nextGroup ? { id: nextGroup.id, name: nextGroup.name } : null;
   }
 
   private formatUserRoadmap(roadmap: DashboardRoadmapRecord): RoadmapResponseDto {
@@ -369,7 +828,13 @@ export class DashboardService {
     );
   }
 
-  private getStartedAt(roadmap: DashboardRoadmapRecord): Date | null {
+  private getStartedAt(roadmap: {
+    nodes: Array<{
+      userNodeProgress: Array<{
+        startedAt: Date | null;
+      }>;
+    }>;
+  }): Date | null {
     return (
       roadmap.nodes
         .flatMap((node) => node.userNodeProgress)
@@ -379,7 +844,13 @@ export class DashboardService {
     );
   }
 
-  private isRoadmapCompleted(roadmap: DashboardRoadmapRecord): boolean {
+  private isRoadmapCompleted(roadmap: {
+    nodes: Array<{
+      userNodeProgress: Array<{
+        status: NodeStatus;
+      }>;
+    }>;
+  }): boolean {
     return roadmap.nodes.length > 0 && roadmap.nodes.every((node) => this.isNodeCompleted(node));
   }
 
@@ -423,8 +894,19 @@ export class DashboardService {
     };
   }
 
-  private isNodeCompleted(node: DashboardRoadmapNodeRecord): boolean {
+  private isNodeCompleted(node: {
+    userNodeProgress: Array<{
+      status: NodeStatus;
+    }>;
+  }): boolean {
     return node.userNodeProgress[0]?.status === NodeStatus.COMPLETED;
+  }
+
+  private compareNodesByPosition(
+    first: DashboardHomeRoadmapNodeRecord,
+    second: DashboardHomeRoadmapNodeRecord,
+  ): number {
+    return Number(first.posY) - Number(second.posY) || first.id.localeCompare(second.id);
   }
 
   private calculatePercent(completed: number, total: number): number {

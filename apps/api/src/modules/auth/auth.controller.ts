@@ -1,16 +1,26 @@
 import type { Response, Request } from 'express';
 
-import { Body, Controller, Post, HttpCode, HttpStatus, UseGuards, Res, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 
 import {
   ACCESS_TOKEN_COOKIE_OPTIONS,
   CLEAR_COOKIE_OPTIONS,
-  LEGACY_REFRESH_TOKEN_CLEAR_COOKIE_OPTIONS,
   REFRESH_TOKEN_COOKIE_OPTIONS,
 } from '@/common/constants/cookie-config';
 import { Public } from '@/common/decorators/public.decorator';
 
 import type { RequestUser } from './decorators/current-user.decorator';
+import type { OAuthProfile } from './types/oauth-profile.type';
 
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -18,9 +28,15 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { GithubOAuthGuard } from './guards/github-oauth.guard';
+import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { RefreshTokenService } from './refresh-token.service';
 import { cookieExtractor } from './utils/cookie-extractor';
+
+type OAuthRequest = Request & {
+  user?: OAuthProfile;
+};
 
 @Controller('auth')
 export class AuthController {
@@ -41,11 +57,36 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const [accessToken, refreshToken] = await this.authService.login(loginDto);
-    res.cookie('access_token', accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
-    res.clearCookie('refresh_token', CLEAR_COOKIE_OPTIONS);
-    res.clearCookie('refresh_token', LEGACY_REFRESH_TOKEN_CLEAR_COOKIE_OPTIONS);
-    res.cookie('refresh_token', refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
+    this.setAuthCookies(res, accessToken, refreshToken);
     return { message: 'Login successful' };
+  }
+
+  @Public()
+  @UseGuards(GoogleOAuthGuard)
+  @Get('google')
+  googleLogin() {
+    return undefined;
+  }
+
+  @Public()
+  @UseGuards(GoogleOAuthGuard)
+  @Get('google/callback')
+  async googleCallback(@Req() req: OAuthRequest, @Res() res: Response) {
+    await this.handleOAuthCallback(req, res);
+  }
+
+  @Public()
+  @UseGuards(GithubOAuthGuard)
+  @Get('github')
+  githubLogin() {
+    return undefined;
+  }
+
+  @Public()
+  @UseGuards(GithubOAuthGuard)
+  @Get('github/callback')
+  async githubCallback(@Req() req: OAuthRequest, @Res() res: Response) {
+    await this.handleOAuthCallback(req, res);
   }
 
   @Public()
@@ -78,11 +119,7 @@ export class AuthController {
       await this.refreshTokenService.markRotatedByToken(oldToken);
     }
 
-    res.clearCookie('access_token', CLEAR_COOKIE_OPTIONS);
-    res.cookie('access_token', accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
-    res.clearCookie('refresh_token', CLEAR_COOKIE_OPTIONS);
-    res.clearCookie('refresh_token', LEGACY_REFRESH_TOKEN_CLEAR_COOKIE_OPTIONS);
-    res.cookie('refresh_token', refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
+    this.setAuthCookies(res, accessToken, refreshToken);
 
     return { message: 'Token refreshed' };
   }
@@ -93,7 +130,26 @@ export class AuthController {
     await this.authService.logout(user.id);
     res.clearCookie('access_token', CLEAR_COOKIE_OPTIONS);
     res.clearCookie('refresh_token', CLEAR_COOKIE_OPTIONS);
-    res.clearCookie('refresh_token', LEGACY_REFRESH_TOKEN_CLEAR_COOKIE_OPTIONS);
     return { message: 'Logged out successfully' };
+  }
+
+  private async handleOAuthCallback(req: OAuthRequest, res: Response) {
+    if (!req.user) {
+      res.redirect(this.authService.getOAuthFailureRedirectUrl(req.query.state));
+      return;
+    }
+
+    try {
+      const [accessToken, refreshToken] = await this.authService.loginWithOAuth(req.user);
+      this.setAuthCookies(res, accessToken, refreshToken);
+      res.redirect(this.authService.getOAuthRedirectUrl(req.query.state));
+    } catch {
+      res.redirect(this.authService.getOAuthFailureRedirectUrl(req.query.state));
+    }
+  }
+
+  private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
+    res.cookie('access_token', accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
+    res.cookie('refresh_token', refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
   }
 }

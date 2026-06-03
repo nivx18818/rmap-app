@@ -52,6 +52,7 @@ export async function resetDatabase(prisma: PrismaService): Promise<void> {
   await prisma.dailyActivity.deleteMany();
   await prisma.userNodeProgress.deleteMany();
   await prisma.refreshToken.deleteMany();
+  await prisma.oAuthAccount.deleteMany();
   await prisma.roadmapNode.deleteMany();
   await prisma.roadmap.deleteMany();
   await prisma.quizQuestion.deleteMany();

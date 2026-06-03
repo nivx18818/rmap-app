@@ -30,8 +30,3 @@ export const CLEAR_COOKIE_OPTIONS: CookieOptions = {
   maxAge: 0, // Expire immediately
   path: '/',
 };
-
-export const LEGACY_REFRESH_TOKEN_CLEAR_COOKIE_OPTIONS: CookieOptions = {
-  ...CLEAR_COOKIE_OPTIONS,
-  path: '/api/v1/auth/refresh',
-};

@@ -12,6 +12,7 @@ import {
 } from '@repo/db/prisma/client';
 
 import {
+  ActiveRoadmapLimitExceededException,
   DeadlineInPastException,
   InvalidStatusTransitionException,
   MilestoneSubmissionInProgressException,
@@ -61,6 +62,7 @@ function makeTxMock() {
       update: jest.fn(),
     },
     roadmap: {
+      count: jest.fn().mockResolvedValue(0),
       create: jest.fn().mockResolvedValue(MOCK_ROADMAP),
       findFirst: jest.fn().mockResolvedValue(null),
       update: jest.fn().mockResolvedValue(MOCK_ROADMAP),
@@ -2043,6 +2045,7 @@ describe('RoadmapsService', () => {
       const result = await service.startLearning(userId, roadmapId);
 
       expect(txMock.roadmap.update).not.toHaveBeenCalled();
+      expect(txMock.roadmap.count).not.toHaveBeenCalled();
       expect(txMock.userNodeProgress.updateMany).not.toHaveBeenCalled();
       expect(result.roadmap.id).toBe(roadmapId);
       expect(result.roadmap.startedAt).toBe(startedAt.toISOString());
@@ -2069,6 +2072,46 @@ describe('RoadmapsService', () => {
       });
       expect(result.roadmap.isTemplate).toBe(true);
       expect(result.unlockedNodes).toEqual(['group-1', 'leaf-1']);
+    });
+
+    it('should reject starting a new roadmap when the user already has 5 active roadmaps', async () => {
+      txMock.roadmap.findFirst.mockResolvedValue(makeRoadmap());
+      txMock.roadmap.count.mockResolvedValue(5);
+
+      await expect(service.startLearning(userId, roadmapId)).rejects.toThrow(
+        ActiveRoadmapLimitExceededException,
+      );
+
+      expect(txMock.roadmap.count).toHaveBeenCalledWith({
+        where: {
+          id: { not: roadmapId },
+          OR: [{ isTemplate: false, userId }, { isTemplate: true }],
+          nodes: {
+            some: {
+              userNodeProgress: {
+                some: {
+                  userId,
+                  startedAt: { not: null },
+                },
+              },
+            },
+          },
+          NOT: {
+            nodes: {
+              every: {
+                userNodeProgress: {
+                  some: {
+                    userId,
+                    status: NodeStatus.COMPLETED,
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      expect(txMock.userNodeProgress.createMany).not.toHaveBeenCalled();
+      expect(txMock.userNodeProgress.updateMany).not.toHaveBeenCalled();
     });
 
     it('should throw 404 when roadmap is not owned by the user', async () => {

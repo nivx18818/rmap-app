@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { type NodeType, type Prisma, type Roadmap } from '@repo/db/prisma/client';
+import {
+  NodeStatus,
+  NodeType,
+  RoleCategory,
+  type Prisma,
+  type Roadmap,
+} from '@repo/db/prisma/client';
 
 import type {
   PaginatedRoadmapsResponseDto,
@@ -10,11 +16,30 @@ import { RoadmapNotFoundException } from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
 import type { ListTemplatesQueryDto } from './dto/list-templates-query.dto';
+import type { TemplateCategoriesResponseDto } from './dto/template-categories-response.dto';
 import type {
   TemplateRoadmapNodeDto,
   TemplateRoadmapNodesResponseDto,
 } from './dto/template-node-response.dto';
 import type { TemplateNodesFilterDto } from './dto/template-nodes-filter.dto';
+import type {
+  TemplateRecommendationRoadmapDto,
+  TemplateRecommendationsResponseDto,
+} from './dto/template-recommendations-response.dto';
+import type {
+  TemplateTrendingRoadmapDto,
+  TemplateTrendingsResponseDto,
+} from './dto/template-trendings-response.dto';
+
+const TRENDING_TEMPLATES_LIMIT = 5;
+const TREND_TEXT_OPTIONS = [
+  'Popular this month',
+  'Popular this week',
+  'Trending now',
+  'New favorite',
+];
+const LEARNER_TREND_TEXT_WEIGHT = 0.4;
+const MAX_RANDOM_LEARNERS = 500;
 
 const ROADMAP_SELECT = {
   deadlineDate: true,
@@ -64,9 +89,64 @@ type SelectedTemplateNode = {
   skillId: string | null;
 };
 
+type ActiveLearningRoadmapRecord = {
+  id: string;
+  isTemplate: boolean;
+  roleCategory: RoleCategory;
+  nodes: Array<{
+    userNodeProgress: Array<{
+      startedAt: Date | null;
+      status: NodeStatus;
+    }>;
+  }>;
+};
+
+type RecommendedTemplateRoadmapRecord = {
+  description: string | null;
+  estimatedWeeks: number | null;
+  goalName: string | null;
+  id: string;
+  nodes: Array<{
+    nodeType: NodeType;
+  }>;
+  roleCategory: RoleCategory;
+  title: string;
+};
+
+type TrendingTemplateRoadmapRecord = {
+  estimatedWeeks: number | null;
+  id: string;
+  nodes: Array<{
+    nodeType: NodeType;
+  }>;
+  roleCategory: RoleCategory;
+  title: string;
+};
+
 @Injectable()
 export class TemplatesService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async listCategories(): Promise<TemplateCategoriesResponseDto> {
+    const groupedTemplates = await this.prisma.roadmap.groupBy({
+      by: ['roleCategory'],
+      where: { isTemplate: true },
+      _count: { _all: true },
+    });
+    const countByCategory = new Map(
+      groupedTemplates.map((group) => [group.roleCategory, group._count._all]),
+    );
+    const categories = Object.values(RoleCategory).map((category) => ({
+      category,
+      label: this.formatRoleCategory(category),
+      templatesCount: countByCategory.get(category) ?? 0,
+    }));
+
+    return {
+      total: categories.length,
+      categories,
+    };
+  }
 
   async listTemplates(query: ListTemplatesQueryDto): Promise<PaginatedRoadmapsResponseDto> {
     const page = query.page ?? 1;
@@ -100,6 +180,64 @@ export class TemplatesService {
         total,
         totalPages: Math.ceil(total / perPage),
       },
+    };
+  }
+
+  async listTrendings(): Promise<TemplateTrendingsResponseDto> {
+    const templates = await this.prisma.roadmap.findMany({
+      where: { isTemplate: true },
+      select: {
+        estimatedWeeks: true,
+        id: true,
+        nodes: {
+          select: { nodeType: true },
+        },
+        roleCategory: true,
+        title: true,
+      },
+    });
+    const trendings = this.shuffle(templates)
+      .slice(0, TRENDING_TEMPLATES_LIMIT)
+      .map((template, index) => this.formatTrendingTemplateRoadmap(template, index + 1));
+
+    return {
+      total: trendings.length,
+      trendings,
+    };
+  }
+
+  async getRecommendations(userId: string): Promise<TemplateRecommendationsResponseDto> {
+    const activeRoadmaps = (await this.findActiveLearningRoadmaps(userId)).filter(
+      (roadmap) => this.getStartedAt(roadmap) !== null && !this.isRoadmapCompleted(roadmap),
+    );
+    const roleCategories = this.getUniqueRoleCategories(activeRoadmaps);
+
+    if (roleCategories.length === 0) {
+      return {
+        roleCategories: [],
+        total: 0,
+        relevantRoadmaps: [],
+      };
+    }
+
+    const activeTemplateIds = activeRoadmaps
+      .filter((roadmap) => roadmap.isTemplate)
+      .map((roadmap) => roadmap.id);
+    const relevantRoadmaps = await this.findRecommendedTemplates(
+      userId,
+      roleCategories,
+      activeTemplateIds,
+    );
+
+    return {
+      roleCategories: roleCategories.map((category) => ({
+        category,
+        label: this.formatRoleCategory(category),
+      })),
+      total: relevantRoadmaps.length,
+      relevantRoadmaps: relevantRoadmaps.map((roadmap) =>
+        this.formatRecommendedTemplateRoadmap(roadmap),
+      ),
     };
   }
 
@@ -158,6 +296,135 @@ export class TemplatesService {
     }
   }
 
+  private async findActiveLearningRoadmaps(userId: string): Promise<ActiveLearningRoadmapRecord[]> {
+    return this.prisma.roadmap.findMany({
+      where: {
+        OR: [
+          {
+            isTemplate: false,
+            nodes: {
+              some: {
+                userNodeProgress: {
+                  some: {
+                    startedAt: { not: null },
+                    userId,
+                  },
+                },
+              },
+            },
+            userId,
+          },
+          {
+            isTemplate: true,
+            nodes: {
+              some: {
+                userNodeProgress: {
+                  some: {
+                    startedAt: { not: null },
+                    userId,
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        isTemplate: true,
+        roleCategory: true,
+        nodes: {
+          select: {
+            userNodeProgress: {
+              where: { userId },
+              select: { startedAt: true, status: true },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  private async findRecommendedTemplates(
+    userId: string,
+    roleCategories: RoleCategory[],
+    excludedTemplateIds: string[],
+  ): Promise<RecommendedTemplateRoadmapRecord[]> {
+    return this.prisma.roadmap.findMany({
+      where: {
+        ...(excludedTemplateIds.length > 0 ? { id: { notIn: excludedTemplateIds } } : {}),
+        isTemplate: true,
+        roleCategory: { in: roleCategories },
+        NOT: {
+          nodes: {
+            some: {
+              userNodeProgress: {
+                some: {
+                  startedAt: { not: null },
+                  userId,
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ roleCategory: 'asc' }, { updatedAt: 'desc' }, { id: 'asc' }],
+      select: {
+        description: true,
+        estimatedWeeks: true,
+        goalName: true,
+        id: true,
+        nodes: {
+          select: { nodeType: true },
+        },
+        roleCategory: true,
+        title: true,
+      },
+    });
+  }
+
+  private getUniqueRoleCategories(roadmaps: ActiveLearningRoadmapRecord[]): RoleCategory[] {
+    return Array.from(new Set(roadmaps.map((roadmap) => roadmap.roleCategory))).sort((a, b) =>
+      a.localeCompare(b),
+    );
+  }
+
+  private formatRecommendedTemplateRoadmap(
+    roadmap: RecommendedTemplateRoadmapRecord,
+  ): TemplateRecommendationRoadmapDto {
+    return {
+      roadmapId: roadmap.id,
+      title: roadmap.title,
+      description: roadmap.description,
+      goalName: roadmap.goalName,
+      roleCategory: roadmap.roleCategory,
+      categoryLabel: this.formatRoleCategory(roadmap.roleCategory),
+      estimatedWeeks: roadmap.estimatedWeeks,
+      durationLabel: this.formatDurationLabel(roadmap.estimatedWeeks),
+      nodesTotal: roadmap.nodes.length,
+      requiredNodesTotal: roadmap.nodes.filter((node) => node.nodeType === NodeType.REQUIRED)
+        .length,
+    };
+  }
+
+  private formatTrendingTemplateRoadmap(
+    roadmap: TrendingTemplateRoadmapRecord,
+    rank: number,
+  ): TemplateTrendingRoadmapDto {
+    return {
+      rank,
+      roadmapId: roadmap.id,
+      title: roadmap.title,
+      roleCategory: roadmap.roleCategory,
+      categoryLabel: this.formatRoleCategory(roadmap.roleCategory),
+      estimatedWeeks: roadmap.estimatedWeeks,
+      durationLabel: this.formatDurationLabel(roadmap.estimatedWeeks),
+      nodesTotal: roadmap.nodes.length,
+      trendText: this.pickRandomTrendText(),
+    };
+  }
+
   private formatRoadmap(roadmap: SelectedRoadmap): RoadmapResponseDto {
     return {
       deadlineDate: this.formatDateOnly(roadmap.deadlineDate),
@@ -193,6 +460,68 @@ export class TemplatesService {
 
   private formatDateOnly(date: Date | null): null | string {
     return date ? date.toISOString().slice(0, 10) : null;
+  }
+
+  private getStartedAt(roadmap: ActiveLearningRoadmapRecord): Date | null {
+    return (
+      roadmap.nodes
+        .flatMap((node) => node.userNodeProgress)
+        .map((progress) => progress.startedAt)
+        .filter((startedAt): startedAt is Date => startedAt !== null)
+        .sort((a, b) => a.getTime() - b.getTime())[0] ?? null
+    );
+  }
+
+  private isRoadmapCompleted(roadmap: ActiveLearningRoadmapRecord): boolean {
+    return (
+      roadmap.nodes.length > 0 &&
+      roadmap.nodes.every((node) => node.userNodeProgress[0]?.status === NodeStatus.COMPLETED)
+    );
+  }
+
+  private formatDurationLabel(estimatedWeeks: number | null): string | null {
+    if (!estimatedWeeks || estimatedWeeks <= 0) {
+      return null;
+    }
+
+    if (estimatedWeeks < 4) {
+      return `${estimatedWeeks} week${estimatedWeeks === 1 ? '' : 's'}`;
+    }
+
+    const months = Math.max(1, Math.round(estimatedWeeks / 4));
+
+    return `${months} month${months === 1 ? '' : 's'}`;
+  }
+
+  private pickRandomTrendText(): string {
+    if (Math.random() < LEARNER_TREND_TEXT_WEIGHT) {
+      const learners = Math.floor(Math.random() * MAX_RANDOM_LEARNERS) + 1;
+
+      return `${learners} learners`;
+    }
+
+    return TREND_TEXT_OPTIONS[Math.floor(Math.random() * TREND_TEXT_OPTIONS.length)]!;
+  }
+
+  private shuffle<T>(items: T[]): T[] {
+    const shuffled = [...items];
+
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      const item = shuffled[index]!;
+      shuffled[index] = shuffled[swapIndex]!;
+      shuffled[swapIndex] = item;
+    }
+
+    return shuffled;
+  }
+
+  private formatRoleCategory(value: RoleCategory): string {
+    return value
+      .split('_')
+      .filter(Boolean)
+      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
+      .join(' ');
   }
 
   private formatDecimal(value: DecimalLike | null): null | number {

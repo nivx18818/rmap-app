@@ -20,8 +20,11 @@ describe('TemplatesController', () => {
 
   const mockTemplatesService = {
     getTemplate: jest.fn(),
+    getRecommendations: jest.fn(),
+    listCategories: jest.fn(),
     listTemplateNodes: jest.fn(),
     listTemplates: jest.fn(),
+    listTrendings: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -86,6 +89,26 @@ describe('TemplatesController', () => {
     expect(result).toEqual(response);
   });
 
+  it('should list public template categories', async () => {
+    const response = {
+      total: 1,
+      categories: [
+        {
+          category: RoleCategory.WEB_DEVELOPMENT,
+          label: 'Web Development',
+          templatesCount: 24,
+        },
+      ],
+    };
+
+    mockTemplatesService.listCategories.mockResolvedValue(response);
+
+    const result = await controller.listCategories();
+
+    expect(mockTemplatesService.listCategories).toHaveBeenCalledWith();
+    expect(result).toEqual(response);
+  });
+
   it('should list public template nodes', async () => {
     const response = { nodes: [] };
 
@@ -95,6 +118,42 @@ describe('TemplatesController', () => {
     const result = await controller.listTemplateNodes('template-1', query);
 
     expect(mockTemplatesService.listTemplateNodes).toHaveBeenCalledWith('template-1', query);
+    expect(result).toEqual(response);
+  });
+
+  it('should get authenticated template recommendations', async () => {
+    const user = {
+      id: 'user-1',
+      email: 'test@example.com',
+      fullName: 'Test User',
+      role: 'USER',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    };
+    const response = {
+      roleCategories: [],
+      total: 0,
+      relevantRoadmaps: [],
+    };
+
+    mockTemplatesService.getRecommendations.mockResolvedValue(response);
+
+    const result = await controller.getRecommendations(user);
+
+    expect(mockTemplatesService.getRecommendations).toHaveBeenCalledWith('user-1');
+    expect(result).toEqual(response);
+  });
+
+  it('should list public trending templates', async () => {
+    const response = {
+      total: 0,
+      trendings: [],
+    };
+
+    mockTemplatesService.listTrendings.mockResolvedValue(response);
+
+    const result = await controller.listTrendings();
+
+    expect(mockTemplatesService.listTrendings).toHaveBeenCalledWith();
     expect(result).toEqual(response);
   });
 
@@ -108,6 +167,15 @@ describe('TemplatesController', () => {
     expect(
       Reflect.getMetadata(IS_PUBLIC_KEY, TemplatesController.prototype.listTemplateNodes),
     ).toBe(true);
+    expect(Reflect.getMetadata(IS_PUBLIC_KEY, TemplatesController.prototype.listCategories)).toBe(
+      true,
+    );
+    expect(Reflect.getMetadata(IS_PUBLIC_KEY, TemplatesController.prototype.listTrendings)).toBe(
+      true,
+    );
+    expect(
+      Reflect.getMetadata(IS_PUBLIC_KEY, TemplatesController.prototype.getRecommendations),
+    ).toBeUndefined();
   });
 });
 
@@ -141,8 +209,21 @@ describe('TemplatesController public access', () => {
 
   const mockTemplatesService = {
     getTemplate: jest.fn().mockResolvedValue(template),
+    getRecommendations: jest.fn().mockResolvedValue({
+      roleCategories: [],
+      total: 0,
+      relevantRoadmaps: [],
+    }),
+    listCategories: jest.fn().mockResolvedValue({
+      total: 0,
+      categories: [],
+    }),
     listTemplateNodes: jest.fn().mockResolvedValue({ nodes: [] }),
     listTemplates: jest.fn().mockResolvedValue(response),
+    listTrendings: jest.fn().mockResolvedValue({
+      total: 0,
+      trendings: [],
+    }),
   };
 
   beforeEach(async () => {
@@ -171,6 +252,14 @@ describe('TemplatesController public access', () => {
 
   it('should allow unauthenticated requests to template routes', async () => {
     await request(app.getHttpServer()).get('/templates').expect(200).expect(response);
+    await request(app.getHttpServer()).get('/templates/categories').expect(200).expect({
+      total: 0,
+      categories: [],
+    });
+    await request(app.getHttpServer()).get('/templates/trendings').expect(200).expect({
+      total: 0,
+      trendings: [],
+    });
     await request(app.getHttpServer()).get('/templates/template-1').expect(200).expect(template);
     await request(app.getHttpServer()).get('/templates/template-1/nodes').expect(200).expect({
       nodes: [],

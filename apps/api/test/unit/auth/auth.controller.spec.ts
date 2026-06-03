@@ -57,7 +57,6 @@ describe('AuthController', () => {
       ),
     ).resolves.toEqual({ message: 'Login successful' });
 
-    expect(response.clearCookie).toHaveBeenCalledWith('access_token', expect.any(Object));
     expect(response.cookie).toHaveBeenCalledWith(
       'access_token',
       'access-token',

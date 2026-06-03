@@ -10,6 +10,8 @@ describe('DashboardController', () => {
 
   const mockDashboardService = {
     getDashboard: jest.fn(),
+    getHome: jest.fn(),
+    search: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -74,6 +76,69 @@ describe('DashboardController', () => {
     const result = await controller.getDashboard(user);
 
     expect(mockDashboardService.getDashboard).toHaveBeenCalledWith('user-1');
+    expect(result).toEqual(response);
+  });
+
+  it('should call getHome and return mobile home response', async () => {
+    const user = {
+      id: 'user-1',
+      email: 'test@example.com',
+      fullName: 'Test User',
+      role: 'USER',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    };
+    const response = {
+      activeRoadmaps: [],
+      metrics: {
+        roadmapCompletionPct: 0,
+        streakDays: 0,
+        readinessPct: 0,
+      },
+    };
+
+    mockDashboardService.getHome.mockResolvedValue(response);
+
+    const result = await controller.getHome(user);
+
+    expect(mockDashboardService.getHome).toHaveBeenCalledWith('user-1');
+    expect(result).toEqual(response);
+  });
+
+  it('should call search and return mobile home search response', async () => {
+    const user = {
+      id: 'user-1',
+      email: 'test@example.com',
+      fullName: 'Test User',
+      role: 'USER',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    };
+    const query = {
+      query: 'react',
+      roadmapPage: 2,
+      skillPage: 3,
+    };
+    const response = {
+      query: 'react',
+      roadmaps: {
+        data: [],
+        meta: { page: 2, perPage: 5, total: 0, totalPages: 0 },
+      },
+      skills: {
+        data: [],
+        meta: { page: 3, perPage: 10, total: 0, totalPages: 0 },
+      },
+      meta: {
+        totalResults: 0,
+        roadmapPageSize: 5,
+        skillPageSize: 10,
+      },
+    };
+
+    mockDashboardService.search.mockResolvedValue(response);
+
+    const result = await controller.search(user, query);
+
+    expect(mockDashboardService.search).toHaveBeenCalledWith('user-1', query);
     expect(result).toEqual(response);
   });
 });

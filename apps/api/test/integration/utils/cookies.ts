@@ -18,7 +18,7 @@ export function getCookieHeader(response: Response, cookieNames: string[]): stri
     .map((cookieName) => {
       const cookie = cookies.find((value) => {
         const isCookieName = value.startsWith(`${cookieName}=`);
-        const cookieValue = value.split(';')[0].split('=')[1]?.trim();
+        const cookieValue = (value.split(';')[0].split('=')[1] ?? '').trim();
         return isCookieName && cookieValue;
       });
 

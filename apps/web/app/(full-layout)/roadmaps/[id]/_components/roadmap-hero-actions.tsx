@@ -22,7 +22,7 @@ import { Button } from '@repo/design-system/components/ui/button';
 import { Skeleton } from '@repo/design-system/components/ui/skeleton';
 import { useState } from 'react';
 
-import { useIsMobile } from '@/hooks/use-mobile';
+// import { useIsMobile } from '@/hooks/use-mobile';
 
 export interface HeroActionsProps {
   actionMode: 'default' | 'loading' | 'preview';

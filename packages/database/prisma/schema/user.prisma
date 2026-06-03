@@ -2,11 +2,12 @@ model User {
   id           String   @id @default(dbgenerated("gen_random_uuid()"))
   email        String   @unique
   fullName     String   @map("full_name")
-  passwordHash String   @map("password_hash")
+  passwordHash String?  @map("password_hash")
   role         UserRole @default(USER)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  oauthAccounts        OAuthAccount[]
   roadmaps             Roadmap[]
   refreshTokens        RefreshToken[]
   passwordResetTokens  PasswordResetToken[]
@@ -15,6 +16,22 @@ model User {
   milestoneSubmissions MilestoneSubmission[]
 
   @@map("users")
+}
+
+model OAuthAccount {
+  id                String        @id @default(dbgenerated("gen_random_uuid()"))
+  userId            String        @map("user_id")
+  provider          OAuthProvider
+  providerAccountId String        @map("provider_account_id")
+  providerEmail     String?       @map("provider_email")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("oauth_accounts")
 }
 
 model RefreshToken {

@@ -74,6 +74,17 @@ export function RoadmapGraph({
     }
   }, [clearSelectedNode, selectedNodeId, selectedRoadmapNode]);
 
+  const handleNodeSelect = useCallback(
+    (nodeId: string) => {
+      const roadmapNode = baseRoadmapNodes.find((node) => node.id === nodeId);
+
+      if (!roadmapNode) return;
+
+      selectNode({ id: roadmapNode.id, name: roadmapNode.name });
+    },
+    [baseRoadmapNodes, selectNode],
+  );
+
   const handleProgressUpdated = useCallback(() => {
     refreshRoadmapNodes();
     onProgressUpdated?.();
@@ -124,7 +135,7 @@ export function RoadmapGraph({
             edges={edges}
             nodeChanges={onNodesChange}
             nodes={selectedNodes}
-            onNodeSelect={selectNode}
+            onNodeSelect={handleNodeSelect}
             treeKey={`${baseRoadmapNodes.length}-${desktopFlowLayout.width}-${desktopFlowLayout.height}`}
           />
         ) : null}
@@ -143,7 +154,7 @@ export function RoadmapGraph({
               isFiltered={isSearchFilterActive}
               nodes={isSearchFilterActive ? stackListNodes : layoutRoadmapNodes}
               nodeType={nodeType}
-              onNodeSelect={selectNode}
+              onNodeSelect={handleNodeSelect}
               searchQuery={debouncedQuery}
               status={status}
             />
@@ -155,6 +166,7 @@ export function RoadmapGraph({
         canManageProgress={isAuthenticatedRoadmapView}
         onProgressUpdated={handleProgressUpdated}
         roadmapId={roadmapId}
+        roadmapTitle={roadmapTitle}
         roadmapNodes={baseRoadmapNodes}
         selectedNodeId={effectiveSelectedNodeId}
         onOpenChange={(isOpen) => {

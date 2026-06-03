@@ -4,6 +4,8 @@ import type {
   RoadmapTemplateGroup,
 } from '@/app/(full-layout)/(home)/_types/landing';
 
+import { buildRoadmapHref } from '@/utils/roadmap-url';
+
 const CATEGORY_COLLATOR = new Intl.Collator('en-US', {
   sensitivity: 'base',
 });
@@ -23,7 +25,7 @@ export function groupRoadmapTemplates(templates: RoadmapTemplate[]): RoadmapTemp
     const categoryItems = itemsByCategory.get(template.roleCategory) ?? [];
 
     categoryItems.push({
-      href: `/roadmaps/${template.id}`,
+      href: buildRoadmapHref({ id: template.id, title: template.title }),
       id: template.id,
       label: template.title,
     });

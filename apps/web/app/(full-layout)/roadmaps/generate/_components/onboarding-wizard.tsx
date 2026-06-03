@@ -23,6 +23,7 @@ export function OnboardingWizard() {
     isGenerating,
     timelineWarning,
     generatedRoadmapId,
+    generatedRoadmapTitle,
   } = useOnboardingWizard();
 
   let title = '';
@@ -77,6 +78,7 @@ export function OnboardingWizard() {
         {step === 'success' && (
           <GenerationSuccess
             generatedRoadmapId={generatedRoadmapId}
+            generatedRoadmapTitle={generatedRoadmapTitle}
             timelineWarning={timelineWarning}
             onRecreate={resetToStart}
           />

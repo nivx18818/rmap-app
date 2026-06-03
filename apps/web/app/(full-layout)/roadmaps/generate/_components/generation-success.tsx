@@ -1,5 +1,7 @@
 'use client';
 
+import type { Route } from 'next';
+
 import {
   CheckmarkCircle02Icon,
   Alert01Icon,
@@ -13,18 +15,28 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 
 import { type TimelineWarning } from '@/app/(full-layout)/roadmaps/generate/_types/onboarding';
+import { buildRoadmapHref } from '@/utils/roadmap-url';
 
 interface GenerationSuccessProps {
   generatedRoadmapId?: string;
+  generatedRoadmapTitle?: string;
   timelineWarning?: TimelineWarning;
   onRecreate: () => void;
 }
 
 export function GenerationSuccess({
   generatedRoadmapId,
+  generatedRoadmapTitle,
   timelineWarning,
   onRecreate,
 }: GenerationSuccessProps) {
+  const roadmapHref = generatedRoadmapId
+    ? (buildRoadmapHref({
+        id: generatedRoadmapId,
+        title: generatedRoadmapTitle,
+      }) as Route<string>)
+    : null;
+
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
       <motion.div
@@ -81,13 +93,15 @@ export function GenerationSuccess({
                 <HugeiconsIcon className="mr-2 size-4" icon={RefreshIcon} />
                 Recreate Roadmap
               </Button>
-              <Link
-                className={cn(buttonVariants({ size: 'lg' }), 'w-full sm:w-auto')}
-                href={`/roadmaps/${generatedRoadmapId}`}
-              >
-                View Roadmap
-                <HugeiconsIcon className="ml-2 size-4" icon={ArrowRight} />
-              </Link>
+              {roadmapHref ? (
+                <Link
+                  className={cn(buttonVariants({ size: 'lg' }), 'w-full sm:w-auto')}
+                  href={roadmapHref}
+                >
+                  View Roadmap
+                  <HugeiconsIcon className="ml-2 size-4" icon={ArrowRight} />
+                </Link>
+              ) : null}
             </motion.div>
           </>
         )}

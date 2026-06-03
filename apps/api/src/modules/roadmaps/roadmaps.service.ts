@@ -9,10 +9,6 @@ import {
   type Prisma,
   type Roadmap,
 } from '@repo/db/prisma/client';
-import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 
 import {
   DeadlineInPastException,
@@ -72,6 +68,10 @@ import {
   type GeneratedNodeQuizQuestion,
 } from '../ai/ai.service';
 import { DagreLayoutService } from './dagre-layout.service';
+import {
+  MilestoneExecutionClient,
+  type MilestoneExecutionResult,
+} from './milestone-execution.client';
 
 /** Number of milliseconds in a day. */
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -101,9 +101,6 @@ const MILESTONE_TEST_RESULT_NAME_LIMIT = 200;
 const MILESTONE_TEST_RESULT_MESSAGE_LIMIT = 1_000;
 const MILESTONE_EXECUTION_TIMEOUT_MS = 120_000;
 const MILESTONE_OUTPUT_LOG_LIMIT = 20_000;
-const MILESTONE_SANDBOX_IMAGE = 'node:22-alpine';
-const MILESTONE_SANDBOX_MEMORY = '512m';
-const MILESTONE_SANDBOX_CPUS = '1';
 const GITHUB_REPO_URL_PATTERN = /^https:\/\/github\.com\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
 const ESCAPE_CHARACTER = String.fromCharCode(27);
 const ANSI_ESCAPE_PATTERN = new RegExp(
@@ -254,11 +251,6 @@ type MilestoneTestResult = {
   totalTests: number;
 };
 
-type DockerCommandResult = {
-  exitCode: number | null;
-  output: string;
-  timedOut: boolean;
-};
 const toNumberOrNull = (value: Prisma.Decimal | number | null) =>
   value === null ? null : Number(value);
 
@@ -272,6 +264,7 @@ export class RoadmapsService {
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
     private readonly dagreLayout: DagreLayoutService,
+    private readonly milestoneExecutionClient: MilestoneExecutionClient,
   ) {}
 
   private getRoadmapAccessWhere(userId: string, roadmapId: string): Prisma.RoadmapWhereInput {
@@ -1727,265 +1720,56 @@ export class RoadmapsService {
       return;
     }
 
-    const startedAt = Date.now();
-    const workspacePath = await mkdtemp(join(tmpdir(), 'rmap-milestone-'));
-    let outputLog = '';
-
     try {
       if (!submission.testSuite?.testFileContent) {
-        outputLog = this.appendOutputLog(
-          outputLog,
+        await this.completeMilestoneSubmission(
+          submission.id,
+          MilestoneSubmissionStatus.ERROR,
           '\n[error]\nGenerated milestone test suite is not available.\n',
         );
-        await this.completeMilestoneSubmission(
-          submission.id,
-          MilestoneSubmissionStatus.ERROR,
-          outputLog,
-        );
         return;
       }
 
-      const cloneResult = await this.runDockerCommand(
-        this.buildCloneDockerArgs(submission.id, submission.repoUrl, workspacePath),
-        this.remainingMilestoneExecutionMs(startedAt),
-        this.buildMilestoneContainerName(submission.id, 'clone'),
-      );
-      outputLog = this.appendOutputLog(outputLog, this.formatStageOutput('clone', cloneResult));
-
-      if (cloneResult.timedOut || cloneResult.exitCode !== 0) {
-        await this.completeMilestoneSubmission(
-          submission.id,
-          MilestoneSubmissionStatus.ERROR,
-          outputLog,
-        );
-        return;
-      }
-
-      const installResult = await this.runDockerCommand(
-        this.buildInstallDockerArgs(submission.id, workspacePath),
-        this.remainingMilestoneExecutionMs(startedAt),
-        this.buildMilestoneContainerName(submission.id, 'install'),
-      );
-      outputLog = this.appendOutputLog(outputLog, this.formatStageOutput('install', installResult));
-
-      if (installResult.timedOut) {
-        await this.completeMilestoneSubmission(
-          submission.id,
-          MilestoneSubmissionStatus.ERROR,
-          outputLog,
-        );
-        return;
-      }
-
-      if (installResult.exitCode !== 0) {
-        await this.completeMilestoneSubmission(
-          submission.id,
-          MilestoneSubmissionStatus.FAILED,
-          outputLog,
-        );
-        return;
-      }
-
-      await this.writeMilestoneTestFile(workspacePath, submission.testSuite.testFileContent);
-      outputLog = this.appendOutputLog(
-        outputLog,
-        `\n[inject: ok]\nWrote generated test suite to ${MILESTONE_TEST_FILE_RELATIVE_PATH}\n`,
-      );
-
-      const testResult = await this.runDockerCommand(
-        this.buildTestDockerArgs(submission.id, workspacePath),
-        this.remainingMilestoneExecutionMs(startedAt),
-        this.buildMilestoneContainerName(submission.id, 'test'),
-      );
-      outputLog = this.appendOutputLog(outputLog, this.formatStageOutput('test', testResult));
-
-      if (testResult.timedOut || testResult.exitCode === null) {
-        await this.completeMilestoneSubmission(
-          submission.id,
-          MilestoneSubmissionStatus.ERROR,
-          outputLog,
-        );
-        return;
-      }
-
-      const parsedTestResult = this.parseMilestoneTestResult(testResult.output);
-
-      if (!parsedTestResult) {
-        outputLog = this.appendOutputLog(
-          outputLog,
-          '\n[result]\nGenerated tests did not emit structured RMap results.\n',
-        );
-        await this.completeMilestoneSubmission(
-          submission.id,
-          MilestoneSubmissionStatus.ERROR,
-          outputLog,
-        );
-        return;
-      }
-
-      const finalStatus =
-        parsedTestResult.passRatePct >= submission.testSuite.passThresholdPct
-          ? MilestoneSubmissionStatus.PASSED
-          : MilestoneSubmissionStatus.FAILED;
-      outputLog = this.appendOutputLog(
-        outputLog,
-        this.formatMilestoneTestResultSummary(
-          parsedTestResult,
-          submission.testSuite.passThresholdPct,
-        ),
-      );
-
+      const executionResult = await this.milestoneExecutionClient.execute({
+        repoUrl: submission.repoUrl,
+        submissionId: submission.id,
+        testFileContent: submission.testSuite.testFileContent,
+        timeoutMs: MILESTONE_EXECUTION_TIMEOUT_MS,
+      });
       await this.completeMilestoneSubmission(
         submission.id,
-        finalStatus,
-        outputLog,
-        parsedTestResult,
+        executionResult.status,
+        executionResult.outputLog,
+        this.toMilestoneTestResult(executionResult),
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown milestone execution error';
-      outputLog = this.appendOutputLog(outputLog, `\n[error]\n${message}\n`);
-
       await this.completeMilestoneSubmission(
         submission.id,
         MilestoneSubmissionStatus.ERROR,
-        outputLog,
+        `\n[error]\n${message}\n`,
       );
-    } finally {
-      await rm(workspacePath, { force: true, recursive: true });
     }
   }
 
-  private buildCloneDockerArgs(
-    submissionId: string,
-    repoUrl: string,
-    workspacePath: string,
-  ): string[] {
-    return [
-      'run',
-      '--rm',
-      '--name',
-      this.buildMilestoneContainerName(submissionId, 'clone'),
-      '--memory',
-      MILESTONE_SANDBOX_MEMORY,
-      '--cpus',
-      MILESTONE_SANDBOX_CPUS,
-      '-e',
-      `REPO_URL=${repoUrl}`,
-      '-v',
-      `${workspacePath}:/workspace`,
-      MILESTONE_SANDBOX_IMAGE,
-      'sh',
-      '-c',
-      'apk add --no-cache git && git clone --depth 1 "$REPO_URL" /workspace/app',
-    ];
-  }
-
-  private buildInstallDockerArgs(submissionId: string, workspacePath: string): string[] {
-    return [
-      'run',
-      '--rm',
-      '--name',
-      this.buildMilestoneContainerName(submissionId, 'install'),
-      '--memory',
-      MILESTONE_SANDBOX_MEMORY,
-      '--cpus',
-      MILESTONE_SANDBOX_CPUS,
-      '-v',
-      `${workspacePath}:/workspace`,
-      '-w',
-      '/workspace/app',
-      MILESTONE_SANDBOX_IMAGE,
-      'npm',
-      'install',
-    ];
-  }
-
-  private buildTestDockerArgs(submissionId: string, workspacePath: string): string[] {
-    return [
-      'run',
-      '--rm',
-      '--name',
-      this.buildMilestoneContainerName(submissionId, 'test'),
-      '--memory',
-      MILESTONE_SANDBOX_MEMORY,
-      '--cpus',
-      MILESTONE_SANDBOX_CPUS,
-      '--network',
-      'none',
-      '-v',
-      `${workspacePath}:/workspace`,
-      '-w',
-      '/workspace/app',
-      MILESTONE_SANDBOX_IMAGE,
-      'node',
-      MILESTONE_TEST_FILE_RELATIVE_PATH,
-    ];
-  }
-
-  private async writeMilestoneTestFile(
-    workspacePath: string,
-    testFileContent: string,
-  ): Promise<void> {
-    const testDirectoryPath = join(workspacePath, 'app', MILESTONE_TEST_FILE_DIRECTORY);
-    await mkdir(testDirectoryPath, { recursive: true });
-    await writeFile(join(testDirectoryPath, MILESTONE_TEST_FILE_NAME), testFileContent, 'utf8');
-  }
-
-  private buildMilestoneContainerName(submissionId: string, stage: string): string {
-    return `rmap-milestone-${submissionId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24)}-${stage}`;
-  }
-
-  private remainingMilestoneExecutionMs(startedAt: number): number {
-    return Math.max(1, MILESTONE_EXECUTION_TIMEOUT_MS - (Date.now() - startedAt));
-  }
-
-  private async runDockerCommand(
-    args: string[],
-    timeoutMs: number,
-    containerName: string,
-  ): Promise<DockerCommandResult> {
-    const result = await new Promise<DockerCommandResult>((resolve, reject) => {
-      const child = spawn('docker', args, { windowsHide: true });
-      let output = '';
-      let timedOut = false;
-
-      const timeout = setTimeout(() => {
-        timedOut = true;
-        child.kill();
-      }, timeoutMs);
-
-      child.stdout.on('data', (chunk: Buffer) => {
-        output = this.appendOutputLog(output, chunk.toString('utf8'));
-      });
-
-      child.stderr.on('data', (chunk: Buffer) => {
-        output = this.appendOutputLog(output, chunk.toString('utf8'));
-      });
-
-      child.on('error', (error) => {
-        clearTimeout(timeout);
-        reject(error);
-      });
-
-      child.on('close', (exitCode) => {
-        clearTimeout(timeout);
-        resolve({ exitCode, output, timedOut });
-      });
-    });
-
-    if (result.timedOut) {
-      await this.forceRemoveMilestoneContainer(containerName);
+  private toMilestoneTestResult(
+    executionResult: MilestoneExecutionResult,
+  ): MilestoneTestResult | undefined {
+    if (
+      executionResult.passRatePct === null ||
+      executionResult.passedTests === null ||
+      executionResult.testResults === null ||
+      executionResult.totalTests === null
+    ) {
+      return undefined;
     }
 
-    return result;
-  }
-
-  private async forceRemoveMilestoneContainer(containerName: string): Promise<void> {
-    await new Promise<void>((resolve) => {
-      const child = spawn('docker', ['rm', '-f', containerName], { windowsHide: true });
-      child.on('error', () => resolve());
-      child.on('close', () => resolve());
-    });
+    return {
+      passRatePct: executionResult.passRatePct,
+      passedTests: executionResult.passedTests,
+      testResults: executionResult.testResults,
+      totalTests: executionResult.totalTests,
+    };
   }
 
   private async completeMilestoneSubmission(
@@ -2064,11 +1848,6 @@ export class RoadmapsService {
         tx,
       );
     });
-  }
-
-  private formatStageOutput(stage: string, result: DockerCommandResult): string {
-    const status = result.timedOut ? 'timed out' : `exit code ${result.exitCode ?? 'unknown'}`;
-    return `\n[${stage}: ${status}]\n${result.output}`;
   }
 
   private parseMilestoneTestResult(output: string): MilestoneTestResult | null {

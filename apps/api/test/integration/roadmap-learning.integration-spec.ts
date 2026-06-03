@@ -36,12 +36,14 @@ type GenerateRoadmapBody = {
   roadmap: { id: string; title: string };
 };
 
+type MilestoneSubmissionBody = {
+  repoUrl: string;
+  status: string;
+  testResults: Array<{ message: string; name: string; passed: boolean }> | null;
+};
+
 type NodeDetailBody = {
-  latestSubmission: null | {
-    repoUrl: string;
-    status: string;
-    testResults: Array<{ message: string; name: string; passed: boolean }> | null;
-  };
+  latestSubmission: MilestoneSubmissionBody | null;
   node: {
     id: string;
     progress: { status: string } | null;
@@ -146,19 +148,20 @@ describe('Roadmap learning (integration)', () => {
       )
       .set('Cookie', cookie)
       .expect(200);
+    const latestSubmissionBody = latestSubmissionResponse.body as {
+      submission: MilestoneSubmissionBody;
+    };
 
-    expect(latestSubmissionResponse.body).toMatchObject({
+    expect(latestSubmissionBody).toMatchObject({
       submission: {
         repoUrl: 'https://github.com/example/project',
         status: 'PASSED',
-        testResults: expect.arrayContaining([
-          expect.objectContaining({
-            name: 'Integration test 1',
-            passed: true,
-            message: 'Integration test 1 passed.',
-          }),
-        ]),
       },
+    });
+    expect(latestSubmissionBody.submission.testResults).toContainEqual({
+      message: 'Integration test 1 passed.',
+      name: 'Integration test 1',
+      passed: true,
     });
 
     const milestoneDetailResponse = await request(integration.app.getHttpServer())
@@ -170,13 +173,11 @@ describe('Roadmap learning (integration)', () => {
     expect(milestoneDetailBody.latestSubmission).toMatchObject({
       repoUrl: 'https://github.com/example/project',
       status: 'PASSED',
-      testResults: expect.arrayContaining([
-        expect.objectContaining({
-          name: 'Integration test 1',
-          passed: true,
-          message: 'Integration test 1 passed.',
-        }),
-      ]),
+    });
+    expect(milestoneDetailBody.latestSubmission?.testResults).toContainEqual({
+      message: 'Integration test 1 passed.',
+      name: 'Integration test 1',
+      passed: true,
     });
   });
 

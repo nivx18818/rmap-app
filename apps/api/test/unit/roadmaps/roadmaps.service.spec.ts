@@ -30,6 +30,7 @@ import {
 import { AiService } from '@/modules/ai/ai.service';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 import { DagreLayoutService } from '@/modules/roadmaps/dagre-layout.service';
+import { MilestoneExecutionClient } from '@/modules/roadmaps/milestone-execution.client';
 import { RoadmapsService } from '@/modules/roadmaps/roadmaps.service';
 
 import {
@@ -196,6 +197,12 @@ type CompleteMilestoneSubmission = (
     totalTests: number;
   },
 ) => Promise<void>;
+
+type ParseMilestoneTestResult = (
+  output: string,
+) => ReturnType<typeof makeParsedMilestoneTestResult> | null;
+
+type ExecuteMilestoneSubmission = (submissionId: string) => Promise<void>;
 
 type RoadmapNodeFindFirstSelection = RoadmapNodeQuizSelection | RoadmapNodeDetailSelection;
 
@@ -429,6 +436,7 @@ describe('RoadmapsService', () => {
   let txMock: TransactionMock;
   let aiService: jest.Mocked<AiService>;
   let dagreLayout: jest.Mocked<DagreLayoutService>;
+  let milestoneExecutionClient: jest.Mocked<MilestoneExecutionClient>;
 
   beforeEach(async () => {
     txMock = makeTxMock();
@@ -453,6 +461,12 @@ describe('RoadmapsService', () => {
           provide: DagreLayoutService,
           useValue: { computeLayout: jest.fn().mockReturnValue(MOCK_LAYOUT_MAP) },
         },
+        {
+          provide: MilestoneExecutionClient,
+          useValue: {
+            execute: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -460,6 +474,7 @@ describe('RoadmapsService', () => {
     prisma = prismaMock;
     aiService = module.get(AiService);
     dagreLayout = module.get(DagreLayoutService);
+    milestoneExecutionClient = module.get(MilestoneExecutionClient);
   });
 
   afterEach(() => {
@@ -2771,14 +2786,12 @@ describe('RoadmapsService', () => {
   });
 
   describe('milestone test result parsing', () => {
-    const parseMilestoneTestResult = () => {
+    const parseMilestoneTestResult = (): ParseMilestoneTestResult => {
       const target = service as unknown as {
-        parseMilestoneTestResult: (
-          output: string,
-        ) => ReturnType<typeof makeParsedMilestoneTestResult> | null;
+        parseMilestoneTestResult: ParseMilestoneTestResult;
       };
 
-      return target.parseMilestoneTestResult.bind(service);
+      return (output: string) => target.parseMilestoneTestResult(output);
     };
 
     it('should accept valid marker JSON with six detailed test results', () => {
@@ -3086,13 +3099,137 @@ describe('RoadmapsService', () => {
     });
   });
 
+  describe('milestone evaluator execution', () => {
+    const executeMilestoneSubmission = (): ExecuteMilestoneSubmission => {
+      const target = service as unknown as {
+        executeMilestoneSubmission: ExecuteMilestoneSubmission;
+      };
+
+      return (submissionId: string) => target.executeMilestoneSubmission(submissionId);
+    };
+
+    beforeEach(() => {
+      prisma.milestoneSubmission.findUnique.mockResolvedValue({
+        id: 'submission-1',
+        repoUrl: 'https://github.com/acme/api-project',
+        roadmapNodeId: 'milestone-1',
+        testSuite: {
+          id: 'suite-1',
+          passThresholdPct: 80,
+          testFileContent: `console.log('${makeMilestoneResultMarker(6)}');`,
+        },
+        userId: MOCK_USER_ID,
+      });
+      txMock.milestoneSubmission.update.mockResolvedValue({
+        roadmapNode: { roadmapId: 'roadmap-1' },
+        roadmapNodeId: 'milestone-1',
+        userId: MOCK_USER_ID,
+      });
+    });
+
+    it('should call the runner and complete a passing submission', async () => {
+      const testResult = makeParsedMilestoneTestResult(6);
+      milestoneExecutionClient.execute.mockResolvedValue({
+        outputLog: 'ok',
+        passRatePct: testResult.passRatePct,
+        passedTests: testResult.passedTests,
+        status: MilestoneSubmissionStatus.PASSED,
+        testResults: testResult.testResults,
+        totalTests: testResult.totalTests,
+      });
+      txMock.userNodeProgress.findUnique.mockResolvedValue({ status: NodeStatus.IN_PROGRESS });
+      txMock.roadmapNode.findFirst.mockResolvedValue({
+        nodeType: NodeType.MILESTONE,
+        parentId: null,
+        posY: 150,
+      });
+      txMock.userNodeProgress.findMany.mockResolvedValue([]);
+
+      await executeMilestoneSubmission()('submission-1');
+
+      expect(milestoneExecutionClient.execute).toHaveBeenCalledWith({
+        repoUrl: 'https://github.com/acme/api-project',
+        submissionId: 'submission-1',
+        testFileContent: `console.log('${makeMilestoneResultMarker(6)}');`,
+        timeoutMs: 120_000,
+      });
+      expect(txMock.milestoneSubmission.update).toHaveBeenCalledWith(
+        expectObjectContaining({
+          data: expectObjectContaining({
+            passRatePct: 100,
+            passedTests: 6,
+            status: MilestoneSubmissionStatus.PASSED,
+            totalTests: 6,
+          }),
+        }),
+      );
+    });
+
+    it('should record runner failures without completing progress', async () => {
+      milestoneExecutionClient.execute.mockResolvedValue({
+        outputLog: '\n[error]\nEvaluator is unavailable.\n',
+        passRatePct: null,
+        passedTests: null,
+        status: MilestoneSubmissionStatus.ERROR,
+        testResults: null,
+        totalTests: null,
+      });
+
+      await executeMilestoneSubmission()('submission-1');
+
+      expect(txMock.milestoneSubmission.update).toHaveBeenCalledWith(
+        expectObjectContaining({
+          data: expectObjectContaining({
+            outputLog: '\n[error]\nEvaluator is unavailable.\n',
+            passRatePct: undefined,
+            passedTests: undefined,
+            status: MilestoneSubmissionStatus.ERROR,
+            testResults: undefined,
+            totalTests: undefined,
+          }),
+        }),
+      );
+      expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
+    });
+
+    it('should mark missing generated test content as an error', async () => {
+      prisma.milestoneSubmission.findUnique.mockResolvedValue({
+        id: 'submission-1',
+        repoUrl: 'https://github.com/acme/api-project',
+        roadmapNodeId: 'milestone-1',
+        testSuite: {
+          id: 'suite-1',
+          passThresholdPct: 80,
+          testFileContent: null,
+        },
+        userId: MOCK_USER_ID,
+      });
+
+      await executeMilestoneSubmission()('submission-1');
+
+      expect(milestoneExecutionClient.execute).not.toHaveBeenCalled();
+      expect(txMock.milestoneSubmission.update).toHaveBeenCalledWith(
+        expectObjectContaining({
+          data: expectObjectContaining({
+            status: MilestoneSubmissionStatus.ERROR,
+          }),
+        }),
+      );
+    });
+  });
+
   describe('milestone submission completion', () => {
     const completeMilestoneSubmission = (): CompleteMilestoneSubmission => {
       const target = service as unknown as {
         completeMilestoneSubmission: CompleteMilestoneSubmission;
       };
 
-      return target.completeMilestoneSubmission.bind(service) as CompleteMilestoneSubmission;
+      return (
+        submissionId: string,
+        status: MilestoneSubmissionStatus,
+        outputLog: string,
+        testResult?: Parameters<CompleteMilestoneSubmission>[3],
+      ) => target.completeMilestoneSubmission(submissionId, status, outputLog, testResult);
     };
 
     it('should auto-complete the milestone and unlock next nodes when generated tests pass', async () => {

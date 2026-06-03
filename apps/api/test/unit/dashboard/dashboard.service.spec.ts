@@ -22,9 +22,13 @@ interface DailyActivityRecord {
 }
 
 interface DashboardRoadmapNodeRecord {
+  description?: string | null;
   id: string;
+  name?: string;
   nodeType: NodeType;
+  parentId?: string | null;
   estimatedHours: number | null;
+  posY?: number;
   userNodeProgress: Array<{ startedAt: Date | null; status: NodeStatus }>;
 }
 
@@ -55,9 +59,14 @@ interface DashboardUserRecord {
 }
 
 interface DashboardPrismaMock {
-  $transaction: AsyncMock<[DashboardRoadmapRecord[], DashboardRoadmapRecord[]], [unknown[]]>;
+  $transaction: AsyncMock<unknown[], [unknown[]]>;
   roadmap: {
-    findMany: AsyncMock<DashboardRoadmapRecord[]>;
+    count: AsyncMock<number>;
+    findMany: AsyncMock<unknown[]>;
+  };
+  skill: {
+    count: AsyncMock<number>;
+    findMany: AsyncMock<unknown[]>;
   };
   user: {
     findUnique: AsyncMock<DashboardUserRecord | null>;
@@ -69,13 +78,15 @@ const SYSTEM_NOW = new Date('2026-05-20T10:00:00Z');
 
 const createPrismaMock = (): DashboardPrismaMock => ({
   $transaction: jest
-    .fn<Promise<[DashboardRoadmapRecord[], DashboardRoadmapRecord[]]>, [unknown[]]>()
-    .mockImplementation(
-      async (items) =>
-        Promise.all(items) as Promise<[DashboardRoadmapRecord[], DashboardRoadmapRecord[]]>,
-    ),
+    .fn<Promise<unknown[]>, [unknown[]]>()
+    .mockImplementation(async (items) => Promise.all(items)),
   roadmap: {
-    findMany: jest.fn<Promise<DashboardRoadmapRecord[]>, unknown[]>().mockResolvedValue([]),
+    count: jest.fn<Promise<number>, unknown[]>().mockResolvedValue(0),
+    findMany: jest.fn<Promise<unknown[]>, unknown[]>().mockResolvedValue([]),
+  },
+  skill: {
+    count: jest.fn<Promise<number>, unknown[]>().mockResolvedValue(0),
+    findMany: jest.fn<Promise<unknown[]>, unknown[]>().mockResolvedValue([]),
   },
   user: {
     findUnique: jest.fn<Promise<DashboardUserRecord | null>, unknown[]>(),
@@ -200,6 +211,19 @@ describe('DashboardService', () => {
             },
           ],
         },
+        select: expectObjectContaining({
+          nodes: {
+            select: {
+              id: true,
+              nodeType: true,
+              estimatedHours: true,
+              userNodeProgress: {
+                where: { userId: MOCK_USER_ID },
+                select: { status: true, startedAt: true },
+              },
+            },
+          },
+        }),
       }),
     );
   });
@@ -560,6 +584,362 @@ describe('DashboardService', () => {
     const result = await service.getDashboard(MOCK_USER_ID);
 
     expect(result.streakDays).toBe(2);
+  });
+
+  it('should return mobile home payload for active learning roadmaps', async () => {
+    prisma.user.findUnique.mockResolvedValue(
+      createUserRecord({
+        dailyActivity: [
+          { activityDate: new Date('2026-05-20T00:00:00Z'), nodesCompleted: 1 },
+          { activityDate: new Date('2026-05-19T00:00:00Z'), nodesCompleted: 2 },
+        ],
+      }),
+    );
+    prisma.roadmap.findMany.mockResolvedValue([
+      createRoadmapRecord({
+        id: 'active-roadmap',
+        generatedAt: new Date('2026-05-01T00:00:00Z'),
+        hoursPerDay: 2,
+        title: 'React roadmap',
+        nodes: [
+          {
+            id: 'group-1',
+            name: 'React Fundamentals',
+            nodeType: NodeTypeValue.GROUP,
+            estimatedHours: null,
+            parentId: null,
+            posY: 1,
+            userNodeProgress: [
+              { startedAt: new Date('2026-05-10T00:00:00Z'), status: NodeStatusValue.COMPLETED },
+            ],
+          },
+          {
+            id: 'group-2',
+            name: 'State Management',
+            nodeType: NodeTypeValue.GROUP,
+            estimatedHours: null,
+            parentId: null,
+            posY: 2,
+            userNodeProgress: [
+              {
+                startedAt: new Date('2026-05-19T00:00:00Z'),
+                status: NodeStatusValue.IN_PROGRESS,
+              },
+            ],
+          },
+          {
+            id: 'hooks',
+            name: 'Hooks and State Management',
+            description: 'Learn hooks and state patterns',
+            nodeType: NodeTypeValue.REQUIRED,
+            estimatedHours: null,
+            parentId: 'group-2',
+            posY: 3,
+            userNodeProgress: [
+              {
+                startedAt: new Date('2026-05-19T00:00:00Z'),
+                status: NodeStatusValue.IN_PROGRESS,
+              },
+            ],
+          },
+          {
+            id: 'required-done',
+            name: 'Components',
+            nodeType: NodeTypeValue.REQUIRED,
+            estimatedHours: 2,
+            parentId: 'group-1',
+            posY: 4,
+            userNodeProgress: [
+              { startedAt: new Date('2026-05-10T00:00:00Z'), status: NodeStatusValue.COMPLETED },
+            ],
+          },
+          {
+            id: 'milestone-1',
+            name: 'React Project',
+            nodeType: NodeTypeValue.MILESTONE,
+            estimatedHours: 4,
+            parentId: null,
+            posY: 5,
+            userNodeProgress: [{ startedAt: null, status: NodeStatusValue.LOCKED }],
+          },
+          {
+            id: 'group-3',
+            name: 'React Query',
+            nodeType: NodeTypeValue.GROUP,
+            estimatedHours: null,
+            parentId: null,
+            posY: 6,
+            userNodeProgress: [{ startedAt: null, status: NodeStatusValue.LOCKED }],
+          },
+        ],
+      }),
+      createRoadmapRecord({
+        id: 'not-started-roadmap',
+        nodes: [
+          {
+            id: 'not-started-required',
+            name: 'Locked skill',
+            nodeType: NodeTypeValue.REQUIRED,
+            estimatedHours: 3,
+            userNodeProgress: [{ startedAt: null, status: NodeStatusValue.LOCKED }],
+          },
+        ],
+      }),
+    ]);
+
+    const result = await service.getHome(MOCK_USER_ID);
+
+    expect(prisma.roadmap.findMany).toHaveBeenCalledWith(
+      expectObjectContaining({
+        select: expectObjectContaining({
+          nodes: {
+            select: expectObjectContaining({
+              description: true,
+              name: true,
+              parentId: true,
+              posY: true,
+            }),
+          },
+        }),
+      }),
+    );
+    expect(result.activeRoadmaps).toHaveLength(1);
+    expect(result.activeRoadmaps[0]).toEqual(
+      expectObjectContaining({
+        roadmapId: 'active-roadmap',
+        title: 'React roadmap',
+        startedAt: '2026-05-10T00:00:00.000Z',
+        currentGroup: { id: 'group-2', name: 'State Management' },
+        planNode: {
+          id: 'hooks',
+          name: 'Hooks and State Management',
+          description: 'Learn hooks and state patterns',
+          nodeType: 'REQUIRED',
+          estimatedHours: 3,
+        },
+        chapter: {
+          current: 2,
+          total: 4,
+          label: 'Chapter 2/4',
+        },
+        progress: {
+          requiredNodesCompleted: 1,
+          requiredNodesTotal: 2,
+          requiredCompletionPct: 50,
+        },
+        nextUnlock: { id: 'group-3', name: 'React Query' },
+      }),
+    );
+    expect(result.activeRoadmaps[0]?.paceWarning).toEqual(
+      expectObjectContaining({
+        actionLabel: 'Adjust plan',
+        isBehind: true,
+        message: 'Finish 1 skill node today to back the track.',
+        title: 'You are 95% behind your target pace.',
+      }),
+    );
+    expect(result.metrics).toEqual({
+      roadmapCompletionPct: 33.3,
+      streakDays: 2,
+      readinessPct: 50,
+    });
+  });
+
+  it('should search template roadmaps, user AI roadmaps, and skills with separate pagination', async () => {
+    prisma.roadmap.findMany.mockResolvedValue([
+      {
+        id: 'template-roadmap',
+        title: 'React Fundamentals',
+        description: 'Learn React from scratch',
+        goalName: 'Frontend Developer',
+        isTemplate: true,
+        roleCategory: 'WEB_DEVELOPMENT',
+        estimatedWeeks: 12,
+      },
+      {
+        id: 'ai-roadmap',
+        title: 'My React Plan',
+        description: null,
+        goalName: null,
+        isTemplate: false,
+        roleCategory: 'FRAMEWORKS',
+        estimatedWeeks: 3,
+      },
+    ]);
+    prisma.roadmap.count.mockResolvedValue(7);
+    prisma.skill.findMany.mockResolvedValue([
+      {
+        id: 'skill-1',
+        name: 'React Hooks',
+        description: 'Hooks and state',
+        roleCategory: 'FRAMEWORKS',
+        defaultEstimatedHours: 4,
+      },
+    ]);
+    prisma.skill.count.mockResolvedValue(11);
+
+    const result = await service.search(MOCK_USER_ID, {
+      query: ' react ',
+      roadmapPage: 2,
+      skillPage: 2,
+    });
+
+    expect(prisma.roadmap.findMany).toHaveBeenCalledWith({
+      orderBy: [{ isTemplate: 'desc' }, { updatedAt: 'desc' }, { id: 'asc' }],
+      select: {
+        description: true,
+        estimatedWeeks: true,
+        goalName: true,
+        id: true,
+        isTemplate: true,
+        roleCategory: true,
+        title: true,
+      },
+      skip: 5,
+      take: 5,
+      where: {
+        AND: [
+          {
+            OR: [
+              { isTemplate: true },
+              {
+                isTemplate: false,
+                userId: MOCK_USER_ID,
+              },
+            ],
+          },
+          {
+            OR: [
+              { title: { contains: 'react', mode: 'insensitive' } },
+              { goalName: { contains: 'react', mode: 'insensitive' } },
+              { description: { contains: 'react', mode: 'insensitive' } },
+            ],
+          },
+        ],
+      },
+    });
+    expect(prisma.roadmap.count).toHaveBeenCalledWith({
+      where: expectObjectContaining({
+        AND: expect.any(Array) as object[],
+      }),
+    });
+    expect(prisma.skill.findMany).toHaveBeenCalledWith({
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      select: {
+        defaultEstimatedHours: true,
+        description: true,
+        id: true,
+        name: true,
+        roleCategory: true,
+      },
+      skip: 10,
+      take: 10,
+      where: {
+        name: {
+          contains: 'react',
+          mode: 'insensitive',
+        },
+      },
+    });
+    expect(result).toEqual({
+      query: 'react',
+      roadmaps: {
+        data: [
+          {
+            roadmapId: 'template-roadmap',
+            title: 'React Fundamentals',
+            description: 'Learn React from scratch',
+            goalName: 'Frontend Developer',
+            isTemplate: true,
+            roadmapType: 'template',
+            roleCategory: 'WEB_DEVELOPMENT',
+            categoryLabel: 'Web Development',
+            estimatedWeeks: 12,
+            durationLabel: '3 months',
+          },
+          {
+            roadmapId: 'ai-roadmap',
+            title: 'My React Plan',
+            description: null,
+            goalName: null,
+            isTemplate: false,
+            roadmapType: 'ai',
+            roleCategory: 'FRAMEWORKS',
+            categoryLabel: 'Frameworks',
+            estimatedWeeks: 3,
+            durationLabel: '3 weeks',
+          },
+        ],
+        meta: {
+          page: 2,
+          perPage: 5,
+          total: 7,
+          totalPages: 2,
+        },
+      },
+      skills: {
+        data: [
+          {
+            skillId: 'skill-1',
+            name: 'React Hooks',
+            description: 'Hooks and state',
+            roleCategory: 'FRAMEWORKS',
+            categoryLabel: 'Frameworks',
+            defaultEstimatedHours: 4,
+          },
+        ],
+        meta: {
+          page: 2,
+          perPage: 10,
+          total: 11,
+          totalPages: 2,
+        },
+      },
+      meta: {
+        totalResults: 18,
+        roadmapPageSize: 5,
+        skillPageSize: 10,
+      },
+    });
+  });
+
+  it('should return empty search payload without querying roadmaps or skills when query is blank', async () => {
+    const result = await service.search(MOCK_USER_ID, {
+      query: '   ',
+      roadmapPage: 3,
+      skillPage: 4,
+    });
+
+    expect(prisma.roadmap.findMany).not.toHaveBeenCalled();
+    expect(prisma.roadmap.count).not.toHaveBeenCalled();
+    expect(prisma.skill.findMany).not.toHaveBeenCalled();
+    expect(prisma.skill.count).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      query: '',
+      roadmaps: {
+        data: [],
+        meta: {
+          page: 3,
+          perPage: 5,
+          total: 0,
+          totalPages: 0,
+        },
+      },
+      skills: {
+        data: [],
+        meta: {
+          page: 4,
+          perPage: 10,
+          total: 0,
+          totalPages: 0,
+        },
+      },
+      meta: {
+        totalResults: 0,
+        roadmapPageSize: 5,
+        skillPageSize: 10,
+      },
+    });
   });
 
   it('should throw UserNotFoundException when user is missing', async () => {

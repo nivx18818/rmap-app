@@ -22,3 +22,12 @@ services:
       - api
     env_file:
       - path: .env
+
+  evaluator:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        APP: evaluator
+    ports:
+      - '3002:3002'

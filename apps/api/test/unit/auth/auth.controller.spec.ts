@@ -62,10 +62,18 @@ describe('AuthController', () => {
       'access-token',
       expect.any(Object),
     );
+    expect(response.clearCookie).toHaveBeenCalledWith(
+      'refresh_token',
+      expect.objectContaining({ path: '/' }),
+    );
+    expect(response.clearCookie).toHaveBeenCalledWith(
+      'refresh_token',
+      expect.objectContaining({ path: '/api/v1/auth/refresh' }),
+    );
     expect(response.cookie).toHaveBeenCalledWith(
       'refresh_token',
       'refresh-token',
-      expect.any(Object),
+      expect.objectContaining({ path: '/' }),
     );
   });
 
@@ -85,10 +93,18 @@ describe('AuthController', () => {
       'new-access-token',
       expect.any(Object),
     );
+    expect(response.clearCookie).toHaveBeenCalledWith(
+      'refresh_token',
+      expect.objectContaining({ path: '/' }),
+    );
+    expect(response.clearCookie).toHaveBeenCalledWith(
+      'refresh_token',
+      expect.objectContaining({ path: '/api/v1/auth/refresh' }),
+    );
     expect(response.cookie).toHaveBeenCalledWith(
       'refresh_token',
       'new-refresh-token',
-      expect.any(Object),
+      expect.objectContaining({ path: '/' }),
     );
   });
 
@@ -101,6 +117,10 @@ describe('AuthController', () => {
 
     expect(authService.logout).toHaveBeenCalledWith('user-1');
     expect(response.clearCookie).toHaveBeenCalledWith('access_token', expect.any(Object));
+    expect(response.clearCookie).toHaveBeenCalledWith(
+      'refresh_token',
+      expect.objectContaining({ path: '/' }),
+    );
     expect(response.clearCookie).toHaveBeenCalledWith(
       'refresh_token',
       expect.objectContaining({ path: '/api/v1/auth/refresh' }),

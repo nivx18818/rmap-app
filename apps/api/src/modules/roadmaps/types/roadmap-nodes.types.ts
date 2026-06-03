@@ -57,6 +57,12 @@ export interface PrerequisiteResponse {
   skillName: string;
 }
 
+export interface MilestoneSubmissionTestResultResponse {
+  message: string;
+  name: string;
+  passed: boolean;
+}
+
 export interface MilestoneSubmissionResponse {
   id: string;
   repoUrl: string;
@@ -65,6 +71,7 @@ export interface MilestoneSubmissionResponse {
   outputLog: string | null;
   passRatePct: number | null;
   passedTests: number | null;
+  testResults: MilestoneSubmissionTestResultResponse[] | null;
   totalTests: number | null;
   attemptNumber: number;
   createdAt: string;

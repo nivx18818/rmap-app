@@ -3,6 +3,8 @@
 import type { Route } from 'next';
 import type { FormEvent, ReactNode } from 'react';
 
+import { Alert02Icon, CheckmarkCircle02Icon, Copy01Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { Badge } from '@repo/design-system/components/ui/badge';
 import { Button } from '@repo/design-system/components/ui/button';
 import {
@@ -17,13 +19,15 @@ import { Input } from '@repo/design-system/components/ui/input';
 import { Label } from '@repo/design-system/components/ui/label';
 import { Separator } from '@repo/design-system/components/ui/separator';
 import { Skeleton } from '@repo/design-system/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@repo/design-system/components/ui/tooltip';
+import { toast } from '@repo/design-system/lib/toast';
 import { cn } from '@repo/design-system/lib/utils';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { LoadingState } from '@/components/shared/loading-state';
 
-import type { RoadmapNodeDetail } from '../_types/roadmap-node-detail.types';
+import type { MilestoneSubmission, RoadmapNodeDetail } from '../_types/roadmap-node-detail.types';
 import type { RoadmapNode } from '../_types/roadmap-node.types';
 
 import { NODE_TYPE_LABELS, STATUS_LABELS } from '../_constants/roadmap-node.constants';
@@ -57,6 +61,141 @@ function formatOutputLog(outputLog: string | null): string {
   }
 
   return `...${trimmedOutputLog.slice(-OUTPUT_LOG_PREVIEW_LENGTH)}`;
+}
+
+function formatSubmissionSummary(submission: MilestoneSubmission): string | null {
+  if (
+    submission.passRatePct === null ||
+    submission.passedTests === null ||
+    submission.totalTests === null
+  ) {
+    return null;
+  }
+
+  return `${submission.passedTests}/${submission.totalTests} tests passed (${submission.passRatePct}%).`;
+}
+
+function CopyOutputLogButton({ logText }: { logText: string }) {
+  const [isCopying, setIsCopying] = useState(false);
+
+  const handleCopy = async () => {
+    setIsCopying(true);
+
+    try {
+      await navigator.clipboard.writeText(logText);
+      toast.success('Output log copied');
+    } catch {
+      toast.error('Unable to copy output log');
+    } finally {
+      setIsCopying(false);
+    }
+  };
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            disabled={isCopying}
+            type="button"
+            aria-label="Copy output log"
+            onClick={handleCopy}
+          >
+            <HugeiconsIcon icon={Copy01Icon} />
+            <span className="sr-only">Copy output log</span>
+          </Button>
+        }
+      />
+      <TooltipContent side="top">Copy output log</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function MilestoneSubmissionOutputLog({ outputLog }: { outputLog: string | null }) {
+  const displayedLog = formatOutputLog(outputLog);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-foreground text-xs font-medium">Raw output log</p>
+        <CopyOutputLogButton logText={displayedLog} />
+      </div>
+      <pre className="bg-background text-muted-foreground max-h-48 overflow-auto rounded border p-3 text-xs whitespace-pre-wrap">
+        {displayedLog}
+      </pre>
+    </div>
+  );
+}
+
+function MilestoneSubmissionTestResults({
+  testResults,
+}: {
+  testResults: MilestoneSubmission['testResults'];
+}) {
+  if (!testResults?.length) {
+    return null;
+  }
+
+  return (
+    <ul className="flex flex-col gap-2">
+      {testResults.map((testResult, index) => (
+        <li
+          key={`${testResult.name}-${index}`}
+          className="bg-background flex flex-col gap-2 rounded-md border p-3"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <p className="text-foreground min-w-0 text-sm font-medium">{testResult.name}</p>
+            <Badge
+              variant="outline"
+              className={cn(
+                'shrink-0 gap-1',
+                testResult.passed
+                  ? 'border-chart-2 bg-chart-2/10 text-chart-2'
+                  : 'border-destructive/40 bg-destructive/10 text-destructive',
+              )}
+            >
+              <HugeiconsIcon
+                className="size-3.5"
+                icon={testResult.passed ? CheckmarkCircle02Icon : Alert02Icon}
+              />
+              {testResult.passed ? 'Passed' : 'Failed'}
+            </Badge>
+          </div>
+          <p className="text-muted-foreground text-xs leading-5">{testResult.message}</p>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function MilestoneSubmissionFeedback({ submission }: { submission: MilestoneSubmission }) {
+  const summary = formatSubmissionSummary(submission);
+  const isPassed = submission.status === 'PASSED';
+  const title =
+    submission.status === 'ERROR'
+      ? 'Test execution hit a server-side error.'
+      : isPassed
+        ? 'Milestone completed automatically'
+        : 'Generated tests did not pass.';
+
+  return (
+    <div
+      className={cn(
+        'flex flex-col gap-3 rounded-md border p-3',
+        isPassed ? 'border-chart-2 bg-chart-2/10' : 'border-border bg-muted/30',
+      )}
+    >
+      <div className="flex flex-col gap-1">
+        <p className="text-foreground text-sm font-medium">{title}</p>
+        <p className="text-muted-foreground text-xs">Attempt {submission.attemptNumber}</p>
+        {summary ? <p className="text-muted-foreground text-xs">{summary}</p> : null}
+      </div>
+      <MilestoneSubmissionTestResults testResults={submission.testResults} />
+      <MilestoneSubmissionOutputLog outputLog={submission.outputLog} />
+    </div>
+  );
 }
 
 interface RoadmapNodeDetailDrawerProps {
@@ -366,12 +505,8 @@ function RoadmapNodeDetailActions({
     );
   }
 
-  if (status === 'COMPLETED') {
-    return (
-      <p className="text-muted-foreground px-4 py-4 text-sm">
-        {isMilestone ? 'Milestone completed automatically.' : 'This node is complete.'}
-      </p>
-    );
+  if (status === 'COMPLETED' && !isMilestone) {
+    return <p className="text-muted-foreground px-4 py-4 text-sm">This node is complete.</p>;
   }
 
   if (isMilestone) {
@@ -380,8 +515,8 @@ function RoadmapNodeDetailActions({
         <DrawerFooter>
           <LoadingState
             className="py-2"
-            message="Running generated tests..."
-            description="We are cloning your repository, installing dependencies, injecting your generated test suite, and running it in the sandbox."
+            message="Running tests..."
+            description="We are cloning your repository, installing dependencies, injecting your test suite, and running it in the sandbox."
           />
           {actionErrorMessage ? (
             <p className="text-destructive text-xs">{actionErrorMessage}</p>
@@ -390,39 +525,19 @@ function RoadmapNodeDetailActions({
       );
     }
 
+    if (status === 'COMPLETED' && !latestSubmission) {
+      return (
+        <p className="text-muted-foreground px-4 py-4 text-sm">
+          Milestone completed automatically.
+        </p>
+      );
+    }
+
     return (
       <DrawerFooter>
-        {latestSubmission?.status === 'PASSED' ? (
-          <div className="border-chart-2 bg-chart-2/10 flex flex-col gap-2 rounded-md border p-3">
-            <p className="text-foreground text-sm font-medium">Milestone completed automatically</p>
-            <p className="text-muted-foreground text-xs">
-              Attempt {latestSubmission.attemptNumber} passed the generated tests.
-            </p>
-          </div>
-        ) : null}
+        {latestSubmission ? <MilestoneSubmissionFeedback submission={latestSubmission} /> : null}
 
-        {latestSubmission?.status === 'FAILED' || latestSubmission?.status === 'ERROR' ? (
-          <div className="border-border bg-muted/30 flex flex-col gap-2 rounded-md border p-3">
-            <p className="text-foreground text-sm font-medium">
-              {latestSubmission.status === 'FAILED'
-                ? 'Generated tests did not pass.'
-                : 'Test execution hit a server-side error.'}
-            </p>
-            {latestSubmission.passRatePct !== null &&
-            latestSubmission.passedTests !== null &&
-            latestSubmission.totalTests !== null ? (
-              <p className="text-muted-foreground text-xs">
-                {latestSubmission.passedTests}/{latestSubmission.totalTests} tests passed (
-                {latestSubmission.passRatePct}%).
-              </p>
-            ) : null}
-            <pre className="bg-background text-muted-foreground max-h-48 overflow-auto rounded border p-3 text-xs whitespace-pre-wrap">
-              {formatOutputLog(latestSubmission.outputLog)}
-            </pre>
-          </div>
-        ) : null}
-
-        {latestSubmission?.status !== 'PASSED' ? (
+        {status === 'IN_PROGRESS' && latestSubmission?.status !== 'PASSED' ? (
           <form className="flex flex-col gap-3" onSubmit={handleMilestoneSubmit}>
             <div className="flex flex-col gap-2">
               <Label htmlFor="milestone-repo-url">GitHub repository URL</Label>

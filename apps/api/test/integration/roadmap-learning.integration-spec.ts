@@ -37,7 +37,11 @@ type GenerateRoadmapBody = {
 };
 
 type NodeDetailBody = {
-  latestSubmission: null | { repoUrl: string; status: string };
+  latestSubmission: null | {
+    repoUrl: string;
+    status: string;
+    testResults: Array<{ message: string; name: string; passed: boolean }> | null;
+  };
   node: {
     id: string;
     progress: { status: string } | null;
@@ -147,7 +151,32 @@ describe('Roadmap learning (integration)', () => {
       submission: {
         repoUrl: 'https://github.com/example/project',
         status: 'PASSED',
+        testResults: expect.arrayContaining([
+          expect.objectContaining({
+            name: 'Integration test 1',
+            passed: true,
+            message: 'Integration test 1 passed.',
+          }),
+        ]),
       },
+    });
+
+    const milestoneDetailResponse = await request(integration.app.getHttpServer())
+      .get(`/api/v1/roadmaps/${seeded.roadmapId}/nodes/${seeded.milestoneNodeId}`)
+      .set('Cookie', cookie)
+      .expect(200);
+    const milestoneDetailBody = milestoneDetailResponse.body as NodeDetailBody;
+
+    expect(milestoneDetailBody.latestSubmission).toMatchObject({
+      repoUrl: 'https://github.com/example/project',
+      status: 'PASSED',
+      testResults: expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Integration test 1',
+          passed: true,
+          message: 'Integration test 1 passed.',
+        }),
+      ]),
     });
   });
 

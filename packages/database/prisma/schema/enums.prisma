@@ -62,3 +62,8 @@ enum UserRole {
   USER
   ADMIN
 }
+
+enum OAuthProvider {
+  GOOGLE
+  GITHUB
+}

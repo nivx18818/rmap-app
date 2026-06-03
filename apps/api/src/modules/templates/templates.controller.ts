@@ -7,8 +7,12 @@ import type {
 
 import { Public } from '@/common/decorators/public.decorator';
 
+import type { TemplateCategoriesResponseDto } from './dto/template-categories-response.dto';
 import type { TemplateRoadmapNodesResponseDto } from './dto/template-node-response.dto';
+import type { TemplateRecommendationsResponseDto } from './dto/template-recommendations-response.dto';
+import type { TemplateTrendingsResponseDto } from './dto/template-trendings-response.dto';
 
+import { CurrentUser, type RequestUser } from '../auth/decorators/current-user.decorator';
 import { ListTemplatesQueryDto } from './dto/list-templates-query.dto';
 import { TemplateNodesFilterDto } from './dto/template-nodes-filter.dto';
 import { TemplatesService } from './templates.service';
@@ -23,6 +27,25 @@ export class TemplatesController {
     @Query() query: ListTemplatesQueryDto,
   ): Promise<PaginatedRoadmapsResponseDto> {
     return this.templatesService.listTemplates(query);
+  }
+
+  @Public()
+  @Get('categories')
+  async listCategories(): Promise<TemplateCategoriesResponseDto> {
+    return this.templatesService.listCategories();
+  }
+
+  @Get('recommendations')
+  async getRecommendations(
+    @CurrentUser() user: RequestUser,
+  ): Promise<TemplateRecommendationsResponseDto> {
+    return this.templatesService.getRecommendations(user.id);
+  }
+
+  @Public()
+  @Get('trendings')
+  async listTrendings(): Promise<TemplateTrendingsResponseDto> {
+    return this.templatesService.listTrendings();
   }
 
   @Public()

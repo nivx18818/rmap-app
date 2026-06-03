@@ -1,7 +1,7 @@
 import type { TestingModule } from '@nestjs/testing';
 
 import { Test } from '@nestjs/testing';
-import { NodeType, RoleCategory } from '@repo/db/prisma/client';
+import { NodeStatus, NodeType, RoleCategory } from '@repo/db/prisma/client';
 
 import { RoadmapNotFoundException } from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
@@ -18,6 +18,7 @@ interface TemplatesPrismaMock {
     count: AsyncMock<number>;
     findFirst: AsyncMock<Record<string, unknown> | null>;
     findMany: AsyncMock<unknown[]>;
+    groupBy: AsyncMock<Array<{ roleCategory: RoleCategory; _count: { _all: number } }>>;
   };
   roadmapNode: {
     findMany: AsyncMock<unknown[]>;
@@ -44,6 +45,10 @@ const createPrismaMock = (): TemplatesPrismaMock => ({
     count: jest.fn<Promise<number>, unknown[]>(),
     findFirst: jest.fn<Promise<Record<string, unknown> | null>, unknown[]>(),
     findMany: jest.fn<Promise<unknown[]>, unknown[]>(),
+    groupBy: jest.fn<
+      Promise<Array<{ roleCategory: RoleCategory; _count: { _all: number } }>>,
+      unknown[]
+    >(),
   },
   roadmapNode: {
     findMany: jest.fn<Promise<unknown[]>, unknown[]>(),
@@ -71,7 +76,41 @@ describe('TemplatesService', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.clearAllMocks();
+  });
+
+  describe('listCategories', () => {
+    it('should return all role categories with template counts', async () => {
+      prisma.roadmap.groupBy.mockResolvedValue([
+        { roleCategory: RoleCategory.WEB_DEVELOPMENT, _count: { _all: 24 } },
+        { roleCategory: RoleCategory.AI_AND_MACHINE_LEARNING, _count: { _all: 18 } },
+      ]);
+
+      const result = await service.listCategories();
+
+      expect(prisma.roadmap.groupBy).toHaveBeenCalledWith({
+        by: ['roleCategory'],
+        where: { isTemplate: true },
+        _count: { _all: true },
+      });
+      expect(result.total).toBe(Object.values(RoleCategory).length);
+      expect(result.categories).toContainEqual({
+        category: RoleCategory.WEB_DEVELOPMENT,
+        label: 'Web Development',
+        templatesCount: 24,
+      });
+      expect(result.categories).toContainEqual({
+        category: RoleCategory.AI_AND_MACHINE_LEARNING,
+        label: 'Ai And Machine Learning',
+        templatesCount: 18,
+      });
+      expect(result.categories).toContainEqual({
+        category: RoleCategory.DEVOPS,
+        label: 'Devops',
+        templatesCount: 0,
+      });
+    });
   });
 
   describe('listTemplates', () => {
@@ -187,6 +226,117 @@ describe('TemplatesService', () => {
     });
   });
 
+  describe('listTrendings', () => {
+    it('should return 5 random template roadmaps with random trend text', async () => {
+      const randomSpy = jest
+        .spyOn(Math, 'random')
+        .mockReturnValueOnce(0.99)
+        .mockReturnValueOnce(0.99)
+        .mockReturnValueOnce(0.99)
+        .mockReturnValueOnce(0.99)
+        .mockReturnValueOnce(0.99)
+        .mockReturnValueOnce(0)
+        .mockReturnValueOnce(0)
+        .mockReturnValueOnce(0.5)
+        .mockReturnValueOnce(0)
+        .mockReturnValueOnce(0.39)
+        .mockReturnValueOnce(0.998)
+        .mockReturnValueOnce(0.5)
+        .mockReturnValueOnce(0.25)
+        .mockReturnValueOnce(0.5)
+        .mockReturnValueOnce(0.5);
+      const templates = Array.from({ length: 6 }, (_, index) => ({
+        id: `template-${index + 1}`,
+        title: `Template ${index + 1}`,
+        estimatedWeeks: index === 0 ? 12 : 3,
+        roleCategory: index % 2 === 0 ? RoleCategory.WEB_DEVELOPMENT : RoleCategory.DEVOPS,
+        nodes: Array.from({ length: index + 1 }, () => ({ nodeType: NodeType.REQUIRED })),
+      }));
+
+      prisma.roadmap.findMany.mockResolvedValue(templates);
+
+      const result = await service.listTrendings();
+
+      expect(prisma.roadmap.findMany).toHaveBeenCalledWith({
+        where: { isTemplate: true },
+        select: {
+          estimatedWeeks: true,
+          id: true,
+          nodes: {
+            select: { nodeType: true },
+          },
+          roleCategory: true,
+          title: true,
+        },
+      });
+      expect(result.total).toBe(5);
+      expect(result.trendings).toEqual([
+        {
+          rank: 1,
+          roadmapId: 'template-1',
+          title: 'Template 1',
+          roleCategory: RoleCategory.WEB_DEVELOPMENT,
+          categoryLabel: 'Web Development',
+          estimatedWeeks: 12,
+          durationLabel: '3 months',
+          nodesTotal: 1,
+          trendText: '1 learners',
+        },
+        {
+          rank: 2,
+          roadmapId: 'template-2',
+          title: 'Template 2',
+          roleCategory: RoleCategory.DEVOPS,
+          categoryLabel: 'Devops',
+          estimatedWeeks: 3,
+          durationLabel: '3 weeks',
+          nodesTotal: 2,
+          trendText: 'Popular this month',
+        },
+        {
+          rank: 3,
+          roadmapId: 'template-3',
+          title: 'Template 3',
+          roleCategory: RoleCategory.WEB_DEVELOPMENT,
+          categoryLabel: 'Web Development',
+          estimatedWeeks: 3,
+          durationLabel: '3 weeks',
+          nodesTotal: 3,
+          trendText: '500 learners',
+        },
+        {
+          rank: 4,
+          roadmapId: 'template-4',
+          title: 'Template 4',
+          roleCategory: RoleCategory.DEVOPS,
+          categoryLabel: 'Devops',
+          estimatedWeeks: 3,
+          durationLabel: '3 weeks',
+          nodesTotal: 4,
+          trendText: 'Popular this week',
+        },
+        {
+          rank: 5,
+          roadmapId: 'template-5',
+          title: 'Template 5',
+          roleCategory: RoleCategory.WEB_DEVELOPMENT,
+          categoryLabel: 'Web Development',
+          estimatedWeeks: 3,
+          durationLabel: '3 weeks',
+          nodesTotal: 5,
+          trendText: 'Trending now',
+        },
+      ]);
+      const learnerCounts = result.trendings
+        .map((item) => item.trendText.match(/^(\d+) learners$/)?.[1])
+        .filter((value): value is string => value !== undefined)
+        .map(Number);
+
+      expect(learnerCounts.every((count) => count >= 1 && count <= 500)).toBe(true);
+      expect(randomSpy).toHaveBeenCalled();
+    });
+  });
+
   describe('getTemplate', () => {
     it('should return a formatted template roadmap', async () => {
       const template = {
@@ -254,6 +404,184 @@ describe('TemplatesService', () => {
           },
         }),
       );
+    });
+  });
+
+  describe('getRecommendations', () => {
+    it('should return template recommendations from active roadmap role categories', async () => {
+      const activeTemplate = {
+        id: 'active-template',
+        isTemplate: true,
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+        nodes: [
+          {
+            userNodeProgress: [
+              {
+                startedAt: new Date('2026-05-18T00:00:00Z'),
+                status: NodeStatus.IN_PROGRESS,
+              },
+            ],
+          },
+        ],
+      };
+      const activeAiRoadmap = {
+        id: 'active-ai-roadmap',
+        isTemplate: false,
+        roleCategory: RoleCategory.AI_AND_MACHINE_LEARNING,
+        nodes: [
+          {
+            userNodeProgress: [
+              {
+                startedAt: new Date('2026-05-19T00:00:00Z'),
+                status: NodeStatus.IN_PROGRESS,
+              },
+            ],
+          },
+        ],
+      };
+      const completedRoadmap = {
+        id: 'completed-roadmap',
+        isTemplate: false,
+        roleCategory: RoleCategory.DATABASES,
+        nodes: [
+          {
+            userNodeProgress: [
+              {
+                startedAt: new Date('2026-05-10T00:00:00Z'),
+                status: NodeStatus.COMPLETED,
+              },
+            ],
+          },
+        ],
+      };
+      const recommendations = [
+        {
+          id: 'ai-template',
+          title: 'AI Engineering Path',
+          description: 'Learn AI engineering',
+          goalName: 'AI Engineer',
+          estimatedWeeks: 16,
+          roleCategory: RoleCategory.AI_AND_MACHINE_LEARNING,
+          nodes: [
+            { nodeType: NodeType.GROUP },
+            { nodeType: NodeType.REQUIRED },
+            { nodeType: NodeType.OPTIONAL },
+          ],
+        },
+        {
+          id: 'web-template',
+          title: 'Frontend Pro',
+          description: 'A frontend roadmap',
+          goalName: null,
+          estimatedWeeks: 3,
+          roleCategory: RoleCategory.WEB_DEVELOPMENT,
+          nodes: [{ nodeType: NodeType.REQUIRED }, { nodeType: NodeType.REQUIRED }],
+        },
+      ];
+
+      prisma.roadmap.findMany
+        .mockResolvedValueOnce([activeTemplate, activeAiRoadmap, completedRoadmap])
+        .mockResolvedValueOnce(recommendations);
+
+      const result = await service.getRecommendations('user-1');
+
+      expect(prisma.roadmap.findMany).toHaveBeenNthCalledWith(
+        1,
+        expectObjectContaining({
+          where: {
+            OR: [
+              {
+                isTemplate: false,
+                nodes: {
+                  some: {
+                    userNodeProgress: {
+                      some: {
+                        startedAt: { not: null },
+                        userId: 'user-1',
+                      },
+                    },
+                  },
+                },
+                userId: 'user-1',
+              },
+              {
+                isTemplate: true,
+                nodes: {
+                  some: {
+                    userNodeProgress: {
+                      some: {
+                        startedAt: { not: null },
+                        userId: 'user-1',
+                      },
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        }),
+      );
+      expect(prisma.roadmap.findMany).toHaveBeenNthCalledWith(
+        2,
+        expectObjectContaining({
+          where: expectObjectContaining({
+            id: { notIn: ['active-template'] },
+            isTemplate: true,
+            roleCategory: {
+              in: [RoleCategory.AI_AND_MACHINE_LEARNING, RoleCategory.WEB_DEVELOPMENT],
+            },
+          }),
+        }),
+      );
+      expect(result).toEqual({
+        roleCategories: [
+          {
+            category: RoleCategory.AI_AND_MACHINE_LEARNING,
+            label: 'Ai And Machine Learning',
+          },
+          { category: RoleCategory.WEB_DEVELOPMENT, label: 'Web Development' },
+        ],
+        total: 2,
+        relevantRoadmaps: [
+          {
+            roadmapId: 'ai-template',
+            title: 'AI Engineering Path',
+            description: 'Learn AI engineering',
+            goalName: 'AI Engineer',
+            roleCategory: RoleCategory.AI_AND_MACHINE_LEARNING,
+            categoryLabel: 'Ai And Machine Learning',
+            estimatedWeeks: 16,
+            durationLabel: '4 months',
+            nodesTotal: 3,
+            requiredNodesTotal: 1,
+          },
+          {
+            roadmapId: 'web-template',
+            title: 'Frontend Pro',
+            description: 'A frontend roadmap',
+            goalName: null,
+            roleCategory: RoleCategory.WEB_DEVELOPMENT,
+            categoryLabel: 'Web Development',
+            estimatedWeeks: 3,
+            durationLabel: '3 weeks',
+            nodesTotal: 2,
+            requiredNodesTotal: 2,
+          },
+        ],
+      });
+    });
+
+    it('should return empty recommendations when the user has no active roadmap categories', async () => {
+      prisma.roadmap.findMany.mockResolvedValueOnce([]);
+
+      const result = await service.getRecommendations('user-1');
+
+      expect(prisma.roadmap.findMany).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({
+        roleCategories: [],
+        total: 0,
+        relevantRoadmaps: [],
+      });
     });
   });
 

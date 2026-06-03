@@ -25,6 +25,8 @@ import {
 } from '@repo/design-system/components/ui/card';
 import Link from 'next/link';
 
+import { buildRoadmapHref } from '@/utils/roadmap-url';
+
 import type { DashboardRoadmap } from '../_types/dashboard.types';
 
 import {
@@ -106,6 +108,11 @@ export function DashboardCurrentRoadmap({ roadmap }: DashboardCurrentRoadmapProp
     );
   }
 
+  const roadmapHref = buildRoadmapHref({
+    id: roadmap.roadmapId,
+    title: roadmap.title,
+  }) as Route<string>;
+
   return (
     <Card className="h-full rounded-lg">
       <CardHeader>
@@ -115,7 +122,7 @@ export function DashboardCurrentRoadmap({ roadmap }: DashboardCurrentRoadmapProp
             size="sm"
             variant="default"
             render={
-              <Link href={`/roadmaps/${roadmap.roadmapId}` as Route<string>}>
+              <Link href={roadmapHref}>
                 View
                 <HugeiconsIcon className="opacity-100" icon={ArrowRight02FreeIcons} />
               </Link>

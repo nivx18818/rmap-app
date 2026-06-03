@@ -33,6 +33,7 @@ export interface TimelineWarning {
 export interface GenerateRoadmapResponse {
   roadmap: {
     id: string;
+    title?: null | string;
     [key: string]: unknown;
   };
   timelineWarning?: TimelineWarning;

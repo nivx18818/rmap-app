@@ -35,7 +35,9 @@ import { isSkillNodeType } from '../_utils/roadmap-node.utils';
 
 interface RoadmapNodeQuizProps {
   nodeId: string;
+  nodeSlug: string;
   roadmapId: string;
+  roadmapSlug: string;
 }
 
 const QUIZ_LOAD_ERROR_MESSAGE = 'Unable to load this quiz.';
@@ -104,7 +106,12 @@ function isRetryableQuizLoadError(error: unknown): boolean {
   return error.code === 'ECONNABORTED' || error.response?.status === 503;
 }
 
-export function RoadmapNodeQuiz({ nodeId, roadmapId }: RoadmapNodeQuizProps) {
+export function RoadmapNodeQuiz({
+  nodeId,
+  nodeSlug,
+  roadmapId,
+  roadmapSlug,
+}: RoadmapNodeQuizProps) {
   const [nodeDetail, setNodeDetail] = useState<RoadmapNodeDetail | null>(null);
   const [quiz, setQuiz] = useState<RoadmapNodeQuizData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -115,7 +122,7 @@ export function RoadmapNodeQuiz({ nodeId, roadmapId }: RoadmapNodeQuizProps) {
   const [isRetryableLoadError, setIsRetryableLoadError] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
-  const roadmapHref = `/roadmaps/${roadmapId}?nodeId=${nodeId}` as Route<string>;
+  const roadmapHref = `/roadmaps/${roadmapSlug}?node=${nodeSlug}` as Route<string>;
   const status = nodeDetail?.progress?.status ?? 'LOCKED';
   const isSkillNode = nodeDetail ? isSkillNodeType(nodeDetail.nodeType) : false;
   const answeredCount = quiz

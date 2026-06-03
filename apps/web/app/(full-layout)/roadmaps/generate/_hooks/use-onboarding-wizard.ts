@@ -1,9 +1,12 @@
+import type { Route } from 'next';
+
 import { toast } from '@repo/design-system/lib/toast';
 import { useRouter } from 'next/navigation';
 import { useCallback, useState } from 'react';
 
 import { type TimelineWarning } from '@/app/(full-layout)/roadmaps/generate/_types/onboarding';
 import { roadmapService } from '@/services/roadmap.service';
+import { buildRoadmapHref } from '@/utils/roadmap-url';
 
 export type WizardStep = 1 | 2 | 'loading' | 'success' | 'error';
 
@@ -29,6 +32,7 @@ export function useOnboardingWizard() {
   const [generationError, setGenerationError] = useState(false);
   const [timelineWarning, setTimelineWarning] = useState<TimelineWarning | undefined>();
   const [generatedRoadmapId, setGeneratedRoadmapId] = useState<string | undefined>();
+  const [generatedRoadmapTitle, setGeneratedRoadmapTitle] = useState<string | undefined>();
 
   const nextStep = useCallback(() => {
     setStep((prev) => (prev === 1 ? 2 : prev));
@@ -43,12 +47,16 @@ export function useOnboardingWizard() {
     setGenerationError(false);
     setTimelineWarning(undefined);
     setGeneratedRoadmapId(undefined);
+    setGeneratedRoadmapTitle(undefined);
   }, []);
 
   const submitGenerate = useCallback(async () => {
     setStep('loading');
     setIsGenerating(true);
     setGenerationError(false);
+    setTimelineWarning(undefined);
+    setGeneratedRoadmapId(undefined);
+    setGeneratedRoadmapTitle(undefined);
 
     try {
       const formattedQuizAnswers = Object.entries(quizAnswers).map(([question, answer]) => ({
@@ -64,7 +72,13 @@ export function useOnboardingWizard() {
         quizAnswers: formattedQuizAnswers,
       });
 
+      const generatedTitle =
+        typeof result.roadmap.title === 'string' && result.roadmap.title.trim()
+          ? result.roadmap.title
+          : stepOneData.goal;
+
       setGeneratedRoadmapId(result.roadmap.id);
+      setGeneratedRoadmapTitle(generatedTitle);
 
       if (result.timelineWarning) {
         setTimelineWarning(result.timelineWarning);
@@ -78,7 +92,9 @@ export function useOnboardingWizard() {
       setStep('success');
 
       setTimeout(() => {
-        router.push(`/roadmaps/${result.roadmap.id}`);
+        router.push(
+          buildRoadmapHref({ id: result.roadmap.id, title: generatedTitle }) as Route<string>,
+        );
       }, 2000);
     } catch (error) {
       console.error('Failed to generate roadmap', error);
@@ -105,5 +121,6 @@ export function useOnboardingWizard() {
     generationError,
     timelineWarning,
     generatedRoadmapId,
+    generatedRoadmapTitle,
   };
 }

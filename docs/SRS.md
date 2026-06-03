@@ -74,6 +74,8 @@ Within the current project scope, RMap focuses on these core capabilities:
 | **FR-11** | Filter & search          | Filter by status (Completed / In Progress / Locked) and by type (Required / Optional) for authenticated learner views. Anonymous public template previews support content browsing without status filtering. Search by skill name in the roadmap.                                                                                                                            |
 | **FR-12** | Skill detail (Sidebar)   | Clicking a required, optional, or milestone node opens a sidebar with skill description, resource list (1-2 primary links, prioritize free resources), prerequisites, and related milestone/project details. GROUP nodes do not open the skill detail sidebar. Anonymous public template previews expose read-only node content only.                                        |
 
+Roadmap detail URLs use readable frontend slugs in the form `/roadmaps/{roadmap-title}-{encodedRoadmapId}`. Node detail drawer state uses the query parameter `node={node-name}-{encodedNodeId}`, and post-node quiz pages use `/roadmaps/{roadmapSlug}/nodes/{nodeSlug}/quiz`. The encoded ID suffix is decoded by the web frontend before API calls; backend resources and APIs remain UUID-addressed and do not consume the cosmetic slug text.
+
 ---
 
 ### **2.4. Module: Progress Tracking**

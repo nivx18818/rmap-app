@@ -1,10 +1,10 @@
 import {
   Delete02Icon,
-  Download01Icon,
+  // Download01Icon,
   PlayIcon,
   Refresh01Icon,
-  SaveIcon,
-  Share01Icon,
+  // SaveIcon,
+  // Share01Icon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -43,7 +43,7 @@ export function HeroActions({
   onRecreateRoadmap,
   onStartLearning,
 }: HeroActionsProps) {
-  const isMobile = useIsMobile();
+  // const isMobile = useIsMobile();
   const [isRecreateDialogOpen, setIsRecreateDialogOpen] = useState(false);
   const [isStartDialogOpen, setIsStartDialogOpen] = useState(false);
 
@@ -143,18 +143,20 @@ export function HeroActions({
     );
   }
 
-  return (
-    <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-center">
-      <Button variant="outline" size="icon" className="h-10 w-full shadow-sm sm:w-10">
-        <HugeiconsIcon className="size-4" icon={SaveIcon} />
-      </Button>
-      <Button variant="outline" className="h-10 shadow-sm">
-        {!isMobile && 'Download'}
-        <HugeiconsIcon className="ml-2 size-4" icon={Download01Icon} />
-      </Button>
-      <Button variant="outline" size="icon" className="h-10 w-full shadow-sm sm:w-10">
-        <HugeiconsIcon className="size-4" icon={Share01Icon} />
-      </Button>
-    </div>
-  );
+  return null;
+
+  // return (
+  //   <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:items-center">
+  //     <Button variant="outline" size="icon" className="h-10 w-full shadow-sm sm:w-10">
+  //       <HugeiconsIcon className="size-4" icon={SaveIcon} />
+  //     </Button>
+  //     <Button variant="outline" className="h-10 shadow-sm">
+  //       {!isMobile && 'Download'}
+  //       <HugeiconsIcon className="ml-2 size-4" icon={Download01Icon} />
+  //     </Button>
+  //     <Button variant="outline" size="icon" className="h-10 w-full shadow-sm sm:w-10">
+  //       <HugeiconsIcon className="size-4" icon={Share01Icon} />
+  //     </Button>
+  //   </div>
+  // );
 }

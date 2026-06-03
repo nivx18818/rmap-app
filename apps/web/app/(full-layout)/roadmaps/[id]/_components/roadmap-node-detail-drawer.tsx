@@ -26,6 +26,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { LoadingState } from '@/components/shared/loading-state';
+import { buildRoadmapNodeQuizHref } from '@/utils/roadmap-url';
 
 import type { MilestoneSubmission, RoadmapNodeDetail } from '../_types/roadmap-node-detail.types';
 import type { RoadmapNode } from '../_types/roadmap-node.types';
@@ -203,6 +204,7 @@ interface RoadmapNodeDetailDrawerProps {
   onOpenChange: (isOpen: boolean) => void;
   onProgressUpdated?: () => void;
   roadmapId: string;
+  roadmapTitle: string;
   roadmapNodes?: RoadmapNode[];
   selectedNodeId: string | null;
 }
@@ -455,6 +457,7 @@ function RoadmapNodeDetailActions({
   onMarkComplete,
   onSubmitMilestoneSubmission,
   roadmapId,
+  roadmapTitle,
 }: {
   actionErrorMessage: string | null;
   isMarkingComplete: boolean;
@@ -462,6 +465,7 @@ function RoadmapNodeDetailActions({
   onMarkComplete: () => void;
   onSubmitMilestoneSubmission: (payload: { repoUrl: string }) => Promise<void>;
   roadmapId: string;
+  roadmapTitle: string;
 }) {
   const [isSubmittingMilestone, setIsSubmittingMilestone] = useState(false);
   const [repoUrl, setRepoUrl] = useState(nodeDetail.latestSubmission?.repoUrl ?? '');
@@ -469,7 +473,10 @@ function RoadmapNodeDetailActions({
   const isLeafNode = nodeDetail.nodeType === 'OPTIONAL' || nodeDetail.nodeType === 'REQUIRED';
   const isMilestone = nodeDetail.nodeType === 'MILESTONE';
   const latestSubmission = nodeDetail.latestSubmission;
-  const quizHref = `/roadmaps/${roadmapId}/nodes/${nodeDetail.id}/quiz` as Route<string>;
+  const quizHref = buildRoadmapNodeQuizHref({
+    node: { id: nodeDetail.id, name: nodeDetail.name },
+    roadmap: { id: roadmapId, title: roadmapTitle },
+  }) as Route<string>;
   const canTakeQuiz = isLeafNode && status === 'IN_PROGRESS';
   const canMarkComplete =
     status === 'IN_PROGRESS' && isLeafNode && nodeDetail.progress?.quizPassed === true;
@@ -597,6 +604,7 @@ export function RoadmapNodeDetailDrawer({
   onOpenChange,
   onProgressUpdated,
   roadmapId,
+  roadmapTitle,
   roadmapNodes = [],
   selectedNodeId,
 }: RoadmapNodeDetailDrawerProps) {
@@ -680,6 +688,7 @@ export function RoadmapNodeDetailDrawer({
               isMarkingComplete={isMarkingComplete}
               nodeDetail={nodeDetail}
               roadmapId={roadmapId}
+              roadmapTitle={roadmapTitle}
               onMarkComplete={markComplete}
               onSubmitMilestoneSubmission={submitMilestoneSubmission}
             />

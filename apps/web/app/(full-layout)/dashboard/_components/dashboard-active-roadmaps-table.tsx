@@ -45,6 +45,8 @@ import { Tabs, TabsList, TabsTrigger } from '@repo/design-system/components/ui/t
 import Link from 'next/link';
 import { useState } from 'react';
 
+import { buildRoadmapHref } from '@/utils/roadmap-url';
+
 import type { DashboardRoadmap } from '../_types/dashboard.types';
 
 import { useRoadmapTable } from '../_hooks/use-roadmap-table';
@@ -161,6 +163,10 @@ export function DashboardActiveRoadmapsTable({
                   {pagedRoadmaps.map((roadmap) => {
                     const progress = clampPercent(roadmap.completionPct);
                     const isSelected = roadmap.roadmapId === selectedRoadmapId;
+                    const roadmapHref = buildRoadmapHref({
+                      id: roadmap.roadmapId,
+                      title: roadmap.title,
+                    }) as Route<string>;
 
                     return (
                       <TableRow
@@ -171,10 +177,7 @@ export function DashboardActiveRoadmapsTable({
                       >
                         <TableCell className="min-w-40 pl-4 md:min-w-72">
                           <div className="flex min-w-0 flex-col gap-1">
-                            <Link
-                              className="w-fit"
-                              href={`/roadmaps/${roadmap.roadmapId}` as Route<string>}
-                            >
+                            <Link className="w-fit" href={roadmapHref}>
                               <span className="text-foreground truncate font-semibold hover:underline">
                                 {roadmap.title}
                               </span>

@@ -57,6 +57,7 @@ describe('AuthController', () => {
       ),
     ).resolves.toEqual({ message: 'Login successful' });
 
+    expect(response.clearCookie).toHaveBeenCalledWith('access_token', expect.any(Object));
     expect(response.cookie).toHaveBeenCalledWith(
       'access_token',
       'access-token',
@@ -88,6 +89,7 @@ describe('AuthController', () => {
 
     expect(refreshTokenService.revokeByToken).toHaveBeenCalledWith('old-refresh-token');
     expect(authService.refresh).toHaveBeenCalledWith('user-1', 'learner@example.test');
+    expect(response.clearCookie).toHaveBeenCalledWith('access_token', expect.any(Object));
     expect(response.cookie).toHaveBeenCalledWith(
       'access_token',
       'new-access-token',

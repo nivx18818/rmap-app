@@ -2,7 +2,7 @@
 import type { TestingModule } from '@nestjs/testing';
 
 import { Test } from '@nestjs/testing';
-import { UserRole, type User } from '@repo/db/prisma/client';
+import { OAuthProvider, UserRole, type User } from '@repo/db/prisma/client';
 import { PrismaClientKnownRequestError } from '@repo/db/prisma/internal/prismaNamespace';
 
 import { EmailAlreadyExistsException } from '@/common/exceptions/app.exceptions';
@@ -107,6 +107,106 @@ describe('UserService', () => {
       mockCtx.prisma.user.create.mockRejectedValue(error);
 
       await expect(service.create(createUserDto)).rejects.toThrow(EmailAlreadyExistsException);
+    });
+  });
+
+  describe('createWithOAuth', () => {
+    it('should create a user with a linked OAuth account and no password hash', async () => {
+      const createUserDto = { email: 'oauth@example.com', fullName: 'OAuth User' };
+      const oauth = {
+        provider: OAuthProvider.GOOGLE,
+        providerAccountId: 'google-123',
+        providerEmail: 'oauth@example.com',
+      };
+      const mockUser = makeUser({ ...createUserDto, passwordHash: null });
+      mockCtx.prisma.user.create.mockResolvedValue(mockUser);
+
+      const result = await service.createWithOAuth(createUserDto, oauth);
+
+      expect(prismaService.user.create).toHaveBeenCalledWith({
+        data: {
+          ...createUserDto,
+          passwordHash: null,
+          oauthAccounts: {
+            create: {
+              provider: OAuthProvider.GOOGLE,
+              providerAccountId: 'google-123',
+              providerEmail: 'oauth@example.com',
+            },
+          },
+        },
+      });
+      expect(result).toEqual(mockUser);
+    });
+  });
+
+  describe('findByOAuthAccount', () => {
+    it('should return the linked user if the OAuth account exists', async () => {
+      const mockUser = makeUser();
+      mockCtx.prisma.oAuthAccount.findUnique.mockResolvedValue({
+        user: mockUser,
+      } as unknown as Awaited<ReturnType<typeof prismaService.oAuthAccount.findUnique>>);
+
+      const result = await service.findByOAuthAccount({
+        provider: OAuthProvider.GITHUB,
+        providerAccountId: 'github-123',
+      });
+
+      expect(prismaService.oAuthAccount.findUnique).toHaveBeenCalledWith({
+        where: {
+          provider_providerAccountId: {
+            provider: OAuthProvider.GITHUB,
+            providerAccountId: 'github-123',
+          },
+        },
+        include: { user: true },
+      });
+      expect(result).toEqual(mockUser);
+    });
+  });
+
+  describe('linkOAuthAccount', () => {
+    it('should link an OAuth account to an existing user', async () => {
+      const mockUser = makeUser();
+      mockCtx.prisma.user.findUnique.mockResolvedValue(mockUser);
+
+      const result = await service.linkOAuthAccount('1', {
+        provider: OAuthProvider.GOOGLE,
+        providerAccountId: 'google-123',
+        providerEmail: 'test@example.com',
+      });
+
+      expect(prismaService.oAuthAccount.create).toHaveBeenCalledWith({
+        data: {
+          provider: OAuthProvider.GOOGLE,
+          providerAccountId: 'google-123',
+          providerEmail: 'test@example.com',
+          userId: '1',
+        },
+      });
+      expect(result).toEqual(mockUser);
+    });
+
+    it('should return the existing linked user if OAuth account linking races', async () => {
+      const mockUser = makeUser();
+      const error = new PrismaClientKnownRequestError('P2002', {
+        code: 'P2002',
+        clientVersion: '1.0',
+        meta: { target: ['provider', 'providerAccountId'] },
+      });
+
+      mockCtx.prisma.oAuthAccount.create.mockRejectedValue(error);
+      mockCtx.prisma.oAuthAccount.findUnique.mockResolvedValue({
+        user: mockUser,
+      } as unknown as Awaited<ReturnType<typeof prismaService.oAuthAccount.findUnique>>);
+
+      const result = await service.linkOAuthAccount('1', {
+        provider: OAuthProvider.GITHUB,
+        providerAccountId: 'github-123',
+        providerEmail: 'test@example.com',
+      });
+
+      expect(result).toEqual(mockUser);
     });
   });
 

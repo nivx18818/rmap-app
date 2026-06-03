@@ -4,7 +4,7 @@ import type { User } from '@repo/db/prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
-import { UserRole } from '@repo/db/prisma/client';
+import { OAuthProvider, UserRole } from '@repo/db/prisma/client';
 import * as bcrypt from 'bcrypt';
 
 import {
@@ -34,7 +34,10 @@ describe('AuthService', () => {
 
   const userService = {
     create: jest.fn(),
+    createWithOAuth: jest.fn(),
     findByEmail: jest.fn(),
+    findByOAuthAccount: jest.fn(),
+    linkOAuthAccount: jest.fn(),
   };
   const jwtService = {
     signAsync: jest.fn(),
@@ -42,6 +45,7 @@ describe('AuthService', () => {
   const configService = {
     get: jest.fn((key: string, fallback?: string) => {
       const values: Record<string, string> = {
+        CLIENT_URL: 'http://localhost:3000',
         JWT_EXPIRES_IN: '15m',
         JWT_REFRESH_EXPIRES_IN: '7d',
         JWT_REFRESH_SECRET: 'refresh-secret',
@@ -171,6 +175,129 @@ describe('AuthService', () => {
     await expect(
       service.login({ email: 'learner@example.test', password: 'WrongPassword1!' }),
     ).rejects.toThrow(InvalidCredentialsException);
+  });
+
+  it('rejects password login for OAuth-only users', async () => {
+    userService.findByEmail.mockResolvedValue(makeUser({ passwordHash: null }));
+
+    await expect(
+      service.login({ email: 'learner@example.test', password: 'CorrectHorseBattery1!' }),
+    ).rejects.toThrow(InvalidCredentialsException);
+  });
+
+  it('logs in with an existing OAuth account', async () => {
+    userService.findByOAuthAccount.mockResolvedValue(makeUser({ id: 'oauth-user-1' }));
+
+    const result = await service.loginWithOAuth({
+      email: 'learner@example.test',
+      emailVerified: true,
+      fullName: 'Learner One',
+      provider: OAuthProvider.GOOGLE,
+      providerAccountId: 'google-123',
+    });
+
+    expect(result).toEqual(['access-token', 'refresh-token']);
+    expect(userService.findByOAuthAccount).toHaveBeenCalledWith({
+      provider: OAuthProvider.GOOGLE,
+      providerAccountId: 'google-123',
+      providerEmail: 'learner@example.test',
+    });
+    expect(userService.findByEmail).not.toHaveBeenCalled();
+    expect(userService.createWithOAuth).not.toHaveBeenCalled();
+    expect(userService.linkOAuthAccount).not.toHaveBeenCalled();
+  });
+
+  it('links OAuth to an existing verified email user', async () => {
+    const existingUser = makeUser({ id: 'existing-user-1' });
+    userService.findByOAuthAccount.mockResolvedValue(null);
+    userService.findByEmail.mockResolvedValue(existingUser);
+    userService.linkOAuthAccount.mockResolvedValue(existingUser);
+
+    const result = await service.loginWithOAuth({
+      email: 'learner@example.test',
+      emailVerified: true,
+      fullName: 'Learner One',
+      provider: OAuthProvider.GITHUB,
+      providerAccountId: 'github-123',
+    });
+
+    expect(result).toEqual(['access-token', 'refresh-token']);
+    expect(userService.createWithOAuth).not.toHaveBeenCalled();
+    expect(userService.linkOAuthAccount).toHaveBeenCalledWith('existing-user-1', {
+      provider: OAuthProvider.GITHUB,
+      providerAccountId: 'github-123',
+      providerEmail: 'learner@example.test',
+    });
+  });
+
+  it('creates a user and OAuth account for a new verified email', async () => {
+    const createdUser = makeUser({
+      email: 'new-oauth@example.test',
+      fullName: 'New OAuth User',
+      id: 'new-oauth-user-1',
+      passwordHash: null,
+    });
+    userService.findByOAuthAccount.mockResolvedValue(null);
+    userService.findByEmail.mockResolvedValue(null);
+    userService.createWithOAuth.mockResolvedValue(createdUser);
+
+    const result = await service.loginWithOAuth({
+      email: 'new-oauth@example.test',
+      emailVerified: true,
+      fullName: 'New OAuth User',
+      provider: OAuthProvider.GOOGLE,
+      providerAccountId: 'google-456',
+    });
+
+    expect(result).toEqual(['access-token', 'refresh-token']);
+    expect(userService.createWithOAuth).toHaveBeenCalledWith(
+      {
+        email: 'new-oauth@example.test',
+        fullName: 'New OAuth User',
+      },
+      {
+        provider: OAuthProvider.GOOGLE,
+        providerAccountId: 'google-456',
+        providerEmail: 'new-oauth@example.test',
+      },
+    );
+  });
+
+  it('rejects OAuth profiles without a verified email', async () => {
+    await expect(
+      service.loginWithOAuth({
+        email: 'learner@example.test',
+        emailVerified: false,
+        fullName: 'Learner One',
+        provider: OAuthProvider.GOOGLE,
+        providerAccountId: 'google-123',
+      }),
+    ).rejects.toThrow(InvalidCredentialsException);
+
+    await expect(
+      service.loginWithOAuth({
+        email: '',
+        emailVerified: true,
+        fullName: 'Learner One',
+        provider: OAuthProvider.GITHUB,
+        providerAccountId: 'github-123',
+      }),
+    ).rejects.toThrow(InvalidCredentialsException);
+  });
+
+  it('builds safe OAuth success and failure redirect URLs', () => {
+    expect(service.getOAuthRedirectUrl('/roadmaps/generate?template=frontend')).toBe(
+      'http://localhost:3000/roadmaps/generate?template=frontend',
+    );
+    expect(service.getOAuthRedirectUrl('https://evil.example/phish')).toBe(
+      'http://localhost:3000/',
+    );
+    expect(service.getOAuthFailureRedirectUrl('/dashboard?tab=progress')).toBe(
+      'http://localhost:3000/sign-in?error=oauth_failed&callbackUrl=%2Fdashboard%3Ftab%3Dprogress',
+    );
+    expect(service.getOAuthFailureRedirectUrl('/')).toBe(
+      'http://localhost:3000/sign-in?error=oauth_failed',
+    );
   });
 
   it('refreshes tokens for an existing session identity', async () => {

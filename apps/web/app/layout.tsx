@@ -7,7 +7,7 @@ import '@repo/design-system/styles/globals.css';
 import '@xyflow/react/dist/style.css';
 
 import { AuthProvider } from '@/components/providers/auth-provider';
-import { authServerData } from '@/data/auth-server';
+import { authServerData } from '@/server-fetcher/auth-server';
 
 export const metadata: Metadata = {
   title: 'RMap',

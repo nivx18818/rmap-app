@@ -16,7 +16,9 @@ export function getCookieHeader(response: Response, cookieNames: string[]): stri
 
   return cookieNames
     .map((cookieName) => {
-      const cookie = cookies.find((value) => value.startsWith(`${cookieName}=`));
+      const cookie = cookies.find(
+        (value) => value.startsWith(`${cookieName}=`) && !value.toLowerCase().includes('max-age=0'),
+      );
 
       if (!cookie) {
         throw new Error(`Missing ${cookieName} cookie`);

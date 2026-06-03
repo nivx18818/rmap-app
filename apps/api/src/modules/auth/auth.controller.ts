@@ -41,6 +41,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const [accessToken, refreshToken] = await this.authService.login(loginDto);
+    res.clearCookie('access_token', CLEAR_COOKIE_OPTIONS);
     res.cookie('access_token', accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
     res.clearCookie('refresh_token', CLEAR_COOKIE_OPTIONS);
     res.clearCookie('refresh_token', LEGACY_REFRESH_TOKEN_CLEAR_COOKIE_OPTIONS);
@@ -78,6 +79,7 @@ export class AuthController {
 
     const [accessToken, refreshToken] = await this.authService.refresh(user.id, user.email);
 
+    res.clearCookie('access_token', CLEAR_COOKIE_OPTIONS);
     res.cookie('access_token', accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
     res.clearCookie('refresh_token', CLEAR_COOKIE_OPTIONS);
     res.clearCookie('refresh_token', LEGACY_REFRESH_TOKEN_CLEAR_COOKIE_OPTIONS);

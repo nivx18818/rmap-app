@@ -1,16 +1,24 @@
 # dependencies
+node_modules
 **/node_modules
 .pnpm-store
+**/.pnpm-store
 .pnp
 .pnp.js
 
 # build outputs
 .next
+**/.next
 dist
+**/dist
 build
+**/build
 out
+**/out
 .turbo
+**/.turbo
 coverage
+**/coverage
 
 # env files
 .env

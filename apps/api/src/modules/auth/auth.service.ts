@@ -16,11 +16,13 @@ import type { ForgotPasswordDto } from './dto/forgot-password.dto';
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
 import type { ResetPasswordDto } from './dto/reset-password.dto';
+import type { OAuthProfile } from './types/oauth-profile.type';
 
 import { UserService } from '../user/user.service';
 import { PasswordResetDeliveryService } from './password-reset-delivery.service';
 import { PasswordResetTokenService } from './password-reset-token.service';
 import { RefreshTokenService } from './refresh-token.service';
+import { normalizeOAuthCallbackPath } from './utils/oauth-callback';
 
 @Injectable()
 export class AuthService {
@@ -53,7 +55,7 @@ export class AuthService {
     return result;
   }
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto): Promise<[string, string]> {
     const { email, password } = loginDto;
 
     const user = await this.userService.findByEmail(email);
@@ -75,7 +77,49 @@ export class AuthService {
     return tokens;
   }
 
-  async refresh(userId: string, email: string) {
+  async loginWithOAuth(profile: OAuthProfile): Promise<[string, string]> {
+    if (!profile.email || !profile.emailVerified) {
+      throw new InvalidCredentialsException();
+    }
+
+    const oauthAccountInput = {
+      provider: profile.provider,
+      providerAccountId: profile.providerAccountId,
+      providerEmail: profile.email,
+    };
+    const existingOAuthUser = await this.userService.findByOAuthAccount(oauthAccountInput);
+
+    if (existingOAuthUser) {
+      return await this.issueTokens({
+        email: existingOAuthUser.email,
+        sub: existingOAuthUser.id,
+      });
+    }
+
+    const existingEmailUser = await this.userService.findByEmail(profile.email);
+    let user =
+      existingEmailUser ??
+      (await this.userService.createWithOAuth(
+        {
+          email: profile.email,
+          fullName: profile.fullName,
+        },
+        oauthAccountInput,
+      ));
+
+    if (existingEmailUser) {
+      user =
+        (await this.userService.linkOAuthAccount(existingEmailUser.id, oauthAccountInput)) ??
+        existingEmailUser;
+    }
+
+    return await this.issueTokens({
+      email: user.email,
+      sub: user.id,
+    });
+  }
+
+  async refresh(userId: string, email: string): Promise<[string, string]> {
     const payload = { sub: userId, email };
     const tokens = await this.issueTokens(payload);
     return tokens;
@@ -121,7 +165,27 @@ export class AuthService {
     await this.refreshTokenService.revokeAllByUser(userId);
   }
 
-  private async issueTokens(payload: { sub: string; email: string }) {
+  getOAuthRedirectUrl(callbackUrl: unknown) {
+    const clientUrl = this.getClientUrl();
+    const callbackPath = normalizeOAuthCallbackPath(callbackUrl, this.getOAuthCallbackUrlBase());
+
+    return new URL(callbackPath, clientUrl).toString();
+  }
+
+  getOAuthFailureRedirectUrl(callbackUrl: unknown) {
+    const clientUrl = this.getClientUrl();
+    const callbackPath = normalizeOAuthCallbackPath(callbackUrl, this.getOAuthCallbackUrlBase());
+    const signInUrl = new URL('/sign-in', clientUrl);
+
+    signInUrl.searchParams.set('error', 'oauth_failed');
+    if (callbackPath !== '/') {
+      signInUrl.searchParams.set('callbackUrl', callbackPath);
+    }
+
+    return signInUrl.toString();
+  }
+
+  private async issueTokens(payload: { sub: string; email: string }): Promise<[string, string]> {
     const refreshPayload = { ...payload, jti: randomUUID() };
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
@@ -139,6 +203,14 @@ export class AuthService {
     await this.refreshTokenService.create(payload.sub, refreshToken, expiresAt);
 
     return [accessToken, refreshToken];
+  }
+
+  private getClientUrl(): string {
+    return this.configService.get<string>('CLIENT_URL') ?? 'http://localhost:3000';
+  }
+
+  private getOAuthCallbackUrlBase(): string {
+    return this.configService.get<string>('CALL_BACK_URL_BASE') ?? this.getClientUrl();
   }
 
   private async hashPassword(password: string) {

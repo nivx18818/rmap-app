@@ -5,6 +5,7 @@ import { Body, Controller, Post, HttpCode, HttpStatus, UseGuards, Res, Req } fro
 import {
   ACCESS_TOKEN_COOKIE_OPTIONS,
   CLEAR_COOKIE_OPTIONS,
+  LEGACY_REFRESH_TOKEN_CLEAR_COOKIE_OPTIONS,
   REFRESH_TOKEN_COOKIE_OPTIONS,
 } from '@/common/constants/cookie-config';
 import { Public } from '@/common/decorators/public.decorator';
@@ -41,6 +42,8 @@ export class AuthController {
   async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
     const [accessToken, refreshToken] = await this.authService.login(loginDto);
     res.cookie('access_token', accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
+    res.clearCookie('refresh_token', CLEAR_COOKIE_OPTIONS);
+    res.clearCookie('refresh_token', LEGACY_REFRESH_TOKEN_CLEAR_COOKIE_OPTIONS);
     res.cookie('refresh_token', refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
     return { message: 'Login successful' };
   }
@@ -76,6 +79,8 @@ export class AuthController {
     const [accessToken, refreshToken] = await this.authService.refresh(user.id, user.email);
 
     res.cookie('access_token', accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);
+    res.clearCookie('refresh_token', CLEAR_COOKIE_OPTIONS);
+    res.clearCookie('refresh_token', LEGACY_REFRESH_TOKEN_CLEAR_COOKIE_OPTIONS);
     res.cookie('refresh_token', refreshToken, REFRESH_TOKEN_COOKIE_OPTIONS);
 
     return { message: 'Token refreshed' };
@@ -86,7 +91,8 @@ export class AuthController {
   async logout(@CurrentUser() user: RequestUser, @Res({ passthrough: true }) res: Response) {
     await this.authService.logout(user.id);
     res.clearCookie('access_token', CLEAR_COOKIE_OPTIONS);
-    res.clearCookie('refresh_token', { ...CLEAR_COOKIE_OPTIONS, path: '/api/v1/auth/refresh' });
+    res.clearCookie('refresh_token', CLEAR_COOKIE_OPTIONS);
+    res.clearCookie('refresh_token', LEGACY_REFRESH_TOKEN_CLEAR_COOKIE_OPTIONS);
     return { message: 'Logged out successfully' };
   }
 }

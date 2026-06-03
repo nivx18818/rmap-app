@@ -422,6 +422,11 @@ export async function seedPassedMilestoneSubmission(
   prisma: PrismaService,
   options: { milestoneNodeId: string; userId: string },
 ): Promise<void> {
+  const testResults = Array.from({ length: 6 }, (_value, index) => ({
+    name: `Integration test ${index + 1}`,
+    passed: true,
+    message: `Integration test ${index + 1} passed.`,
+  }));
   const testSuite = await prisma.milestoneTestSuite.create({
     data: {
       generatedAt: new Date('2026-05-02T00:00:00.000Z'),
@@ -433,8 +438,11 @@ export async function seedPassedMilestoneSubmission(
         name: `Integration test ${index + 1}`,
         description: `Checks integration milestone requirement ${index + 1}`,
       })),
-      testFileContent:
-        'console.log(\'RMAP_MILESTONE_RESULTS:{"totalTests":6,"passedTests":6,"tests":[]}\');',
+      testFileContent: `console.log('RMAP_MILESTONE_RESULTS:${JSON.stringify({
+        totalTests: 6,
+        passedTests: 6,
+        tests: testResults,
+      })}');`,
       title: 'Integration Milestone Suite',
     },
   });
@@ -450,6 +458,7 @@ export async function seedPassedMilestoneSubmission(
       roadmapNodeId: options.milestoneNodeId,
       status: MilestoneSubmissionStatus.PASSED,
       testCommand: 'node .rmap/milestone-test.mjs',
+      testResults,
       testSuiteId: testSuite.id,
       totalTests: 6,
       userId: options.userId,

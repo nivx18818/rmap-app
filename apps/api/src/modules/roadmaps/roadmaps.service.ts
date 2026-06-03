@@ -55,6 +55,7 @@ import type {
   LatestMilestoneSubmissionResponse,
   MilestoneSubmissionEnvelopeResponse,
   MilestoneSubmissionResponse,
+  MilestoneSubmissionTestResultResponse,
   RoadmapNodeWithUserProgressResponse,
   RoadmapNodesListResponse,
   StartRoadmapResponse,
@@ -96,6 +97,8 @@ const MILESTONE_TEST_FILE_NAME = 'milestone-test.mjs';
 const MILESTONE_TEST_FILE_RELATIVE_PATH = `${MILESTONE_TEST_FILE_DIRECTORY}/${MILESTONE_TEST_FILE_NAME}`;
 const MILESTONE_GENERATED_TEST_COMMAND = `node ${MILESTONE_TEST_FILE_RELATIVE_PATH}`;
 const MILESTONE_RESULT_MARKER = 'RMAP_MILESTONE_RESULTS:';
+const MILESTONE_TEST_RESULT_NAME_LIMIT = 200;
+const MILESTONE_TEST_RESULT_MESSAGE_LIMIT = 1_000;
 const MILESTONE_EXECUTION_TIMEOUT_MS = 120_000;
 const MILESTONE_OUTPUT_LOG_LIMIT = 20_000;
 const MILESTONE_SANDBOX_IMAGE = 'node:22-alpine';
@@ -144,6 +147,7 @@ const MILESTONE_SUBMISSION_SELECT = {
   outputLog: true,
   passRatePct: true,
   passedTests: true,
+  testResults: true,
   totalTests: true,
   attemptNumber: true,
   createdAt: true,
@@ -216,6 +220,7 @@ type MilestoneSubmissionRecord = {
   outputLog: string | null;
   passRatePct: Prisma.Decimal | number | null;
   passedTests: number | null;
+  testResults: Prisma.JsonValue | null;
   totalTests: number | null;
   attemptNumber: number;
   createdAt: Date;
@@ -245,6 +250,7 @@ type MilestoneTestSuiteInput = {
 type MilestoneTestResult = {
   passRatePct: number;
   passedTests: number;
+  testResults: MilestoneSubmissionTestResultResponse[];
   totalTests: number;
 };
 
@@ -1396,11 +1402,38 @@ export class RoadmapsService {
       outputLog: submission.outputLog,
       passRatePct: toNumberOrNull(submission.passRatePct),
       passedTests: submission.passedTests,
+      testResults: this.parseStoredMilestoneTestResults(submission.testResults),
       totalTests: submission.totalTests,
       attemptNumber: submission.attemptNumber,
       createdAt: submission.createdAt.toISOString(),
       completedAt: submission.completedAt?.toISOString() ?? null,
     };
+  }
+
+  private parseStoredMilestoneTestResults(
+    value: Prisma.JsonValue | null,
+  ): MilestoneSubmissionTestResultResponse[] | null {
+    if (!Array.isArray(value)) {
+      return null;
+    }
+
+    const testResults: MilestoneSubmissionTestResultResponse[] = [];
+
+    for (const item of value) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        return null;
+      }
+
+      const { message, name, passed } = item as Record<string, unknown>;
+
+      if (typeof name !== 'string' || typeof passed !== 'boolean' || typeof message !== 'string') {
+        return null;
+      }
+
+      testResults.push({ message, name, passed });
+    }
+
+    return testResults;
   }
 
   private formatMilestoneTestSuite(suite: MilestoneTestSuiteRecord | null) {
@@ -1963,6 +1996,13 @@ export class RoadmapsService {
   ): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const now = new Date();
+      const testResultsJson = testResult
+        ? (testResult.testResults.map((test) => ({
+            message: test.message,
+            name: test.name,
+            passed: test.passed,
+          })) as Prisma.InputJsonValue)
+        : undefined;
       const submission = await tx.milestoneSubmission.update({
         where: { id: submissionId },
         data: {
@@ -1971,6 +2011,7 @@ export class RoadmapsService {
           passRatePct: testResult?.passRatePct,
           passedTests: testResult?.passedTests,
           status,
+          testResults: testResultsJson,
           totalTests: testResult?.totalTests,
         },
         select: {
@@ -2056,8 +2097,8 @@ export class RoadmapsService {
       return null;
     }
 
-    const result = parsed as { passedTests?: unknown; totalTests?: unknown };
-    const { passedTests, totalTests } = result;
+    const result = parsed as { passedTests?: unknown; tests?: unknown; totalTests?: unknown };
+    const { passedTests, tests, totalTests } = result;
 
     if (
       typeof passedTests !== 'number' ||
@@ -2066,16 +2107,66 @@ export class RoadmapsService {
       !Number.isInteger(totalTests) ||
       totalTests !== MILESTONE_TEST_SUITE_CASE_COUNT ||
       passedTests < 0 ||
-      passedTests > totalTests
+      passedTests > totalTests ||
+      !Array.isArray(tests) ||
+      tests.length !== MILESTONE_TEST_SUITE_CASE_COUNT
     ) {
+      return null;
+    }
+
+    const testResults: MilestoneSubmissionTestResultResponse[] = [];
+
+    for (const test of tests) {
+      if (!test || typeof test !== 'object' || Array.isArray(test)) {
+        return null;
+      }
+
+      const { message, name, passed } = test as Record<string, unknown>;
+
+      if (typeof name !== 'string' || typeof passed !== 'boolean' || typeof message !== 'string') {
+        return null;
+      }
+
+      const sanitizedName = this.sanitizeMilestoneTestResultText(
+        name,
+        MILESTONE_TEST_RESULT_NAME_LIMIT,
+      );
+      const sanitizedMessage = this.sanitizeMilestoneTestResultText(
+        message,
+        MILESTONE_TEST_RESULT_MESSAGE_LIMIT,
+      );
+
+      if (sanitizedName.length === 0) {
+        return null;
+      }
+
+      testResults.push({
+        message: sanitizedMessage,
+        name: sanitizedName,
+        passed,
+      });
+    }
+
+    if (passedTests !== testResults.filter((test) => test.passed).length) {
       return null;
     }
 
     return {
       passRatePct: this.roundToTwo((passedTests / totalTests) * 100),
       passedTests,
+      testResults,
       totalTests,
     };
+  }
+
+  private sanitizeMilestoneTestResultText(value: string, limit: number): string {
+    const sanitized = value.replace(ANSI_ESCAPE_PATTERN, '').trim();
+
+    if (sanitized.length <= limit) {
+      return sanitized;
+    }
+
+    return `${sanitized.slice(0, limit - 3)}...`;
   }
 
   private formatMilestoneTestResultSummary(

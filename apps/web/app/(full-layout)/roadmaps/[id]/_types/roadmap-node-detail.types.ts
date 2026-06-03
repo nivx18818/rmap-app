@@ -18,6 +18,12 @@ export interface RoadmapNodePrerequisite {
   name: string;
 }
 
+export interface MilestoneSubmissionTestResult {
+  message: string;
+  name: string;
+  passed: boolean;
+}
+
 export interface MilestoneSubmission {
   id: string;
   repoUrl: string;
@@ -26,6 +32,7 @@ export interface MilestoneSubmission {
   outputLog: string | null;
   passRatePct: number | null;
   passedTests: number | null;
+  testResults: MilestoneSubmissionTestResult[] | null;
   totalTests: number | null;
   attemptNumber: number;
   createdAt: string;

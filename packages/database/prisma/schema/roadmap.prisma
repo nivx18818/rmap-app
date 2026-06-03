@@ -110,6 +110,7 @@ model MilestoneSubmission {
   outputLog     String?                   @map("output_log") @db.Text
   passRatePct   Decimal?                  @map("pass_rate_pct") @db.Decimal(5, 2)
   passedTests   Int?                      @map("passed_tests")
+  testResults   Json?                     @map("test_results")
   totalTests    Int?                      @map("total_tests")
   attemptNumber Int                       @default(1) @map("attempt_number")
   createdAt     DateTime                  @default(now()) @map("created_at")

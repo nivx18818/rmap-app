@@ -165,6 +165,7 @@ interface MilestoneSubmissionSelection {
   outputLog: string | null;
   passRatePct: number | null;
   passedTests: number | null;
+  testResults: Array<{ message: string; name: string; passed: boolean }> | null;
   totalTests: number | null;
   attemptNumber: number;
   createdAt: Date;
@@ -188,7 +189,12 @@ type CompleteMilestoneSubmission = (
   submissionId: string,
   status: MilestoneSubmissionStatus,
   outputLog: string,
-  testResult?: { passRatePct: number; passedTests: number; totalTests: number },
+  testResult?: {
+    passRatePct: number;
+    passedTests: number;
+    testResults: Array<{ message: string; name: string; passed: boolean }>;
+    totalTests: number;
+  },
 ) => Promise<void>;
 
 type RoadmapNodeFindFirstSelection = RoadmapNodeQuizSelection | RoadmapNodeDetailSelection;
@@ -258,6 +264,33 @@ const createDecimal = (value: number) => ({
   toString: () => value.toString(),
 });
 
+const makeMilestoneTestResults = (passedCount = 6) =>
+  Array.from({ length: 6 }, (_value, index) => ({
+    name: `Generated milestone test ${index + 1}`,
+    passed: index < passedCount,
+    message:
+      index < passedCount ? `Requirement ${index + 1} passed.` : `Requirement ${index + 1} failed.`,
+  }));
+
+const makeMilestoneResultPayload = (passedCount = 6) => ({
+  totalTests: 6,
+  passedTests: passedCount,
+  tests: makeMilestoneTestResults(passedCount),
+});
+
+const makeMilestoneResultMarkerFromPayload = (payload: unknown) =>
+  `RMAP_MILESTONE_RESULTS:${JSON.stringify(payload)}`;
+
+const makeMilestoneResultMarker = (passedCount = 6) =>
+  makeMilestoneResultMarkerFromPayload(makeMilestoneResultPayload(passedCount));
+
+const makeParsedMilestoneTestResult = (passedCount = 6) => ({
+  passRatePct: Number(((passedCount / 6) * 100).toFixed(2)),
+  passedTests: passedCount,
+  testResults: makeMilestoneTestResults(passedCount),
+  totalTests: 6,
+});
+
 const makeGeneratedQuizQuestions = () =>
   Array.from({ length: 8 }, (_, index) => ({
     questionText: `Generated question ${index + 1}?`,
@@ -275,8 +308,7 @@ const makeGeneratedMilestoneTestSuite = () => ({
     name: `Generated milestone test ${index + 1}`,
     description: `Verifies milestone requirement ${index + 1}.`,
   })),
-  testFileContent:
-    'console.log(\'RMAP_MILESTONE_RESULTS:{"totalTests":6,"passedTests":6,"tests":[]}\');',
+  testFileContent: `console.log('${makeMilestoneResultMarker(6)}');`,
 });
 
 const makeMilestoneTestSuite = (
@@ -291,8 +323,7 @@ const makeMilestoneTestSuite = (
     name: `Generated milestone test ${index + 1}`,
     description: `Verifies milestone requirement ${index + 1}.`,
   })),
-  testFileContent:
-    'console.log(\'RMAP_MILESTONE_RESULTS:{"totalTests":6,"passedTests":6,"tests":[]}\');',
+  testFileContent: `console.log('${makeMilestoneResultMarker(6)}');`,
   passThresholdPct: 80,
   generationStartedAt: null,
   generatedAt: new Date('2026-01-04T00:00:00Z'),
@@ -1583,6 +1614,7 @@ describe('RoadmapsService', () => {
               outputLog: 'ok',
               passRatePct: 100,
               passedTests: 6,
+              testResults: makeMilestoneTestResults(6),
               totalTests: 6,
               attemptNumber: 2,
               createdAt,
@@ -1602,6 +1634,7 @@ describe('RoadmapsService', () => {
         outputLog: 'ok',
         passRatePct: 100,
         passedTests: 6,
+        testResults: makeMilestoneTestResults(6),
         totalTests: 6,
         attemptNumber: 2,
         createdAt: createdAt.toISOString(),
@@ -2737,6 +2770,119 @@ describe('RoadmapsService', () => {
     });
   });
 
+  describe('milestone test result parsing', () => {
+    const parseMilestoneTestResult = () => {
+      const target = service as unknown as {
+        parseMilestoneTestResult: (
+          output: string,
+        ) => ReturnType<typeof makeParsedMilestoneTestResult> | null;
+      };
+
+      return target.parseMilestoneTestResult.bind(service);
+    };
+
+    it('should accept valid marker JSON with six detailed test results', () => {
+      const result = parseMilestoneTestResult()(`noise\n${makeMilestoneResultMarker(5)}\n`);
+
+      expect(result).toEqual(makeParsedMilestoneTestResult(5));
+    });
+
+    it('should reject missing marker output', () => {
+      expect(parseMilestoneTestResult()('generated tests completed without a marker')).toBeNull();
+    });
+
+    it('should reject invalid marker JSON', () => {
+      expect(parseMilestoneTestResult()('RMAP_MILESTONE_RESULTS:{not-json')).toBeNull();
+    });
+
+    it('should reject wrong total count', () => {
+      expect(
+        parseMilestoneTestResult()(
+          makeMilestoneResultMarkerFromPayload({
+            ...makeMilestoneResultPayload(5),
+            totalTests: 5,
+          }),
+        ),
+      ).toBeNull();
+    });
+
+    it('should reject pass count mismatches', () => {
+      expect(
+        parseMilestoneTestResult()(
+          makeMilestoneResultMarkerFromPayload({
+            ...makeMilestoneResultPayload(5),
+            passedTests: 6,
+          }),
+        ),
+      ).toBeNull();
+    });
+
+    it.each([
+      ['negative pass count', -1],
+      ['pass count above total', 7],
+      ['non-integer pass count', 4.5],
+    ])('should reject %s', (_label, passedTests) => {
+      expect(
+        parseMilestoneTestResult()(
+          makeMilestoneResultMarkerFromPayload({
+            ...makeMilestoneResultPayload(5),
+            passedTests,
+          }),
+        ),
+      ).toBeNull();
+    });
+
+    it.each([
+      [
+        'missing tests array',
+        {
+          totalTests: 6,
+          passedTests: 6,
+        },
+      ],
+      [
+        'wrong test entry count',
+        {
+          totalTests: 6,
+          passedTests: 5,
+          tests: makeMilestoneTestResults(5).slice(0, 5),
+        },
+      ],
+      [
+        'empty test name',
+        {
+          ...makeMilestoneResultPayload(5),
+          tests: [
+            { ...makeMilestoneTestResults(5)[0], name: ' ' },
+            ...makeMilestoneTestResults(5).slice(1),
+          ],
+        },
+      ],
+      [
+        'non-boolean passed value',
+        {
+          ...makeMilestoneResultPayload(5),
+          tests: [
+            { ...makeMilestoneTestResults(5)[0], passed: 'true' },
+            ...makeMilestoneTestResults(5).slice(1),
+          ],
+        },
+      ],
+      [
+        'non-string message',
+        {
+          ...makeMilestoneResultPayload(5),
+          tests: [
+            { ...makeMilestoneTestResults(5)[0], message: null },
+            ...makeMilestoneTestResults(5).slice(1),
+          ],
+        },
+      ],
+    ])('should reject malformed test entries: %s', (_label, payload) => {
+      expect(parseMilestoneTestResult()(makeMilestoneResultMarkerFromPayload(payload))).toBeNull();
+    });
+  });
+
   describe('submitMilestoneSubmission', () => {
     const nodeId = 'milestone-1';
     const roadmapId = 'roadmap-1';
@@ -2749,6 +2895,7 @@ describe('RoadmapsService', () => {
       outputLog: null,
       passRatePct: null,
       passedTests: null,
+      testResults: null,
       totalTests: null,
       attemptNumber: 3,
       createdAt,
@@ -2897,6 +3044,7 @@ describe('RoadmapsService', () => {
         outputLog: 'ok',
         passRatePct: 83.33,
         passedTests: 5,
+        testResults: makeMilestoneTestResults(5),
         totalTests: 6,
         attemptNumber: 1,
         createdAt,
@@ -2919,6 +3067,7 @@ describe('RoadmapsService', () => {
           outputLog: 'ok',
           passRatePct: 83.33,
           passedTests: 5,
+          testResults: makeMilestoneTestResults(5),
           totalTests: 6,
           attemptNumber: 1,
           createdAt: createdAt.toISOString(),
@@ -2962,11 +3111,14 @@ describe('RoadmapsService', () => {
         .mockResolvedValueOnce({ id: 'group-2' });
       txMock.userNodeProgress.findMany.mockResolvedValueOnce([{ roadmapNodeId: 'leaf-4' }]);
 
-      await completeMilestoneSubmission()('submission-1', MilestoneSubmissionStatus.PASSED, 'ok', {
-        passRatePct: 83.33,
-        passedTests: 5,
-        totalTests: 6,
-      });
+      const testResult = makeParsedMilestoneTestResult(5);
+
+      await completeMilestoneSubmission()(
+        'submission-1',
+        MilestoneSubmissionStatus.PASSED,
+        'ok',
+        testResult,
+      );
 
       expect(txMock.milestoneSubmission.update).toHaveBeenCalledWith(
         expectObjectContaining({
@@ -2974,6 +3126,7 @@ describe('RoadmapsService', () => {
             passRatePct: 83.33,
             passedTests: 5,
             status: MilestoneSubmissionStatus.PASSED,
+            testResults: testResult.testResults,
             totalTests: 6,
           }),
         }),
@@ -3004,11 +3157,14 @@ describe('RoadmapsService', () => {
         userId: MOCK_USER_ID,
       });
 
-      await completeMilestoneSubmission()('submission-1', MilestoneSubmissionStatus.FAILED, 'no', {
-        passRatePct: 66.67,
-        passedTests: 4,
-        totalTests: 6,
-      });
+      const testResult = makeParsedMilestoneTestResult(4);
+
+      await completeMilestoneSubmission()(
+        'submission-1',
+        MilestoneSubmissionStatus.FAILED,
+        'no',
+        testResult,
+      );
 
       expect(txMock.milestoneSubmission.update).toHaveBeenCalledWith(
         expectObjectContaining({
@@ -3016,6 +3172,7 @@ describe('RoadmapsService', () => {
             passRatePct: 66.67,
             passedTests: 4,
             status: MilestoneSubmissionStatus.FAILED,
+            testResults: testResult.testResults,
             totalTests: 6,
           }),
         }),

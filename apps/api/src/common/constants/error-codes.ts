@@ -47,7 +47,6 @@ export enum ErrorCode {
   CONFLICT = 40900,
   EMAIL_ALREADY_EXISTS = 40901,
   REFRESH_TOKEN_ALREADY_EXISTS = 40902,
-  ACTIVE_ROADMAP_LIMIT_EXCEEDED = 40903,
   // 429 - Too Many Requests
   RATE_LIMIT_EXCEEDED = 42900,
   TOO_MANY_MESSAGES = 42901,
@@ -114,8 +113,6 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.CONFLICT]: 'The resource is in a conflicting state',
   [ErrorCode.EMAIL_ALREADY_EXISTS]: 'Email already registered',
   [ErrorCode.REFRESH_TOKEN_ALREADY_EXISTS]: 'Refresh token already exists',
-  [ErrorCode.ACTIVE_ROADMAP_LIMIT_EXCEEDED]:
-    'You can only learn up to 5 active roadmaps at the same time',
   // 429 - Too Many Requests
   [ErrorCode.RATE_LIMIT_EXCEEDED]: 'Rate limit exceeded',
   [ErrorCode.TOO_MANY_MESSAGES]: 'Too many messages sent',

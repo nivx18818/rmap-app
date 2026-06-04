@@ -392,15 +392,6 @@ export class RefreshTokenAlreadyExistsException extends ConflictException {
   }
 }
 
-export class ActiveRoadmapLimitExceededException extends ConflictException {
-  constructor() {
-    super({
-      code: ErrorCode.ACTIVE_ROADMAP_LIMIT_EXCEEDED,
-      message: getErrorMessage(ErrorCode.ACTIVE_ROADMAP_LIMIT_EXCEEDED),
-    });
-  }
-}
-
 // ================
 // 429 - Rate Limit
 // ================
@@ -610,7 +601,6 @@ export const ErrorCodeToException = {
   [ErrorCode.CONFLICT]: AppConflictException,
   [ErrorCode.EMAIL_ALREADY_EXISTS]: EmailAlreadyExistsException,
   [ErrorCode.REFRESH_TOKEN_ALREADY_EXISTS]: RefreshTokenAlreadyExistsException,
-  [ErrorCode.ACTIVE_ROADMAP_LIMIT_EXCEEDED]: ActiveRoadmapLimitExceededException,
   // 429 - Too Many Requests
   [ErrorCode.RATE_LIMIT_EXCEEDED]: RateLimitExceededException,
   [ErrorCode.TOO_MANY_MESSAGES]: TooManyMessagesException,

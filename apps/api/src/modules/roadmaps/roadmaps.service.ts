@@ -111,41 +111,6 @@ export class RoadmapsService {
     return this.roadmapProgress.updateNodeProgress(userId, roadmapId, nodeId, dto);
   }
 
-  private async countActiveLearningRoadmaps(
-    tx: RoadmapTransaction,
-    userId: string,
-    excludedRoadmapId: string,
-  ): Promise<number> {
-    return tx.roadmap.count({
-      where: {
-        id: { not: excludedRoadmapId },
-        OR: [{ isTemplate: false, userId }, { isTemplate: true }],
-        nodes: {
-          some: {
-            userNodeProgress: {
-              some: {
-                userId,
-                startedAt: { not: null },
-              },
-            },
-          },
-        },
-        NOT: {
-          nodes: {
-            every: {
-              userNodeProgress: {
-                some: {
-                  userId,
-                  status: NodeStatus.COMPLETED,
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-  }
-
   async getByIdForOwner(userId: string, roadmapId: string): Promise<RoadmapResponseDto> {
     return this.roadmapQuery.getByIdForOwner(userId, roadmapId);
   }

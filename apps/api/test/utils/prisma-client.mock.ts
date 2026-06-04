@@ -77,3 +77,8 @@ export const UserRole = {
   USER: 'USER',
   ADMIN: 'ADMIN',
 } as const;
+
+export const OAuthProvider = {
+  GOOGLE: 'GOOGLE',
+  GITHUB: 'GITHUB',
+} as const;

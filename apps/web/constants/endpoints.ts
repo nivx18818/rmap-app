@@ -4,6 +4,10 @@ export const ENDPOINTS = {
   auth: {
     login: '/auth/login',
     logout: '/auth/logout',
+    oauth: {
+      github: '/auth/github',
+      google: '/auth/google',
+    },
     refresh: '/auth/refresh',
     register: '/auth/register',
   },

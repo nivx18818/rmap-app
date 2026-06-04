@@ -5,8 +5,8 @@ import { Suspense } from 'react';
 import { MaskBackground } from '@/components/shared/mask-background';
 import { RainbowBar } from '@/components/shared/rainbow-bar';
 
-import { RoadmapTemplatesLoader } from './roadmap-templates-loader';
-import { RoadmapTemplatesSkeleton } from './roadmap-templates-skeleton';
+import { RoadmapFeaturedTemplatesLoader } from './roadmap-featured-templates-loader';
+import { RoadmapFeaturedTemplatesSkeleton } from './roadmap-featured-templates-skeleton';
 
 export function RoadmapSection() {
   return (
@@ -53,8 +53,8 @@ export function RoadmapSection() {
           </div>
         </div>
 
-        <Suspense fallback={<RoadmapTemplatesSkeleton />}>
-          <RoadmapTemplatesLoader />
+        <Suspense fallback={<RoadmapFeaturedTemplatesSkeleton />}>
+          <RoadmapFeaturedTemplatesLoader />
         </Suspense>
       </SectionContainer>
     </section>

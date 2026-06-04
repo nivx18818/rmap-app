@@ -145,10 +145,11 @@ The following features are **not in the current version scope** but are intentio
 ### **3.2 Security**
 
 - **NFR-04:** All client-server data must be encrypted through HTTPS (SSL/TLS).
-- **NFR-05:** Passwords and refresh tokens must be hashed with bcrypt before being stored in the database.
+- **NFR-05:** Passwords must be stored only as secure password hashes, and refresh tokens
+  must be stored only as server-side hashes/HMAC digests, never as plaintext.
 - **NFR-06:** Gemini API key must never be exposed to the client - all AI calls must go through the backend.
 
-**Authentication deployment note:** In production, the browser calls the web origin at `/api/v1`, and Vercel rewrites those requests to the Render API service using `NEXT_PUBLIC_API_BASE_PATH=/api/v1` and `API_PROXY_ORIGIN=https://rmap-app-v13m.onrender.com`. JWT cookies are HttpOnly, Secure, and first-party cookies for the web origin; Render should use `CLIENT_URL=https://rmap-app.vercel.app`.
+**Authentication deployment note:** In production, the browser calls the web origin at `/api/v1`, and Vercel rewrites those requests to the Render API service using `NEXT_PUBLIC_API_BASE_PATH=/api/v1` and `API_PROXY_ORIGIN=https://rmap-app-v13m.onrender.com`. JWT cookies are HttpOnly, Secure, and first-party cookies for the web origin; Render should use `CLIENT_URL=https://rmap-app.vercel.app`. Refresh-token rotation keeps a short grace window for just-rotated tokens so concurrent browser/server refresh requests do not invalidate each other.
 
 ### **3.3 Usability**
 

@@ -11,6 +11,8 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service';
 
+export const REFRESH_TOKEN_ROTATION_GRACE_SECONDS = 10;
+
 @Injectable()
 export class RefreshTokenService {
   private readonly refreshTokenHashSecret: string;
@@ -44,10 +46,12 @@ export class RefreshTokenService {
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
-          const target = error.meta?.target as string[] | undefined;
-          const field = target?.[0];
+          const target = error.meta?.target;
 
-          if (field === 'token') {
+          if (
+            Array.isArray(target) &&
+            target.some((field) => ['token', 'tokenHash', 'token_hash'].includes(String(field)))
+          ) {
             throw new RefreshTokenAlreadyExistsException();
           }
         }
@@ -69,7 +73,34 @@ export class RefreshTokenService {
         userId,
         tokenHash,
         expiresAt: { gt: new Date() },
+        rotatedAt: null,
       },
+    });
+  }
+
+  async findValidForRefresh(userId: string, refreshToken: string) {
+    const tokenHash = this.hashToken(refreshToken);
+    const now = new Date();
+    const rotationGraceStartedAt = new Date(
+      now.getTime() - REFRESH_TOKEN_ROTATION_GRACE_SECONDS * 1000,
+    );
+
+    return await this.prisma.refreshToken.findFirst({
+      where: {
+        userId,
+        tokenHash,
+        expiresAt: { gt: now },
+        OR: [{ rotatedAt: null }, { rotatedAt: { gte: rotationGraceStartedAt } }],
+      },
+    });
+  }
+
+  async markRotatedByToken(refreshToken: string) {
+    const tokenHash = this.hashToken(refreshToken);
+
+    return await this.prisma.refreshToken.updateMany({
+      data: { rotatedAt: new Date() },
+      where: { rotatedAt: null, tokenHash },
     });
   }
 

@@ -19,32 +19,38 @@ export async function proxy(request: NextRequest) {
   const protectedRoutes = ['/dashboard', '/roadmaps/generate'];
   const authRoutes = ['/sign-in', '/sign-up'];
 
-  const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
-  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
+  const isProtectedRoute = protectedRoutes.some((route) => matchesRoute(pathname, route));
+  const isAuthRoute = authRoutes.some((route) => matchesRoute(pathname, route));
   const hasValidAccessToken = isAccessTokenUsable(token);
 
-  if (isProtectedRoute && !hasValidAccessToken) {
-    const refreshedResponse = await refreshSession(request, refreshToken);
-    if (refreshedResponse) {
-      return refreshedResponse;
-    }
-
-    const url = new URL('/sign-in', request.url);
-    url.searchParams.set('callbackUrl', pathname);
-    return NextResponse.redirect(url);
-  }
-
-  if (isAuthRoute) {
-    if (hasValidAccessToken) {
+  if (hasValidAccessToken) {
+    if (isAuthRoute) {
       return NextResponse.redirect(new URL('/', request.url));
     }
 
+    return NextResponse.next();
+  }
+
+  if (isAuthRoute) {
     const refreshedResponse = await refreshSession(request, refreshToken, {
       redirectTo: new URL('/', request.url),
     });
     if (refreshedResponse) {
       return refreshedResponse;
     }
+
+    return NextResponse.next();
+  }
+
+  const refreshedResponse = await refreshSession(request, refreshToken);
+  if (refreshedResponse) {
+    return refreshedResponse;
+  }
+
+  if (isProtectedRoute) {
+    const url = new URL('/sign-in', request.url);
+    url.searchParams.set('callbackUrl', pathname);
+    return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
@@ -109,6 +115,10 @@ function isAccessTokenUsable(token: string | undefined) {
   }
 
   return expiresAt > Math.floor(Date.now() / 1000) + EXPIRY_SKEW_SECONDS;
+}
+
+function matchesRoute(pathname: string, route: string) {
+  return pathname === route || pathname.startsWith(`${route}/`);
 }
 
 function getJwtExpiration(token: string) {
@@ -214,12 +224,5 @@ function mergeCookieHeader(cookieHeader: string, setCookieHeaders: string[]) {
 }
 
 export const config = {
-  matcher: [
-    '/dashboard',
-    '/dashboard/:path*',
-    '/roadmaps/generate',
-    '/roadmaps/generate/:path*',
-    '/sign-in',
-    '/sign-up',
-  ],
+  matcher: ['/((?!api|_next|.*\\..*).*)'],
 };

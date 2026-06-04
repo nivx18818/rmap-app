@@ -88,7 +88,7 @@ export function DashboardOverallProgress({ summary }: DashboardOverallProgressPr
           <HugeiconsIcon className="text-primary size-5" icon={Target02Icon} />
         </CardAction>
       </CardHeader>
-      <CardContent className="grid flex-1 gap-5 pb-5 sm:grid-cols-[minmax(180px,0.9fr)_minmax(0,1fr)] sm:items-center xl:grid-cols-1 2xl:grid-cols-[minmax(180px,0.9fr)_minmax(0,1fr)]">
+      <CardContent className="grid flex-1 gap-5 pb-5 sm:grid-cols-[minmax(180px,0.9fr)_minmax(0,1fr)] sm:items-center xl:grid-cols-1 xl:grid-cols-[minmax(180px,0.9fr)_minmax(0,1fr)]">
         <div className="relative mx-auto size-48">
           <svg className="size-full -rotate-90" role="img" viewBox="0 0 160 160">
             <circle

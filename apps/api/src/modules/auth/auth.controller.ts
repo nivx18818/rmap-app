@@ -72,11 +72,11 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const oldToken = cookieExtractor('REFRESH_TOKEN')(req);
-    if (oldToken) {
-      await this.refreshTokenService.revokeByToken(oldToken);
-    }
-
     const [accessToken, refreshToken] = await this.authService.refresh(user.id, user.email);
+
+    if (oldToken) {
+      await this.refreshTokenService.markRotatedByToken(oldToken);
+    }
 
     res.clearCookie('access_token', CLEAR_COOKIE_OPTIONS);
     res.cookie('access_token', accessToken, ACCESS_TOKEN_COOKIE_OPTIONS);

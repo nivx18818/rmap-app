@@ -30,7 +30,7 @@ describe('JwtRefreshStrategy', () => {
     get: jest.fn((key: string) => ({ JWT_REFRESH_SECRET: 'refresh-secret' })[key]),
   };
   const userService = { findById: jest.fn() };
-  const refreshTokenService = { findValid: jest.fn() };
+  const refreshTokenService = { findValidForRefresh: jest.fn() };
 
   afterEach(() => {
     jest.clearAllMocks();
@@ -59,17 +59,17 @@ describe('JwtRefreshStrategy', () => {
   });
 
   it('rejects refresh tokens that are not valid in storage', async () => {
-    refreshTokenService.findValid.mockResolvedValue(null);
+    refreshTokenService.findValidForRefresh.mockResolvedValue(null);
     const strategy = makeStrategy();
 
     await expect(
       strategy.validate(makeRequest(), { email: 'learner@example.test', sub: 'user-1' }),
     ).rejects.toThrow(RefreshTokenInvalidException);
-    expect(refreshTokenService.findValid).toHaveBeenCalledWith('user-1', 'refresh-token');
+    expect(refreshTokenService.findValidForRefresh).toHaveBeenCalledWith('user-1', 'refresh-token');
   });
 
   it('rejects valid refresh tokens for missing users', async () => {
-    refreshTokenService.findValid.mockResolvedValue({ id: 'refresh-1' });
+    refreshTokenService.findValidForRefresh.mockResolvedValue({ id: 'refresh-1' });
     userService.findById.mockResolvedValue(null);
     const strategy = makeStrategy();
 
@@ -80,7 +80,7 @@ describe('JwtRefreshStrategy', () => {
 
   it('returns the user for a valid stored refresh token', async () => {
     const user = makeUser();
-    refreshTokenService.findValid.mockResolvedValue({ id: 'refresh-1' });
+    refreshTokenService.findValidForRefresh.mockResolvedValue({ id: 'refresh-1' });
     userService.findById.mockResolvedValue(user);
     const strategy = makeStrategy();
 

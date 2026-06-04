@@ -61,9 +61,18 @@ describe('Auth session (integration)', () => {
 
     expect(refreshResponse.body).toEqual({ message: 'Token refreshed' });
 
+    const secondRefreshResponse = await request(integration.app.getHttpServer())
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', getCookieHeader(loginResponse, ['refresh_token']))
+      .expect(200);
+
+    expect(secondRefreshResponse.body).toEqual({ message: 'Token refreshed' });
+    expect(getSetCookie(secondRefreshResponse, 'access_token')).toContain('HttpOnly');
+    expect(getSetCookie(secondRefreshResponse, 'refresh_token')).toContain('HttpOnly');
+
     const logoutResponse = await request(integration.app.getHttpServer())
       .post('/api/v1/auth/logout')
-      .set('Cookie', getCookieHeader(refreshResponse, ['access_token', 'refresh_token']))
+      .set('Cookie', getCookieHeader(secondRefreshResponse, ['access_token', 'refresh_token']))
       .expect(200);
 
     expect(logoutResponse.body).toEqual({ message: 'Logged out successfully' });

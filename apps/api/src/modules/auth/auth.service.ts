@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'node:crypto';
 
 import {
   EmailAlreadyExistsException,
@@ -57,6 +58,10 @@ export class AuthService {
 
     const user = await this.userService.findByEmail(email);
     if (!user) {
+      throw new InvalidCredentialsException();
+    }
+
+    if (!user.passwordHash) {
       throw new InvalidCredentialsException();
     }
 
@@ -117,12 +122,13 @@ export class AuthService {
   }
 
   private async issueTokens(payload: { sub: string; email: string }) {
+    const refreshPayload = { ...payload, jti: randomUUID() };
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.configService.get<string>('JWT_SECRET'),
         expiresIn: this.configService.get<StringValue>('JWT_EXPIRES_IN', '15m'),
       }),
-      this.jwtService.signAsync(payload, {
+      this.jwtService.signAsync(refreshPayload, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
         expiresIn: this.configService.get<StringValue>('JWT_REFRESH_EXPIRES_IN', '7d'),
       }),

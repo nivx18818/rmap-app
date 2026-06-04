@@ -18,6 +18,7 @@ import { cookieExtractor } from '../utils/cookie-extractor';
 export interface JwtRefreshPayload {
   sub: string;
   email: string;
+  jti?: string;
 }
 
 @Injectable()
@@ -44,7 +45,10 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     const refreshToken = cookieExtractor('REFRESH_TOKEN')(req);
     if (!refreshToken) throw new MissingAuthenticationException();
 
-    const storedRefreshToken = await this.refreshTokenService.findValid(payload.sub, refreshToken);
+    const storedRefreshToken = await this.refreshTokenService.findValidForRefresh(
+      payload.sub,
+      refreshToken,
+    );
     if (!storedRefreshToken) throw new RefreshTokenInvalidException();
 
     const user = await this.userService.findById(payload.sub);

@@ -144,7 +144,11 @@ describe('AuthService', () => {
       { expiresIn: '15m', secret: 'access-secret' },
     );
     expect(jwtService.signAsync).toHaveBeenCalledWith(
-      { email: 'learner@example.test', sub: 'user-1' },
+      {
+        email: 'learner@example.test',
+        jti: expect.any(String) as string,
+        sub: 'user-1',
+      },
       { expiresIn: '7d', secret: 'refresh-secret' },
     );
     expect(refreshTokenService.create).toHaveBeenCalledWith(
@@ -173,6 +177,14 @@ describe('AuthService', () => {
     const result = await service.refresh('user-1', 'learner@example.test');
 
     expect(result).toEqual(['access-token', 'refresh-token']);
+    expect(jwtService.signAsync).toHaveBeenCalledWith(
+      {
+        email: 'learner@example.test',
+        jti: expect.any(String) as string,
+        sub: 'user-1',
+      },
+      { expiresIn: '7d', secret: 'refresh-secret' },
+    );
     expect(refreshTokenService.create).toHaveBeenCalledWith(
       'user-1',
       'refresh-token',

@@ -15,7 +15,7 @@ describe('AuthController', () => {
     register: jest.fn(),
   };
   const refreshTokenService = {
-    revokeByToken: jest.fn(),
+    markRotatedByToken: jest.fn(),
   };
   const response = {
     clearCookie: jest.fn(),
@@ -77,7 +77,7 @@ describe('AuthController', () => {
     );
   });
 
-  it('revokes the old refresh token and sets rotated cookies on refresh', async () => {
+  it('marks the old refresh token rotated and sets rotated cookies on refresh', async () => {
     const user = { email: 'learner@example.test', id: 'user-1' } as RequestUser;
     const request = { cookies: { refresh_token: 'old-refresh-token' } } as unknown as Request;
     authService.refresh.mockResolvedValue(['new-access-token', 'new-refresh-token']);
@@ -86,8 +86,14 @@ describe('AuthController', () => {
       message: 'Token refreshed',
     });
 
-    expect(refreshTokenService.revokeByToken).toHaveBeenCalledWith('old-refresh-token');
     expect(authService.refresh).toHaveBeenCalledWith('user-1', 'learner@example.test');
+    expect(refreshTokenService.markRotatedByToken).toHaveBeenCalledWith('old-refresh-token');
+    const refreshCallOrder = authService.refresh.mock.invocationCallOrder[0];
+    const markRotatedCallOrder = refreshTokenService.markRotatedByToken.mock.invocationCallOrder[0];
+    if (refreshCallOrder === undefined || markRotatedCallOrder === undefined) {
+      throw new Error('Expected refresh token rotation call order to be recorded');
+    }
+    expect(refreshCallOrder).toBeLessThan(markRotatedCallOrder);
     expect(response.clearCookie).toHaveBeenCalledWith('access_token', expect.any(Object));
     expect(response.cookie).toHaveBeenCalledWith(
       'access_token',

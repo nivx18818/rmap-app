@@ -14,7 +14,7 @@ type JwtPayload = {
 export async function proxy(request: NextRequest) {
   const token = request.cookies.get('access_token')?.value;
   const refreshToken = request.cookies.get('refresh_token')?.value;
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
 
   const protectedRoutes = ['/dashboard', '/roadmaps/generate'];
   const authRoutes = ['/sign-in', '/sign-up'];
@@ -49,7 +49,7 @@ export async function proxy(request: NextRequest) {
 
   if (isProtectedRoute) {
     const url = new URL('/sign-in', request.url);
-    url.searchParams.set('callbackUrl', pathname);
+    url.searchParams.set('callbackUrl', `${pathname}${search}`);
     return NextResponse.redirect(url);
   }
 

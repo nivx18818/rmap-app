@@ -11,17 +11,19 @@ import { Input } from '@repo/design-system/components/ui/input';
 import { toast } from '@repo/design-system/lib/toast';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { PasswordInput } from '@/app/(auth)/_components/password-input';
 import { SocialAuthButtons } from '@/app/(auth)/_components/social-auth-buttons';
 import { useAuth } from '@/hooks/use-auth';
+import { getSafeCallbackUrl } from '@/utils/auth-callback';
 import { type SignInValues, signInSchema } from '@/validations/auth.schema';
 
 export default function SignInPage() {
   const router = useRouter();
   const { signIn } = useAuth();
+  const hasShownOAuthError = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -38,7 +40,7 @@ export default function SignInPage() {
     try {
       await signIn(values);
       toast.success('Signed in successfully');
-      router.push('/');
+      router.push(getSafeCallbackUrl() as Route<string>);
     } catch {
       toast.error('Sign in failed', {
         description: 'Please check your credentials and try again.',
@@ -47,6 +49,20 @@ export default function SignInPage() {
       setIsSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (hasShownOAuthError.current) {
+      return;
+    }
+
+    const authError = new URLSearchParams(window.location.search).get('error');
+    if (authError === 'oauth_failed') {
+      hasShownOAuthError.current = true;
+      toast.error('Social sign-in failed', {
+        description: 'Please try again or use email and password.',
+      });
+    }
+  }, []);
 
   return (
     <div className="mx-auto flex w-full max-w-full flex-1 flex-col items-center justify-center pb-8 sm:pb-12">

@@ -77,7 +77,9 @@ axiosInstance.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError);
         if (typeof window !== 'undefined') {
-          const callbackUrl = encodeURIComponent(window.location.pathname);
+          const callbackUrl = encodeURIComponent(
+            `${window.location.pathname}${window.location.search}${window.location.hash}`,
+          );
           window.location.href = `/sign-in?callbackUrl=${callbackUrl}`;
         }
         return Promise.reject(refreshError);

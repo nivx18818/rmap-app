@@ -151,6 +151,8 @@ The following features are **not in the current version scope** but are intentio
 
 **Authentication deployment note:** In production, the browser calls the web origin at `/api/v1`, and Vercel rewrites those requests to the Render API service using `NEXT_PUBLIC_API_BASE_PATH=/api/v1` and `API_PROXY_ORIGIN=https://rmap-app-v13m.onrender.com`. JWT cookies are HttpOnly, Secure, and first-party cookies for the web origin; Render should use `CLIENT_URL=https://rmap-app.vercel.app`. Refresh-token rotation keeps a short grace window for just-rotated tokens so concurrent browser/server refresh requests do not invalidate each other.
 
+**Evaluator deployment note:** The milestone evaluator is deployed as a separate Render Docker web service from the root `render.yaml`. That service builds `docker/Dockerfile` with `APP=evaluator`, exposes `/health` for Render readiness checks, and must set `EVALUATOR_SHARED_SECRET` securely in Render. The API service must use `EVALUATOR_URL=<evaluator Render URL>` and the exact same `EVALUATOR_SHARED_SECRET` so signed milestone execution requests can be verified by the evaluator.
+
 ### **3.3 Usability**
 
 - **NFR-07:** The interface must be responsive on desktop and mobile.

@@ -10,6 +10,7 @@ import { configureApp } from '@/app.setup';
 import { EvaluatorAuthService } from '@/evaluator/evaluator-auth.service';
 import { EvaluatorController } from '@/evaluator/evaluator.controller';
 import { EvaluatorService } from '@/evaluator/evaluator.service';
+import { HealthController } from '@/evaluator/health.controller';
 
 const SHARED_SECRET = 'test-evaluator-secret';
 
@@ -39,7 +40,7 @@ describe('EvaluatorController', () => {
     });
 
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [EvaluatorController],
+      controllers: [EvaluatorController, HealthController],
       providers: [
         EvaluatorAuthService,
         {
@@ -66,6 +67,13 @@ describe('EvaluatorController', () => {
 
   afterEach(async () => {
     await app.close();
+  });
+
+  it('should expose health without evaluator signatures', async () => {
+    await request(app.getHttpServer() as Server)
+      .get('/health')
+      .expect(200)
+      .expect({ status: 'ok' });
   });
 
   it('should accept valid signed requests', async () => {

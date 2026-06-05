@@ -96,6 +96,7 @@ describe('TemplatesController', () => {
         {
           category: RoleCategory.WEB_DEVELOPMENT,
           label: 'Web Development',
+          shortLabel: 'Web',
           templatesCount: 24,
         },
       ],

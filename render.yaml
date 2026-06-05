@@ -1,0 +1,12 @@
+services:
+  - type: web
+    runtime: docker
+    name: rmap-evaluator
+    dockerfilePath: docker/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: APP
+        value: evaluator
+      - key: EVALUATOR_SHARED_SECRET
+        sync: false

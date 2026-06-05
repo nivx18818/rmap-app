@@ -5,6 +5,7 @@ import type { AxiosRequestConfig } from 'axios';
 import axios from 'axios';
 
 import { API_BASE_PATH, ENDPOINTS } from '@/constants/endpoints';
+import { getSignInPath } from '@/utils/auth-redirect';
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -77,8 +78,8 @@ axiosInstance.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError);
         if (typeof window !== 'undefined') {
-          const callbackUrl = encodeURIComponent(window.location.pathname);
-          window.location.href = `/sign-in?callbackUrl=${callbackUrl}`;
+          const callbackUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+          window.location.href = getSignInPath(callbackUrl);
         }
         return Promise.reject(refreshError);
       } finally {

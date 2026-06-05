@@ -6,9 +6,9 @@ import { ArrowRight, ArrowRight02FreeIcons } from '@hugeicons/core-free-icons';
 import { AnimatedIconSwap } from '@repo/design-system/components/common/animated-icon-swap';
 import { Button } from '@repo/design-system/components/ui/button';
 import Image from 'next/image';
-import Link from 'next/link';
 
 import { HeroGradient } from '@/components/shared/hero-gradient';
+import { ProtectedLink } from '@/components/shared/protected-link';
 import { RainbowBar } from '@/components/shared/rainbow-bar';
 
 export function HeroSection() {
@@ -81,7 +81,9 @@ export function HeroSection() {
             <AnimatedIconSwap icon={ArrowRight} hoverIcon={ArrowRight02FreeIcons} />
           </Button>
           <Button variant="outline" size="lg" className="group/btn rounded-full">
-            <Link href={'/roadmaps/generate' as Route<string>}>Create your roadmap</Link>
+            <ProtectedLink href={'/roadmaps/generate' as Route<string>}>
+              Create your roadmap
+            </ProtectedLink>
             <AnimatedIconSwap icon={ArrowRight} hoverIcon={ArrowRight02FreeIcons} />
           </Button>
         </div>

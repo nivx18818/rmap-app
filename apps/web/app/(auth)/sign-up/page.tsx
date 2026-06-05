@@ -18,6 +18,7 @@ import { useForm } from 'react-hook-form';
 import { PasswordInput } from '@/app/(auth)/_components/password-input';
 import { SocialAuthButtons } from '@/app/(auth)/_components/social-auth-buttons';
 import { useAuth } from '@/hooks/use-auth';
+import { consumeAuthRedirectPath } from '@/utils/auth-redirect';
 import { type SignUpValues, signUpSchema } from '@/validations/auth.schema';
 
 export default function SignUpPage() {
@@ -50,7 +51,9 @@ export default function SignUpPage() {
     try {
       await signUp(values);
       toast.success('Account created successfully');
-      router.push('/');
+      const callbackUrl = new URLSearchParams(window.location.search).get('callbackUrl');
+      router.replace(consumeAuthRedirectPath(callbackUrl) as Route<string>);
+      router.refresh();
     } catch {
       toast.error('Sign up failed', {
         description: 'Email may already exist or request is invalid.',

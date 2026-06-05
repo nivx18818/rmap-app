@@ -17,6 +17,7 @@ import { useForm } from 'react-hook-form';
 import { PasswordInput } from '@/app/(auth)/_components/password-input';
 import { SocialAuthButtons } from '@/app/(auth)/_components/social-auth-buttons';
 import { useAuth } from '@/hooks/use-auth';
+import { consumeAuthRedirectPath } from '@/utils/auth-redirect';
 import { type SignInValues, signInSchema } from '@/validations/auth.schema';
 
 export default function SignInPage() {
@@ -38,7 +39,9 @@ export default function SignInPage() {
     try {
       await signIn(values);
       toast.success('Signed in successfully');
-      router.push('/');
+      const callbackUrl = new URLSearchParams(window.location.search).get('callbackUrl');
+      router.replace(consumeAuthRedirectPath(callbackUrl) as Route<string>);
+      router.refresh();
     } catch {
       toast.error('Sign in failed', {
         description: 'Please check your credentials and try again.',

@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { NAV_ITEMS } from '@/app/(full-layout)/(home)/_data/landing';
+import { ProtectedLink } from '@/components/shared/protected-link';
 import { useAuth } from '@/hooks/use-auth';
 
 export function Header() {
@@ -63,7 +64,9 @@ export function Header() {
             {NAV_ITEMS.map((item) => (
               <NavigationMenuItem key={item.href} className="group relative">
                 <NavigationMenuLink
-                  render={<Link href={item.href as Route<string>}>{item.label}</Link>}
+                  render={
+                    <ProtectedLink href={item.href as Route<string>}>{item.label}</ProtectedLink>
+                  }
                 />
               </NavigationMenuItem>
             ))}
@@ -118,7 +121,10 @@ export function Header() {
               size="sm"
               className="rounded-full"
               render={
-                <Link className="flex items-center gap-2" href={'/dashboard' as Route<string>}>
+                <ProtectedLink
+                  className="flex items-center gap-2"
+                  href={'/dashboard' as Route<string>}
+                >
                   {user?.avatarUrl ? (
                     <Image
                       className="size-6 rounded-full object-cover"
@@ -132,7 +138,7 @@ export function Header() {
                     <HugeiconsIcon className="size-4" icon={UserCircleIcon} />
                   )}
                   {userDashboardLabel}
-                </Link>
+                </ProtectedLink>
               }
             />
 
@@ -181,14 +187,14 @@ export function Header() {
         <div className="bg-background/95 absolute top-full right-4 left-4 mt-3 space-y-4 rounded-2xl border border-white/50 p-4 shadow-lg backdrop-blur-sm sm:right-6 sm:left-6">
           <nav className="flex flex-col gap-2">
             {NAV_ITEMS.map((item) => (
-              <Link
+              <ProtectedLink
                 key={item.href}
                 className="hover:bg-primary/10 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
                 href={item.href as Route<string>}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {item.label}
-              </Link>
+              </ProtectedLink>
             ))}
           </nav>
 
@@ -258,7 +264,7 @@ export function Header() {
                   size="sm"
                   className="w-full justify-start rounded-xl"
                   render={
-                    <Link
+                    <ProtectedLink
                       className="flex w-full items-center gap-2"
                       href={'/dashboard' as Route<string>}
                     >
@@ -275,7 +281,7 @@ export function Header() {
                         <HugeiconsIcon className="size-4" icon={UserCircleIcon} />
                       )}
                       {userDashboardLabel}
-                    </Link>
+                    </ProtectedLink>
                   }
                 />
               </div>

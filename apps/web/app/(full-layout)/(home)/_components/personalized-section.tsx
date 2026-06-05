@@ -13,6 +13,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 import { MaskBackground } from '@/components/shared/mask-background';
+import { ProtectedLink } from '@/components/shared/protected-link';
 import { RainbowBar } from '@/components/shared/rainbow-bar';
 
 const NOTEBOOK_ITEMS = [
@@ -60,7 +61,7 @@ export function PersonalizedSection() {
             <Button
               size="lg"
               className="group/btn rounded-full"
-              render={<Link href={'/roadmaps/generate' as never} />}
+              render={<ProtectedLink href={'/roadmaps/generate' as never} />}
             >
               Try now
               <AnimatedIconSwap icon={ArrowRight} hoverIcon={ArrowRight02FreeIcons} />

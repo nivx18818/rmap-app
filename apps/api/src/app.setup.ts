@@ -1,4 +1,9 @@
-import { BadRequestException, type INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  BadRequestException,
+  type INestApplication,
+  RequestMethod,
+  ValidationPipe,
+} from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 
 import { ErrorCode, getErrorMessage } from './common/constants/error-codes';
@@ -7,7 +12,9 @@ import { getValidationCode } from './common/constants/validation-codes';
 export function configureApp(app: INestApplication): void {
   app.use(cookieParser());
 
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', {
+    exclude: [{ method: RequestMethod.GET, path: 'health' }],
+  });
 
   app.enableCors({
     credentials: true,

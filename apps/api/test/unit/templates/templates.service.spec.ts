@@ -98,16 +98,19 @@ describe('TemplatesService', () => {
       expect(result.categories).toContainEqual({
         category: RoleCategory.WEB_DEVELOPMENT,
         label: 'Web Development',
+        shortLabel: 'Web',
         templatesCount: 24,
       });
       expect(result.categories).toContainEqual({
         category: RoleCategory.AI_AND_MACHINE_LEARNING,
         label: 'Ai And Machine Learning',
+        shortLabel: 'AI',
         templatesCount: 18,
       });
       expect(result.categories).toContainEqual({
         category: RoleCategory.DEVOPS,
         label: 'Devops',
+        shortLabel: 'DevOps',
         templatesCount: 0,
       });
     });

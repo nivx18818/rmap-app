@@ -169,6 +169,12 @@ describe('AuthService', () => {
       service.login({ email: 'missing@example.test', password: 'CorrectHorseBattery1!' }),
     ).rejects.toThrow(InvalidCredentialsException);
 
+    userService.findByEmail.mockResolvedValueOnce(makeUser({ passwordHash: null }));
+
+    await expect(
+      service.login({ email: 'learner@example.test', password: 'CorrectHorseBattery1!' }),
+    ).rejects.toThrow(InvalidCredentialsException);
+
     const passwordHash = await bcrypt.hash('CorrectHorseBattery1!', 10);
     userService.findByEmail.mockResolvedValueOnce(makeUser({ passwordHash }));
 

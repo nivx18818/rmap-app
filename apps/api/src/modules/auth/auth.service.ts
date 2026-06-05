@@ -59,7 +59,7 @@ export class AuthService {
     const { email, password } = loginDto;
 
     const user = await this.userService.findByEmail(email);
-    if (!user) {
+    if (!user || !user.passwordHash) {
       throw new InvalidCredentialsException();
     }
 

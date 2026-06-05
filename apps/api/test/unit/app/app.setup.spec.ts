@@ -2,6 +2,8 @@
 import type { ArgumentMetadata, INestApplication, ValidationError } from '@nestjs/common';
 import type { BadRequestException } from '@nestjs/common';
 
+import { RequestMethod } from '@nestjs/common';
+
 import { configureApp, createValidationPipe } from '@/app.setup';
 import { ErrorCode } from '@/common/constants/error-codes';
 import { RegisterDto } from '@/modules/auth/dto/register.dto';
@@ -19,7 +21,9 @@ describe('app.setup', () => {
     configureApp(app);
 
     expect(app.use).toHaveBeenCalledWith(expect.any(Function));
-    expect(app.setGlobalPrefix).toHaveBeenCalledWith('api/v1');
+    expect(app.setGlobalPrefix).toHaveBeenCalledWith('api/v1', {
+      exclude: [{ method: RequestMethod.GET, path: 'health' }],
+    });
     expect(app.enableCors).toHaveBeenCalledWith({
       credentials: true,
       origin: 'http://localhost:3000',

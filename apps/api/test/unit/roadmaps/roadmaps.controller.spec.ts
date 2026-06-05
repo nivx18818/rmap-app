@@ -83,6 +83,7 @@ describe('RoadmapsController', () => {
         estimatedHours: 6,
         posX: 140,
         posY: 240,
+        resourcesCount: 0,
         progress: null,
       },
       skill: null,

@@ -768,6 +768,7 @@ describe('RoadmapsService', () => {
           estimatedHours: null,
           posX: 120,
           posY: 200,
+          skill: null,
           userNodeProgress: [],
         },
         {
@@ -781,6 +782,11 @@ describe('RoadmapsService', () => {
           estimatedHours: 6,
           posX: 140,
           posY: 240,
+          skill: {
+            _count: {
+              resources: 7,
+            },
+          },
           userNodeProgress: [
             {
               id: 'progress-1',
@@ -821,6 +827,7 @@ describe('RoadmapsService', () => {
             estimatedHours: null,
             posX: 120,
             posY: 200,
+            resourcesCount: 0,
             progress: null,
           },
           {
@@ -834,6 +841,7 @@ describe('RoadmapsService', () => {
             estimatedHours: 6,
             posX: 140,
             posY: 240,
+            resourcesCount: 5,
             progress: {
               id: 'progress-1',
               roadmapNodeId: 'node-2',
@@ -861,6 +869,7 @@ describe('RoadmapsService', () => {
           estimatedHours: null,
           posX: 120,
           posY: 200,
+          skill: null,
           userNodeProgress: [
             {
               id: 'progress-current-user',
@@ -898,6 +907,7 @@ describe('RoadmapsService', () => {
             roadmapNodeId: 'template-node-1',
             status: NodeStatus.IN_PROGRESS,
           }),
+          resourcesCount: 0,
         }),
       ]);
     });
@@ -998,6 +1008,7 @@ describe('RoadmapsService', () => {
             estimatedHours: null,
             posX: 120,
             posY: 200,
+            resourcesCount: 0,
             progress: {
               id: 'progress-group-1',
               roadmapNodeId: 'group-1',
@@ -1299,6 +1310,7 @@ describe('RoadmapsService', () => {
           estimatedHours: 6,
           posX: 140,
           posY: 240,
+          resourcesCount: 3,
           progress: {
             id: 'progress-1',
             roadmapNodeId: nodeId,
@@ -1332,6 +1344,14 @@ describe('RoadmapsService', () => {
             resourceType: 'COURSE',
             isFree: false,
             isPrimary: true,
+          },
+          {
+            id: 3,
+            title: 'Article',
+            url: 'https://example.com/article',
+            resourceType: 'ARTICLE',
+            isFree: true,
+            isPrimary: false,
           },
         ],
         prerequisites: [{ skillId: 'skill-prereq-1', skillName: 'HTTP Basics' }],
@@ -1394,10 +1414,10 @@ describe('RoadmapsService', () => {
 
       const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
 
-      expect(result.resources?.map((resource) => resource.id)).toEqual([2, 1]);
+      expect(result.resources?.map((resource) => resource.id)).toEqual([2, 1, 3, 4]);
     });
 
-    it('should return at most two resources', async () => {
+    it('should return at most five resources', async () => {
       prisma.roadmapNode.findFirst.mockResolvedValue(
         makeNodeDetail({
           skill: {
@@ -1443,6 +1463,24 @@ describe('RoadmapsService', () => {
                 isFree: true,
                 isPrimary: false,
               },
+              {
+                id: 5,
+                createdAt: new Date('2026-01-05T00:00:00Z'),
+                title: 'Primary article',
+                url: 'https://example.com/primary-article',
+                resourceType: 'ARTICLE',
+                isFree: true,
+                isPrimary: true,
+              },
+              {
+                id: 6,
+                createdAt: new Date('2026-01-06T00:00:00Z'),
+                title: 'Secondary video',
+                url: 'https://example.com/secondary-video',
+                resourceType: 'YOUTUBE',
+                isFree: true,
+                isPrimary: false,
+              },
             ],
             prerequisites: [],
           },
@@ -1451,9 +1489,9 @@ describe('RoadmapsService', () => {
 
       const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
 
-      expect(result.resources?.map((resource) => resource.id)).toEqual([3, 1]);
-      expect(result.resources?.filter((resource) => resource.isPrimary)).toHaveLength(2);
-      expect(result.resources).toHaveLength(2);
+      expect(result.resources?.map((resource) => resource.id)).toEqual([3, 1, 2, 5, 6]);
+      expect(result.resources?.filter((resource) => resource.isPrimary)).toHaveLength(4);
+      expect(result.resources).toHaveLength(5);
     });
 
     it('should return null skill and resources for a group node', async () => {

@@ -28,6 +28,7 @@ export interface RoadmapNodeWithUserProgressResponse {
   estimatedHours: number | null;
   posX: number;
   posY: number;
+  resourcesCount: number;
   progress: UserNodeProgressResponse | null;
 }
 

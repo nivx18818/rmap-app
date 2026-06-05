@@ -599,6 +599,7 @@ describe('TemplatesService', () => {
           posX: createDecimal(100),
           posY: createDecimal(200),
           roadmapId: 'template-1',
+          skill: null,
           skillId: null,
         },
         {
@@ -611,6 +612,11 @@ describe('TemplatesService', () => {
           posX: createDecimal(140),
           posY: createDecimal(240),
           roadmapId: 'template-1',
+          skill: {
+            _count: {
+              resources: 7,
+            },
+          },
           skillId: 'skill-1',
         },
       ]);
@@ -636,6 +642,15 @@ describe('TemplatesService', () => {
           posX: true,
           posY: true,
           roadmapId: true,
+          skill: {
+            select: {
+              _count: {
+                select: {
+                  resources: true,
+                },
+              },
+            },
+          },
           skillId: true,
         },
         where: {
@@ -654,6 +669,7 @@ describe('TemplatesService', () => {
             posX: 100,
             posY: 200,
             roadmapId: 'template-1',
+            resourcesCount: 0,
             skillId: null,
           },
           {
@@ -666,6 +682,7 @@ describe('TemplatesService', () => {
             posX: 140,
             posY: 240,
             roadmapId: 'template-1',
+            resourcesCount: 5,
             skillId: 'skill-1',
           },
         ],

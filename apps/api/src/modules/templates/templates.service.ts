@@ -41,6 +41,25 @@ const TREND_TEXT_OPTIONS = [
 const LEARNER_TREND_TEXT_WEIGHT = 0.4;
 const MAX_RANDOM_LEARNERS = 500;
 
+const COMPACT_CATEGORY_LABELS = {
+  [RoleCategory.WEB_DEVELOPMENT]: 'Web',
+  [RoleCategory.FRAMEWORKS]: 'Frameworks',
+  [RoleCategory.ABSOLUTE_BEGINNERS]: 'Beginner',
+  [RoleCategory.LANGUAGES_AND_PLATFORMS]: 'Languages',
+  [RoleCategory.DEVOPS]: 'DevOps',
+  [RoleCategory.DATABASES]: 'Databases',
+  [RoleCategory.COMPUTER_SCIENCE]: 'CS',
+  [RoleCategory.DESIGN]: 'Design',
+  [RoleCategory.BEST_PRACTICES]: 'Best Practices',
+  [RoleCategory.AI_AND_MACHINE_LEARNING]: 'AI',
+  [RoleCategory.DATA_ANALYSIS]: 'Data',
+  [RoleCategory.MOBILE_DEVELOPMENT]: 'Mobile',
+  [RoleCategory.MANAGEMENT]: 'Management',
+  [RoleCategory.GAME_DEVELOPMENT]: 'Game',
+  [RoleCategory.BLOCKCHAIN]: 'Blockchain',
+  [RoleCategory.CYBER_SECURITY]: 'Security',
+} satisfies Record<RoleCategory, string>;
+
 const ROADMAP_SELECT = {
   deadlineDate: true,
   description: true,
@@ -155,6 +174,7 @@ export class TemplatesService {
     const categories = Object.values(RoleCategory).map((category) => ({
       category,
       label: this.formatRoleCategory(category),
+      shortLabel: this.formatCompactRoleCategory(category),
       templatesCount: countByCategory.get(category) ?? 0,
     }));
 
@@ -539,6 +559,10 @@ export class TemplatesService {
       .filter(Boolean)
       .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
       .join(' ');
+  }
+
+  private formatCompactRoleCategory(value: RoleCategory): string {
+    return COMPACT_CATEGORY_LABELS[value] ?? this.formatRoleCategory(value);
   }
 
   private formatDecimal(value: DecimalLike | null): null | number {

@@ -3,6 +3,7 @@ import type { RoleCategory } from '@repo/db/prisma/client';
 export interface TemplateCategoryDto {
   category: RoleCategory;
   label: string;
+  shortLabel: string;
   templatesCount: number;
 }
 

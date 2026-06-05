@@ -66,8 +66,19 @@ const TEMPLATE_NODE_SELECT = {
   posX: true,
   posY: true,
   roadmapId: true,
+  skill: {
+    select: {
+      _count: {
+        select: {
+          resources: true,
+        },
+      },
+    },
+  },
   skillId: true,
 } satisfies Prisma.RoadmapNodeSelect;
+
+const NODE_DETAIL_RESOURCE_LIMIT = 5;
 
 type SelectedRoadmap = Pick<Roadmap, keyof typeof ROADMAP_SELECT>;
 
@@ -86,6 +97,11 @@ type SelectedTemplateNode = {
   posX: Prisma.Decimal | number;
   posY: Prisma.Decimal | number;
   roadmapId: string;
+  skill: {
+    _count: {
+      resources: number;
+    };
+  } | null;
   skillId: string | null;
 };
 
@@ -454,6 +470,7 @@ export class TemplatesService {
       posX: Number(node.posX),
       posY: Number(node.posY),
       roadmapId: node.roadmapId,
+      resourcesCount: Math.min(node.skill?._count.resources ?? 0, NODE_DETAIL_RESOURCE_LIMIT),
       skillId: node.skillId,
     };
   }

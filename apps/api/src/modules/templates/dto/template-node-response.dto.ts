@@ -10,6 +10,7 @@ export interface TemplateRoadmapNodeDto {
   posX: number;
   posY: number;
   roadmapId: string;
+  resourcesCount: number;
   skillId: null | string;
 }
 

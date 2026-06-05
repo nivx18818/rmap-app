@@ -119,6 +119,15 @@ export class RoadmapQueryService {
         estimatedHours: true,
         posX: true,
         posY: true,
+        skill: {
+          select: {
+            _count: {
+              select: {
+                resources: true,
+              },
+            },
+          },
+        },
         userNodeProgress: {
           where: { userId },
           select: {

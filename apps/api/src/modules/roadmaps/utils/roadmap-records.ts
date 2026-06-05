@@ -34,6 +34,12 @@ export type RoadmapNodeWithProgressRecord = {
   estimatedHours: Prisma.Decimal | number | null;
   posX: Prisma.Decimal | number;
   posY: Prisma.Decimal | number;
+  skill?: {
+    _count?: {
+      resources: number;
+    };
+    resources?: unknown[];
+  } | null;
   userNodeProgress: Array<{
     id: string;
     roadmapNodeId: string;

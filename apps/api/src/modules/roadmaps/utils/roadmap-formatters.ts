@@ -15,7 +15,7 @@ import type {
 
 import { formatDateOnly } from './date';
 import { formatDecimal, toNumberOrNull } from './number';
-import { MILESTONE_TEST_SUITE_CASE_COUNT } from './roadmap.constants';
+import { MILESTONE_TEST_SUITE_CASE_COUNT, NODE_DETAIL_RESOURCE_LIMIT } from './roadmap.constants';
 
 export const formatNodeWithProgress = (
   node: RoadmapNodeWithProgressRecord,
@@ -33,6 +33,7 @@ export const formatNodeWithProgress = (
     estimatedHours: toNumberOrNull(node.estimatedHours),
     posX: Number(node.posX),
     posY: Number(node.posY),
+    resourcesCount: getNodeResourcesCount(node),
     progress: progress
       ? {
           id: progress.id,
@@ -45,6 +46,12 @@ export const formatNodeWithProgress = (
         }
       : null,
   };
+};
+
+const getNodeResourcesCount = (node: RoadmapNodeWithProgressRecord): number => {
+  const resourcesCount = node.skill?._count?.resources ?? node.skill?.resources?.length ?? 0;
+
+  return Math.min(resourcesCount, NODE_DETAIL_RESOURCE_LIMIT);
 };
 
 export function formatMilestoneSubmission(

@@ -13,6 +13,8 @@ COPY . .
 ARG APP=all
 
 RUN APP_SCOPE="${APP:-all}"; \
+  case "$APP_SCOPE" in api|web|evaluator|all) ;; *) echo "Unsupported APP '$APP_SCOPE'. Use api, web, evaluator, or all." >&2; exit 1 ;; esac; \
+  echo "Pruning workspace with APP_SCOPE=$APP_SCOPE"; \
   if [ "$APP_SCOPE" = "all" ]; then \
     mkdir -p /tmp/prune/json /tmp/prune/full; \
     cp package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json /tmp/prune/json/; \
@@ -35,6 +37,8 @@ ARG APP=all
 ARG DIRECT_URL=postgresql://postgres:postgres@localhost:5432/rmap?schema=public
 ENV DIRECT_URL=$DIRECT_URL
 RUN APP_SCOPE="${APP:-all}"; \
+  case "$APP_SCOPE" in api|web|evaluator|all) ;; *) echo "Unsupported APP '$APP_SCOPE'. Use api, web, evaluator, or all." >&2; exit 1 ;; esac; \
+  echo "Building workspace with APP_SCOPE=$APP_SCOPE"; \
   if [ "$APP_SCOPE" = "all" ]; then \
     pnpm turbo run build; \
   else \
@@ -50,6 +54,8 @@ ENV APP=$APP
 ENV NODE_ENV=production
 RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
 RUN APP_SCOPE="${APP:-all}"; \
+  case "$APP_SCOPE" in api|web|evaluator|all) ;; *) echo "Unsupported APP '$APP_SCOPE'. Use api, web, evaluator, or all." >&2; exit 1 ;; esac; \
+  echo "Preparing runner with APP_SCOPE=$APP_SCOPE"; \
   if [ "$APP_SCOPE" = "evaluator" ] || [ "$APP_SCOPE" = "all" ]; then \
     apk add --no-cache git; \
   fi
@@ -58,4 +64,4 @@ COPY --from=installer /app .
 
 EXPOSE 3000 3001 3002
 
-CMD ["sh", "-c", "set -eu; APP_NAME=${APP:-all}; start_web() { if [ -f apps/web/.next/standalone/apps/web/server.js ]; then node apps/web/.next/standalone/apps/web/server.js; else pnpm --filter web start; fi; }; if [ \"$APP_NAME\" = \"api\" ]; then pnpm --filter api start:prod; elif [ \"$APP_NAME\" = \"web\" ]; then start_web; elif [ \"$APP_NAME\" = \"evaluator\" ]; then pnpm --filter evaluator start:prod; elif [ \"$APP_NAME\" = \"all\" ]; then (PORT=${API_PORT:-3001}; export PORT; pnpm --filter api start:prod) & (PORT=${EVALUATOR_PORT:-3002}; export PORT; pnpm --filter evaluator start:prod) & (PORT=${WEB_PORT:-3000}; export PORT; start_web) & wait -n; exit $?; else echo \"Unsupported APP '$APP_NAME'. Use api, web, evaluator, or all.\" >&2; exit 1; fi"]
+CMD ["sh", "-c", "set -eu; APP_NAME=${APP:-all}; case \"$APP_NAME\" in api|web|evaluator|all) ;; *) echo \"Unsupported APP '$APP_NAME'. Use api, web, evaluator, or all.\" >&2; exit 1 ;; esac; start_web() { if [ -f apps/web/.next/standalone/apps/web/server.js ]; then node apps/web/.next/standalone/apps/web/server.js; else pnpm --filter web start; fi; }; if [ \"$APP_NAME\" = \"api\" ]; then pnpm --filter api start:prod; elif [ \"$APP_NAME\" = \"web\" ]; then start_web; elif [ \"$APP_NAME\" = \"evaluator\" ]; then pnpm --filter evaluator start:prod; else (PORT=${API_PORT:-3001}; export PORT; pnpm --filter api start:prod) & (PORT=${EVALUATOR_PORT:-3002}; export PORT; pnpm --filter evaluator start:prod) & (PORT=${WEB_PORT:-3000}; export PORT; start_web) & wait -n; exit $?; fi"]

@@ -10,6 +10,14 @@ const CATEGORY_COLLATOR = new Intl.Collator('en-US', {
   sensitivity: 'base',
 });
 
+export function mapRoadmapTemplateToItem(template: RoadmapTemplate): RoadmapItemData {
+  return {
+    href: buildRoadmapHref({ id: template.id, title: template.title }),
+    id: template.id,
+    label: template.title,
+  };
+}
+
 export function formatRoadmapTemplateCategory(category: string): string {
   return category
     .split('_')
@@ -24,11 +32,7 @@ export function groupRoadmapTemplates(templates: RoadmapTemplate[]): RoadmapTemp
   templates.forEach((template) => {
     const categoryItems = itemsByCategory.get(template.roleCategory) ?? [];
 
-    categoryItems.push({
-      href: buildRoadmapHref({ id: template.id, title: template.title }),
-      id: template.id,
-      label: template.title,
-    });
+    categoryItems.push(mapRoadmapTemplateToItem(template));
 
     itemsByCategory.set(template.roleCategory, categoryItems);
   });

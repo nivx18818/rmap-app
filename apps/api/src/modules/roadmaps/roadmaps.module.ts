@@ -3,13 +3,14 @@ import { Module } from '@nestjs/common';
 import { AiModule } from '../ai/ai.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { DagreLayoutService } from './dagre-layout.service';
+import { MilestoneExecutionClient } from './milestone-execution.client';
 import { RoadmapsController } from './roadmaps.controller';
 import { RoadmapsService } from './roadmaps.service';
 
 @Module({
   imports: [AiModule, PrismaModule],
   controllers: [RoadmapsController],
-  providers: [RoadmapsService, DagreLayoutService],
+  providers: [RoadmapsService, DagreLayoutService, MilestoneExecutionClient],
   exports: [RoadmapsService],
 })
 export class RoadmapsModule {}

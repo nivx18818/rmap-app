@@ -1,7 +1,7 @@
 import type { NavItem, RoadmapTimelineItem } from '@/app/(full-layout)/(home)/_types/landing';
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Explore', href: '/explore' },
   { label: 'Generate personalized roadmap', href: '/roadmaps/generate' },
 ];
 

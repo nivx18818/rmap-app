@@ -12,10 +12,6 @@ import { HeroGradient } from '@/components/shared/hero-gradient';
 import { RainbowBar } from '@/components/shared/rainbow-bar';
 
 export function HeroSection() {
-  function handleScrollDown() {
-    window.scrollBy({ top: window.innerHeight, behavior: 'smooth' });
-  }
-
   return (
     <section className="relative min-h-svh overflow-hidden">
       <HeroGradient />
@@ -76,7 +72,11 @@ export function HeroSection() {
 
         {/* CTA Buttons */}
         <div className="flex w-full flex-col items-stretch justify-center gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-4">
-          <Button size="lg" className="group/btn rounded-full" onClick={handleScrollDown}>
+          <Button
+            size="lg"
+            className="group/btn rounded-full"
+            render={<Link href={'/explore' as Route<string>} />}
+          >
             Explore available roadmaps
             <AnimatedIconSwap icon={ArrowRight} hoverIcon={ArrowRight02FreeIcons} />
           </Button>

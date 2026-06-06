@@ -97,6 +97,20 @@ export class RoadmapsController {
   }
 
   /**
+   * DELETE /roadmaps/:roadmapId/progress
+   *
+   * Deletes only the authenticated user's progress records for a template roadmap.
+   */
+  @Delete(':roadmapId/progress')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteTemplateProgress(
+    @CurrentUser() user: RequestUser,
+    @Param('roadmapId') roadmapId: string,
+  ): Promise<void> {
+    await this.roadmapsService.deleteTemplateProgress(user.id, roadmapId);
+  }
+
+  /**
    * POST /roadmaps/:roadmapId/start
    *
    * Starts an unstarted user roadmap or template for the authenticated user and

@@ -47,6 +47,8 @@ jobs:
 
       - name: Typecheck
         run: pnpm check-types
+        env:
+          DIRECT_URL: postgresql://rmap:rmap@localhost:5432/rmap_test
 
       - name: Format
         run: pnpm exec prettier --check .

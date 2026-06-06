@@ -12,6 +12,7 @@ import {
   UserNotFoundException,
 } from '@/common/exceptions/app.exceptions';
 
+import type { ChangePasswordDto } from './dto/change-password.dto';
 import type { ForgotPasswordDto } from './dto/forgot-password.dto';
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
@@ -36,7 +37,7 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, password, fullName } = registerDto;
+    const { email, password, fullName, avatarUrl: providedAvatarUrl } = registerDto;
 
     const existingUser = await this.userService.findByEmail(email);
     if (existingUser) {
@@ -44,11 +45,17 @@ export class AuthService {
     }
 
     const passwordHash = await this.hashPassword(password);
+    const avatarUrl =
+      providedAvatarUrl ??
+      `https://api.dicebear.com/10.x/adventurer/svg?seed=${encodeURIComponent(
+        fullName.trim() || email.trim(),
+      )}`;
 
     const user = await this.userService.create({
       email,
       passwordHash,
       fullName,
+      avatarUrl,
     });
 
     const { passwordHash: _, ...result } = user;
@@ -162,6 +169,30 @@ export class AuthService {
       passwordHash,
     );
 
+    await this.refreshTokenService.revokeAllByUser(userId);
+  }
+
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new UserNotFoundException(userId);
+    }
+
+    if (!user.passwordHash) {
+      throw new InvalidCredentialsException();
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      changePasswordDto.currentPassword,
+      user.passwordHash,
+    );
+
+    if (!isCurrentPasswordValid) {
+      throw new InvalidCredentialsException();
+    }
+
+    const passwordHash = await this.hashPassword(changePasswordDto.newPassword);
+    await this.userService.updatePasswordHash(userId, passwordHash);
     await this.refreshTokenService.revokeAllByUser(userId);
   }
 

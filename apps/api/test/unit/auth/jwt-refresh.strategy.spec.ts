@@ -16,6 +16,7 @@ import {
 import { JwtRefreshStrategy } from '@/modules/auth/strategies/jwt-refresh.strategy';
 
 const makeUser = (): User => ({
+  avatarUrl: null,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   email: 'learner@example.test',
   fullName: 'Learner One',

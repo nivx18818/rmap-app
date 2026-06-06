@@ -19,6 +19,7 @@ import { RefreshTokenService } from '@/modules/auth/refresh-token.service';
 import { UsersService } from '@/modules/users/users.service';
 
 const makeUser = (overrides: Partial<User> = {}): User => ({
+  avatarUrl: null,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   email: 'learner@example.test',
   fullName: 'Learner One',
@@ -36,8 +37,10 @@ describe('AuthService', () => {
     create: jest.fn(),
     createWithOAuth: jest.fn(),
     findByEmail: jest.fn(),
+    findById: jest.fn(),
     findByOAuthAccount: jest.fn(),
     linkOAuthAccount: jest.fn(),
+    updatePasswordHash: jest.fn(),
   };
   const jwtService = {
     signAsync: jest.fn(),
@@ -93,9 +96,11 @@ describe('AuthService', () => {
   it('registers a user with a hashed password and omits passwordHash from the response', async () => {
     let createdPasswordHash = '';
     userService.findByEmail.mockResolvedValue(null);
-    userService.create.mockImplementation((data: { passwordHash: string }) => {
+    userService.create.mockImplementation((data: { passwordHash: string; avatarUrl?: string }) => {
       createdPasswordHash = data.passwordHash;
-      return Promise.resolve(makeUser({ passwordHash: data.passwordHash }));
+      return Promise.resolve(
+        makeUser({ passwordHash: data.passwordHash, avatarUrl: data.avatarUrl }),
+      );
     });
 
     const result = await service.register({
@@ -108,12 +113,14 @@ describe('AuthService', () => {
       email: 'learner@example.test',
       fullName: 'Learner One',
       passwordHash: expect.any(String) as string,
+      avatarUrl: `https://api.dicebear.com/10.x/adventurer/svg?seed=${encodeURIComponent('Learner One')}`,
     });
     expect(createdPasswordHash).not.toBe('CorrectHorseBattery1!');
     expect(result).toEqual({
       createdAt: expect.any(Date) as Date,
       email: 'learner@example.test',
       fullName: 'Learner One',
+      avatarUrl: `https://api.dicebear.com/10.x/adventurer/svg?seed=${encodeURIComponent('Learner One')}`,
       id: 'user-1',
       role: UserRole.USER,
       updatedAt: expect.any(Date) as Date,
@@ -399,6 +406,39 @@ describe('AuthService', () => {
         expect.stringMatching(/^\$2[aby]\$/),
       );
       expect(refreshTokenService.revokeAllByUser).toHaveBeenCalledWith('user-1');
+    });
+  });
+
+  describe('changePassword', () => {
+    it('validates the current password, stores the new hash, and revokes refresh tokens', async () => {
+      const passwordHash = await bcrypt.hash('CorrectHorseBattery1!', 10);
+      userService.findById.mockResolvedValue(makeUser({ passwordHash }));
+
+      await service.changePassword('user-1', {
+        currentPassword: 'CorrectHorseBattery1!',
+        newPassword: 'N3wS3cur3P@ss',
+      });
+
+      expect(userService.updatePasswordHash).toHaveBeenCalledWith(
+        'user-1',
+        expect.stringMatching(/^\$2[aby]\$/),
+      );
+      expect(refreshTokenService.revokeAllByUser).toHaveBeenCalledWith('user-1');
+    });
+
+    it('rejects an incorrect current password', async () => {
+      const passwordHash = await bcrypt.hash('CorrectHorseBattery1!', 10);
+      userService.findById.mockResolvedValue(makeUser({ passwordHash }));
+
+      await expect(
+        service.changePassword('user-1', {
+          currentPassword: 'WrongPassword1!',
+          newPassword: 'N3wS3cur3P@ss',
+        }),
+      ).rejects.toThrow(InvalidCredentialsException);
+
+      expect(userService.updatePasswordHash).not.toHaveBeenCalled();
+      expect(refreshTokenService.revokeAllByUser).not.toHaveBeenCalled();
     });
   });
 });

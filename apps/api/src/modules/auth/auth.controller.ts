@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Req,
   Res,
@@ -24,6 +25,7 @@ import type { OAuthProfile } from './types/oauth-profile.type';
 
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -101,6 +103,19 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     await this.authService.resetPassword(resetPasswordDto);
+  }
+
+  @Patch('password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @CurrentUser() user: RequestUser,
+    @Body() changePasswordDto: ChangePasswordDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    await this.authService.changePassword(user.id, changePasswordDto);
+    res.clearCookie('access_token', CLEAR_COOKIE_OPTIONS);
+    res.clearCookie('refresh_token', { ...CLEAR_COOKIE_OPTIONS, path: '/api/v1/auth/refresh' });
+    return { message: 'Password changed successfully' };
   }
 
   @Public()

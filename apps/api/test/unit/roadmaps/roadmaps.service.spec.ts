@@ -2630,12 +2630,25 @@ describe('RoadmapsService', () => {
 
       const result = await service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, submitDto);
 
-      expect(result.unlockedNodes).toEqual(['same-group-optional', 'next-group-leaf']);
+      expect(result.unlockedNodes).toEqual([
+        'group-1',
+        'same-group-optional',
+        'group-2',
+        'next-group-leaf',
+      ]);
       expect(txMock.userNodeProgress.updateMany).toHaveBeenNthCalledWith(1, {
-        where: { userId: MOCK_USER_ID, roadmapNodeId: { in: ['same-group-optional'] } },
+        where: { userId: MOCK_USER_ID, roadmapNodeId: 'group-1', status: NodeStatus.LOCKED },
         data: { status: NodeStatus.IN_PROGRESS, startedAt: expectAnyDate() },
       });
       expect(txMock.userNodeProgress.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { userId: MOCK_USER_ID, roadmapNodeId: { in: ['same-group-optional'] } },
+        data: { status: NodeStatus.IN_PROGRESS, startedAt: expectAnyDate() },
+      });
+      expect(txMock.userNodeProgress.updateMany).toHaveBeenNthCalledWith(3, {
+        where: { userId: MOCK_USER_ID, roadmapNodeId: 'group-2', status: NodeStatus.LOCKED },
+        data: { status: NodeStatus.IN_PROGRESS, startedAt: expectAnyDate() },
+      });
+      expect(txMock.userNodeProgress.updateMany).toHaveBeenNthCalledWith(4, {
         where: { userId: MOCK_USER_ID, roadmapNodeId: { in: ['next-group-leaf'] } },
         data: { status: NodeStatus.IN_PROGRESS, startedAt: expectAnyDate() },
       });
@@ -3529,7 +3542,7 @@ describe('RoadmapsService', () => {
           data: expectObjectContaining({ status: NodeStatus.IN_PROGRESS }),
         }),
       );
-      expect(result.unlockedNodes).toEqual(['leaf-2', 'leaf-3']);
+      expect(result.unlockedNodes).toEqual(['group-1', 'group-2', 'leaf-2', 'leaf-3']);
     });
 
     it('should unlock milestone without unlocking next GROUP when milestone follows the completed group', async () => {
@@ -3555,10 +3568,9 @@ describe('RoadmapsService', () => {
         status: NodeStatus.COMPLETED,
       });
 
-      expect(txMock.userNodeProgress.update).not.toHaveBeenCalledWith(
+      expect(txMock.userNodeProgress.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId_roadmapNodeId: { userId: MOCK_USER_ID, roadmapNodeId: milestoneId } },
-          data: expectObjectContaining({ status: NodeStatus.COMPLETED }),
+          where: { userId_roadmapNodeId: { userId: MOCK_USER_ID, roadmapNodeId: 'group-1' } },
         }),
       );
       expect(txMock.userNodeProgress.updateMany).toHaveBeenCalledWith(
@@ -3581,7 +3593,7 @@ describe('RoadmapsService', () => {
           }),
         }),
       );
-      expect(result.unlockedNodes).toEqual([milestoneId]);
+      expect(result.unlockedNodes).toEqual(['group-1', milestoneId]);
     });
 
     it('should reject manual milestone completion because generated tests complete it automatically', async () => {

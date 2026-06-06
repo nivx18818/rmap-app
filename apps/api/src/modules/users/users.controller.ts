@@ -23,8 +23,9 @@ export class UsersController {
     return this.formatCreateUserProfile(updatedUser);
   }
 
-  private formatCreateUserProfile(user: CreateUserProfileDto): CreateUserProfileDto {
+  private formatCreateUserProfile(user: CreateUserProfileDto | RequestUser): CreateUserProfileDto {
     return {
+      avatarUrl: user.avatarUrl ?? null,
       createdAt: user.createdAt,
       email: user.email,
       fullName: user.fullName,

@@ -27,6 +27,7 @@ interface DashboardRoadmapNodeRecord {
   name?: string;
   nodeType: NodeType;
   parentId?: string | null;
+  skillId?: string | null;
   estimatedHours: number | null;
   posY?: number;
   userNodeProgress: Array<{ startedAt: Date | null; status: NodeStatus }>;
@@ -49,6 +50,7 @@ interface DashboardRoadmapRecord {
 }
 
 interface DashboardUserRecord {
+  avatarUrl: string | null;
   id: string;
   email: string;
   fullName: string;
@@ -119,6 +121,7 @@ const expectExceptionCode = async (promise: Promise<unknown>, code: ErrorCode): 
 };
 
 const createUserRecord = (overrides: Partial<DashboardUserRecord> = {}): DashboardUserRecord => ({
+  avatarUrl: null,
   id: MOCK_USER_ID,
   email: 'test@example.com',
   fullName: 'Test User',
@@ -216,6 +219,7 @@ describe('DashboardService', () => {
             select: {
               id: true,
               nodeType: true,
+              skillId: true,
               estimatedHours: true,
               userNodeProgress: {
                 where: { userId: MOCK_USER_ID },
@@ -480,6 +484,7 @@ describe('DashboardService', () => {
         {
           id: 'completed-required',
           nodeType: NodeTypeValue.REQUIRED,
+          skillId: 'web-skill',
           estimatedHours: 2,
           userNodeProgress: [
             { startedAt: new Date('2026-05-01T00:00:00Z'), status: NodeStatusValue.COMPLETED },
@@ -488,6 +493,7 @@ describe('DashboardService', () => {
         {
           id: 'completed-optional',
           nodeType: NodeTypeValue.OPTIONAL,
+          skillId: 'web-skill',
           estimatedHours: 2,
           userNodeProgress: [
             { startedAt: new Date('2026-05-01T00:00:00Z'), status: NodeStatusValue.COMPLETED },
@@ -504,6 +510,7 @@ describe('DashboardService', () => {
         {
           id: 'behind-required',
           nodeType: NodeTypeValue.REQUIRED,
+          skillId: 'database-skill',
           estimatedHours: 2,
           userNodeProgress: [
             {
@@ -521,6 +528,7 @@ describe('DashboardService', () => {
         {
           id: 'not-started-required',
           nodeType: NodeTypeValue.REQUIRED,
+          skillId: 'database-skill',
           estimatedHours: 3,
           userNodeProgress: [{ startedAt: null, status: NodeStatusValue.LOCKED }],
         },
@@ -551,13 +559,15 @@ describe('DashboardService', () => {
     expect(result.skillCategories).toEqual([
       {
         category: 'DATABASES',
+        completedSkills: 0,
         label: 'Databases',
-        totalSkills: 2,
+        totalSkills: 1,
       },
       {
         category: 'WEB_DEVELOPMENT',
+        completedSkills: 1,
         label: 'Web Development',
-        totalSkills: 2,
+        totalSkills: 1,
       },
     ]);
     expect(result.roadmapStatus).toEqual({
@@ -731,11 +741,11 @@ describe('DashboardService', () => {
       }),
     );
     expect(result.activeRoadmaps[0]?.paceWarning).toEqual(
-      expectObjectContaining({
+      expect.objectContaining({
         actionLabel: 'Adjust plan',
         isBehind: true,
         message: 'Finish 1 skill node today to back the track.',
-        title: 'You are 95% behind your target pace.',
+        title: 'You are 94.7% behind your target pace.',
       }),
     );
     expect(result.metrics).toEqual({

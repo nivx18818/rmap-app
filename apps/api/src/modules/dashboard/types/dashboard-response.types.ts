@@ -2,6 +2,7 @@ import type { RoadmapResponseDto } from '@/modules/roadmaps/dto/roadmap-response
 import type { TimelineWarningResponse } from '@/modules/roadmaps/types/roadmap-progress.types';
 
 export interface DashboardUserProfileResponse {
+  avatarUrl: null | string;
   id: string;
   email: string;
   fullName: string;
@@ -34,6 +35,7 @@ export interface DashboardSummaryResponse {
 export interface DashboardSkillCategoryResponse {
   category: RoadmapResponseDto['roleCategory'];
   label: string;
+  completedSkills: number;
   totalSkills: number;
 }
 

@@ -21,8 +21,11 @@ import {
   fillDailyActivityRange,
   subtractUtcDays,
   toUtcMidnightDate,
-  toUtcMidnightMs,
 } from '@/common/utils/streak-days.util';
+import {
+  calculateDeadlineTimelineWarning,
+  calculateTimelineWarning,
+} from '@/common/utils/timeline-warning.util';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
 import type { ActivityQueryDto } from './dto/activity-query.dto';
@@ -47,8 +50,6 @@ import type {
   DashboardSearchSkillResponse,
 } from './types/dashboard-search-response.types';
 
-const MS_PER_DAY = 1000 * 60 * 60 * 24;
-const PACE_WARNING_THRESHOLD_PCT = 15;
 const DASHBOARD_ACTIVITY_DAYS = 30;
 const DEFAULT_NODE_ESTIMATED_HOURS = 3;
 const DASHBOARD_SEARCH_ROADMAPS_PER_PAGE = 5;
@@ -62,6 +63,7 @@ type DailyActivityRecord = {
 type DashboardRoadmapNodeRecord = {
   id: string;
   nodeType: NodeType;
+  skillId: string | null;
   estimatedHours: Prisma.Decimal | number | null;
   userNodeProgress: Array<{
     startedAt: Date | null;
@@ -154,6 +156,7 @@ export class DashboardService {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
+        avatarUrl: true,
         id: true,
         email: true,
         fullName: true,
@@ -180,6 +183,7 @@ export class DashboardService {
 
     return {
       userProfile: {
+        avatarUrl: user.avatarUrl,
         id: user.id,
         email: user.email,
         fullName: user.fullName,
@@ -348,6 +352,7 @@ export class DashboardService {
         select: {
           id: true,
           nodeType: true,
+          skillId: true,
           estimatedHours: true,
           userNodeProgress: {
             where: { userId },
@@ -379,6 +384,7 @@ export class DashboardService {
           name: true,
           nodeType: true,
           parentId: true,
+          skillId: true,
           estimatedHours: true,
           posY: true,
           userNodeProgress: {
@@ -458,13 +464,7 @@ export class DashboardService {
         : 0,
       nodesTotal,
       nodesCompleted: isStarted ? nodesCompleted : 0,
-      timelineWarning: isStarted
-        ? this.calculateTimelineWarning(
-            roadmap.generatedAt,
-            toNumberOrNull(roadmap.hoursPerDay),
-            completedHours,
-          )
-        : null,
+      timelineWarning: isStarted ? this.resolveTimelineWarning(roadmap, completedHours) : null,
     };
   }
 
@@ -514,13 +514,7 @@ export class DashboardService {
         requiredCompletionPct: this.calculatePercent(requiredNodesCompleted, requiredNodes.length),
       },
       nextUnlock: this.findNextUnlockGroup(roadmap, currentGroup),
-      paceWarning: this.formatHomePaceWarning(
-        this.calculateTimelineWarning(
-          roadmap.generatedAt,
-          toNumberOrNull(roadmap.hoursPerDay),
-          completedHours,
-        ),
-      ),
+      paceWarning: this.formatHomePaceWarning(this.resolveTimelineWarning(roadmap, completedHours)),
     };
   }
 
@@ -776,18 +770,36 @@ export class DashboardService {
     userRoadmaps: DashboardRoadmapRecord[],
   ): DashboardSkillCategoryResponse[] {
     const categoryTotals = userRoadmaps.reduce((totals, roadmap) => {
-      const currentCount = totals.get(roadmap.roleCategory) ?? 0;
+      const currentCount = totals.get(roadmap.roleCategory) ?? {
+        completedSkillIds: new Set<string>(),
+        skillIds: new Set<string>(),
+      };
+      const leafNodes = this.getLeafNodes(roadmap);
 
-      totals.set(roadmap.roleCategory, currentCount + this.getLeafNodes(roadmap).length);
+      for (const node of leafNodes) {
+        const skillIdentity = this.getNodeSkillIdentity(node);
+
+        currentCount.skillIds.add(skillIdentity);
+
+        if (this.isNodeCompleted(node)) {
+          currentCount.completedSkillIds.add(skillIdentity);
+        }
+      }
+
+      totals.set(roadmap.roleCategory, {
+        completedSkillIds: currentCount.completedSkillIds,
+        skillIds: currentCount.skillIds,
+      });
 
       return totals;
-    }, new Map<RoleCategory, number>());
+    }, new Map<RoleCategory, { completedSkillIds: Set<string>; skillIds: Set<string> }>());
 
     return Array.from(categoryTotals.entries())
-      .map(([category, totalSkills]) => ({
+      .map(([category, totals]) => ({
         category,
         label: this.formatRoleCategory(category),
-        totalSkills,
+        completedSkills: totals.completedSkillIds.size,
+        totalSkills: totals.skillIds.size,
       }))
       .sort(
         (first, second) =>
@@ -828,6 +840,10 @@ export class DashboardService {
     );
   }
 
+  private getNodeSkillIdentity(node: DashboardRoadmapNodeRecord): string {
+    return node.skillId ?? `roadmap-node:${node.id}`;
+  }
+
   private getStartedAt(roadmap: {
     nodes: Array<{
       userNodeProgress: Array<{
@@ -854,44 +870,31 @@ export class DashboardService {
     return roadmap.nodes.length > 0 && roadmap.nodes.every((node) => this.isNodeCompleted(node));
   }
 
-  private calculateTimelineWarning(
-    generatedAt: Date,
-    hoursPerDay: number | null,
+  private resolveTimelineWarning(
+    roadmap: DashboardRoadmapRecord | DashboardHomeRoadmapRecord,
     completedHours: number,
-    now = new Date(),
   ): TimelineWarningResponse | null {
-    if (!hoursPerDay || hoursPerDay <= 0 || Number.isNaN(generatedAt.getTime())) {
-      return null;
-    }
+    const totalLeafEstimatedHours = roadmap.nodes
+      .filter((node) => node.nodeType === NodeType.REQUIRED || node.nodeType === NodeType.OPTIONAL)
+      .reduce((total, node) => total + (toNumberOrNull(node.estimatedHours) ?? 0), 0);
+    const remainingEstimatedHours = Math.max(0, totalLeafEstimatedHours - completedHours);
+    const hoursPerDay = toNumberOrNull(roadmap.hoursPerDay);
 
-    const daysElapsed =
-      Math.max(
-        1,
-        Math.floor((toUtcMidnightMs(now) - toUtcMidnightMs(generatedAt)) / MS_PER_DAY) + 1,
-      ) || 1;
-    const plannedHoursElapsed = daysElapsed * hoursPerDay;
+    const deadlineTimelineWarning =
+      roadmap.deadlineDate && hoursPerDay
+        ? calculateDeadlineTimelineWarning(
+            roadmap.deadlineDate,
+            hoursPerDay,
+            remainingEstimatedHours,
+            new Date(),
+            'The remaining roadmap estimate',
+          )
+        : null;
 
-    if (plannedHoursElapsed <= 0) {
-      return null;
-    }
-
-    const hoursDeficit = Math.max(0, plannedHoursElapsed - completedHours);
-    const paceDeficitPct = this.roundToOne((hoursDeficit / plannedHoursElapsed) * 100);
-
-    if (paceDeficitPct < PACE_WARNING_THRESHOLD_PCT) {
-      return null;
-    }
-
-    const estimatedDelayDays = Math.ceil(hoursDeficit / hoursPerDay);
-
-    return {
-      isBehind: true,
-      paceDeficitPct,
-      estimatedDelayDays,
-      message:
-        `You are ${paceDeficitPct}% behind pace - projected delay is about ` +
-        `${estimatedDelayDays} day(s).`,
-    };
+    return (
+      deadlineTimelineWarning ??
+      calculateTimelineWarning(roadmap.generatedAt, hoursPerDay, completedHours)
+    );
   }
 
   private isNodeCompleted(node: {

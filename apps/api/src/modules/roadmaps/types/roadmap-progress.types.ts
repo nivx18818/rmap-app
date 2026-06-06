@@ -1,9 +1,6 @@
-export interface TimelineWarningResponse {
-  isBehind: boolean;
-  paceDeficitPct: number;
-  estimatedDelayDays: number;
-  message: string;
-}
+import type { TimelineWarningResponse as CommonTimelineWarningResponse } from '@/common/utils/timeline-warning.util';
+
+export type TimelineWarningResponse = CommonTimelineWarningResponse;
 
 export interface RoadmapProgressSummaryResponse {
   roadmapId: string;

@@ -16,7 +16,7 @@ export async function proxy(request: NextRequest) {
   const refreshToken = request.cookies.get('refresh_token')?.value;
   const { pathname, search } = request.nextUrl;
 
-  const protectedRoutes = ['/dashboard', '/roadmaps/generate'];
+  const protectedRoutes = ['/dashboard', '/profile', '/roadmaps/generate'];
   const authRoutes = ['/sign-in', '/sign-up'];
 
   const isProtectedRoute = protectedRoutes.some((route) => matchesRoute(pathname, route));

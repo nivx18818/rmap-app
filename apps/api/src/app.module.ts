@@ -12,6 +12,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { RoadmapsModule } from './modules/roadmaps/roadmaps.module';
+import { SkillsModule } from './modules/skills/skills.module';
 import { TemplatesModule } from './modules/templates/templates.module';
 import { UserModule } from './modules/user/user.module';
 
@@ -26,6 +27,7 @@ import { UserModule } from './modules/user/user.module';
     UserModule,
     OnboardingModule,
     RoadmapsModule,
+    SkillsModule,
     TemplatesModule,
     DashboardModule,
   ],

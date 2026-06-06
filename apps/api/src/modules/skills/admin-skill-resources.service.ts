@@ -45,7 +45,7 @@ export class AdminSkillResourcesService {
 
     return {
       resources: resources.map((resource) => this.formatResource(resource)),
-      skill_id: skillId,
+      skillId,
     };
   }
 

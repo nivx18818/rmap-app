@@ -41,6 +41,10 @@ export interface SignInPayload {
   password: string;
 }
 
+export interface ForgotPasswordPayload {
+  email: string;
+}
+
 export interface SignUpPayload {
   avatarUrl?: string;
   email: string;

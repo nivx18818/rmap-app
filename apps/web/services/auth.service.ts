@@ -3,6 +3,7 @@ import { axiosInstance } from '@/lib/axios-instance';
 import {
   type AuthApiUser,
   type ChangePasswordPayload,
+  type ForgotPasswordPayload,
   type SignInPayload,
   type SignUpPayload,
   type UpdateProfilePayload,
@@ -23,6 +24,9 @@ export const authService = {
   },
   login: async (payload: SignInPayload) => {
     await axiosInstance.post<void>(ENDPOINTS.auth.login, payload);
+  },
+  forgotPassword: async (payload: ForgotPasswordPayload) => {
+    await axiosInstance.post<void>(ENDPOINTS.auth.forgotPassword, payload);
   },
   logout: async () => {
     await axiosInstance.post<void>(ENDPOINTS.auth.logout);

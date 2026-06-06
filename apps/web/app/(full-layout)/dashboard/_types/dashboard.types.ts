@@ -1,6 +1,7 @@
 import type { TimelineWarning } from '../../../(full-layout)/roadmaps/[id]/_types/roadmap-progress.types';
 
 export interface DashboardUserProfile {
+  avatarUrl?: null | string;
   id: string;
   email: string;
   fullName: string;
@@ -26,18 +27,24 @@ export interface DashboardSummary {
 
 export interface DashboardSkillCategory {
   category:
-    | 'AI_ENGINEERING'
-    | 'CLOUD_COMPUTING'
+    | 'ABSOLUTE_BEGINNERS'
+    | 'AI_AND_MACHINE_LEARNING'
+    | 'BEST_PRACTICES'
+    | 'BLOCKCHAIN'
+    | 'COMPUTER_SCIENCE'
     | 'CYBER_SECURITY'
-    | 'DATA_SCIENCE'
+    | 'DATA_ANALYSIS'
     | 'DATABASES'
+    | 'DESIGN'
     | 'DEVOPS'
+    | 'FRAMEWORKS'
+    | 'GAME_DEVELOPMENT'
+    | 'LANGUAGES_AND_PLATFORMS'
+    | 'MANAGEMENT'
     | 'MOBILE_DEVELOPMENT'
-    | 'PROGRAMMING_LANGUAGES'
-    | 'SOFTWARE_ENGINEERING'
-    | 'SYSTEM_DESIGN'
     | 'WEB_DEVELOPMENT';
   label: string;
+  completedSkills: number;
   totalSkills: number;
 }
 

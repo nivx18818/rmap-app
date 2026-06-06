@@ -19,12 +19,23 @@ export interface AuthApiUser {
   role?: string;
 }
 
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface UpdateProfilePayload {
+  fullName: string;
+  avatarUrl?: null | string;
+}
+
 export interface SignInPayload {
   email: string;
   password: string;
 }
 
 export interface SignUpPayload {
+  avatarUrl: string;
   email: string;
   fullName: string;
   password: string;

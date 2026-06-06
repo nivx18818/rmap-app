@@ -1,8 +1,8 @@
 import { type AuthApiUser, type AuthUser } from '@/types/auth';
 
-function buildDefaultAvatar(seedSource: string) {
+export function buildDefaultAvatar(seedSource: string) {
   const seed = encodeURIComponent(seedSource.trim() || 'user');
-  return `https://api.dicebear.com/9.x/adventurer/svg?seed=${seed}`;
+  return `https://api.dicebear.com/10.x/adventurer/svg?seed=${seed}`;
 }
 
 export function normalizeUser(user: AuthApiUser): AuthUser {

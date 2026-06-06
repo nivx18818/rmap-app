@@ -67,6 +67,9 @@
   --color-gradient-cta-pill: var(--gradient-cta-pill);
   --color-gradient-search-bar: var(--gradient-search-bar);
   --color-gradient-category-pill: var(--gradient-category-pill);
+  --color-featured-template-choice: var(--featured-template-choice);
+  --color-featured-template-featured: var(--featured-template-featured);
+  --color-featured-template-recommended: var(--featured-template-recommended);
 
   --color-border-node: var(--border-node);
   --color-background-node-completed: var(--background-node-completed);
@@ -166,6 +169,16 @@
       hsla(228, 96%, 89%, 0.3) 100%
     ),
     linear-gradient(90deg, hsla(0, 0%, 100%, 0.75) 0%, hsla(0, 0%, 100%, 0.75) 100%);
+  --gradient-featured-template-card: linear-gradient(
+    135deg,
+    hsla(262, 83%, 58%, 0.08),
+    hsla(326, 79%, 60%, 0.04) 48%,
+    hsla(198, 88%, 54%, 0.06)
+  );
+  --shadow-featured-template-card: 0 18px 42px hsla(262, 70%, 32%, 0.12);
+  --featured-template-choice: var(--primary);
+  --featured-template-featured: hsl(198, 88%, 42%);
+  --featured-template-recommended: hsl(160, 84%, 33%);
 
   /* Roadmap */
   --border-node: #1b1b20;

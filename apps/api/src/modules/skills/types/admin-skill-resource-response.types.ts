@@ -14,5 +14,5 @@ export interface SkillResourceResponse {
 
 export interface SkillResourceListResponse {
   resources: SkillResourceResponse[];
-  skill_id: string;
+  skillId: string;
 }

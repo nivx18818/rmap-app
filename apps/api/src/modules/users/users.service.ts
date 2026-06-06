@@ -118,12 +118,21 @@ export class UsersService {
       where: { id },
       data: { ...updateUserProfileDto },
       select: {
+        avatarUrl: true,
         id: true,
         email: true,
         fullName: true,
         role: true,
         createdAt: true,
       },
+    });
+  }
+
+  async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id },
+      data: { passwordHash },
+      select: { id: true },
     });
   }
 

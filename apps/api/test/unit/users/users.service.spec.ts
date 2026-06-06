@@ -14,6 +14,7 @@ import type { Context, MockContext } from '../../utils/prisma-mock';
 import { createMockContext, resetMockContext } from '../../utils/prisma-mock';
 
 const makeUser = (overrides: Partial<User> = {}): User => ({
+  avatarUrl: null,
   createdAt: new Date('2025-04-24T07:00:00.000Z'),
   email: 'test@example.com',
   fullName: 'Test',
@@ -213,6 +214,7 @@ describe('UsersService', () => {
   describe('updateProfile', () => {
     it('should update and return the user', async () => {
       const mockUser = {
+        avatarUrl: 'https://res.cloudinary.com/demo/avatar.png',
         createdAt: new Date('2025-04-24T07:00:00Z'),
         email: 'test@example.com',
         fullName: 'New Name',
@@ -221,12 +223,15 @@ describe('UsersService', () => {
       };
       mockCtx.prisma.user.update.mockResolvedValue(mockUser as unknown as User);
 
-      const result = await service.updateProfile('1', { fullName: 'New Name' });
+      const result = await service.updateProfile('1', {
+        fullName: 'New Name',
+      });
 
       expect(prismaService.user.update).toHaveBeenCalledWith({
         where: { id: '1' },
         data: { fullName: 'New Name' },
         select: {
+          avatarUrl: true,
           id: true,
           email: true,
           fullName: true,
@@ -235,6 +240,20 @@ describe('UsersService', () => {
         },
       });
       expect(result).toEqual(mockUser);
+    });
+  });
+
+  describe('updatePasswordHash', () => {
+    it('should update only the password hash', async () => {
+      mockCtx.prisma.user.update.mockResolvedValue({ id: '1' } as User);
+
+      await service.updatePasswordHash('1', 'new-hash');
+
+      expect(prismaService.user.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: { passwordHash: 'new-hash' },
+        select: { id: true },
+      });
     });
   });
 });

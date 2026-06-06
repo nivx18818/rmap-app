@@ -36,6 +36,7 @@ describe('UsersController', () => {
   describe('getMe', () => {
     it('should return formatted user profile', () => {
       const mockUser = {
+        avatarUrl: null,
         id: '1',
         email: 'test@example.com',
         fullName: 'Test User',
@@ -49,6 +50,7 @@ describe('UsersController', () => {
         id: '1',
         email: 'test@example.com',
         fullName: 'Test User',
+        avatarUrl: null,
         role: 'user',
         createdAt: new Date('2025-04-24T07:00:00Z'),
       });
@@ -58,6 +60,7 @@ describe('UsersController', () => {
   describe('updateProfile', () => {
     it('should return updated user profile', async () => {
       const mockUser = {
+        avatarUrl: null,
         id: '1',
         email: 'test@example.com',
         fullName: 'Test User',
@@ -81,6 +84,7 @@ describe('UsersController', () => {
         id: '1',
         email: 'test@example.com',
         fullName: 'New Name',
+        avatarUrl: null,
         role: 'user',
         createdAt: new Date('2025-04-24T07:00:00Z'),
       });

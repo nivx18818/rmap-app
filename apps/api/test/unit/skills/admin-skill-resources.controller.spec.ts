@@ -45,7 +45,7 @@ describe('AdminSkillResourcesController', () => {
   });
 
   it('delegates resource listing with path params', async () => {
-    const response = { resources: [], skill_id: skillId };
+    const response = { resources: [], skillId: skillId };
 
     mockAdminSkillResourcesService.listResources.mockResolvedValue(response);
 

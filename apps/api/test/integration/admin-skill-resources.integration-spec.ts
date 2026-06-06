@@ -11,7 +11,7 @@ type ResourceIdBody = {
 
 type ResourceListBody = {
   resources: ResourceIdBody[];
-  skill_id: string;
+  skillId: string;
 };
 
 type ValidationBody = {
@@ -107,7 +107,7 @@ describe('Admin skill resource management (integration)', () => {
     const listBody = listResponse.body as ResourceListBody;
 
     expect(listBody).toMatchObject({
-      skill_id: skill.id,
+      skillId: skill.id,
     });
     expect(listBody.resources.map((resource) => resource.id)).toEqual([primary.id, article.id]);
 

@@ -1,10 +1,7 @@
 import {
-  AnalyticsUpIcon,
   ArrowUpRight01Icon,
   Award01Icon,
   BookHeartIcon,
-  BookUserIcon,
-  Calendar03Icon,
   CalendarFavorite01Icon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -20,12 +17,10 @@ import { formatRoadmapTemplateCategory } from '../_utils/roadmap-templates';
 
 const FEATURED_TEMPLATE_COUNT = 8;
 const FEATURED_TEMPLATES_ERROR_MESSAGE = 'Unable to load featured roadmap templates.';
-const SOCIAL_PROOF_LABELS = [
-  { className: 'text-rose-500', icon: AnalyticsUpIcon, label: 'Trending now' },
-  { className: 'text-amber-500', icon: CalendarFavorite01Icon, label: 'Popular this week' },
-  { className: 'text-amber-500', icon: Calendar03Icon, label: 'Popular this month' },
-  { className: 'text-violet-500', icon: Award01Icon, label: 'Top pick' },
-  { className: 'text-pink-500', icon: BookHeartIcon, label: 'Learner favorite' },
+const FEATURED_TEMPLATE_BADGES = [
+  { className: 'text-featured-template-choice', icon: Award01Icon, label: "Developers' Choice" },
+  { className: 'text-featured-template-featured', icon: CalendarFavorite01Icon, label: 'Featured' },
+  { className: 'text-featured-template-recommended', icon: BookHeartIcon, label: 'Recommended' },
 ] as const;
 
 export async function RoadmapFeaturedTemplatesLoader() {
@@ -54,7 +49,7 @@ export async function RoadmapFeaturedTemplatesLoader() {
 function SeeAllTemplatesLink() {
   return (
     <Link
-      className="text-primary group/see-all focus-visible:ring-primary/30 flex min-h-38 w-full items-center justify-center gap-2 rounded-[10px] border border-dashed border-violet-500/20 bg-violet-500/[0.03] px-8 text-sm font-medium transition-all duration-200 hover:-translate-y-1 hover:border-violet-500/40 hover:bg-violet-500/10 hover:shadow-[0_18px_42px_rgba(76,29,149,0.12)] focus-visible:ring-2 focus-visible:outline-hidden"
+      className="text-primary group/see-all focus-visible:ring-primary/30 border-primary/20 bg-primary/3 hover:border-primary/40 hover:bg-primary/10 flex min-h-38 w-full items-center justify-center gap-2 rounded-[10px] border border-dashed px-8 text-sm font-medium transition-all duration-200 hover:-translate-y-1 hover:shadow-(--shadow-featured-template-card) focus-visible:ring-2 focus-visible:outline-hidden"
       href="/explore"
     >
       See All
@@ -71,27 +66,24 @@ function FeaturedRoadmapCard({ template }: { template: RoadmapTemplate }) {
     template.description?.trim() || 'Follow a structured path built from proven learning steps.';
   const href = buildRoadmapHref({ id: template.id, title: template.title });
   const category = formatRoadmapTemplateCategory(template.roleCategory);
-  const socialProof = getTemplateSocialProof(template);
+  const badge = getFeaturedTemplateBadge(template);
 
   return (
     <Link
-      className="group/card border-border/70 bg-background/75 focus-visible:ring-primary/30 relative flex min-h-38 flex-col justify-between overflow-hidden rounded-xl border p-4 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-violet-500/30 hover:bg-white/85 hover:shadow-[0_18px_42px_rgba(76,29,149,0.12)] focus-visible:ring-2 focus-visible:outline-hidden"
+      className="group/card border-border/70 bg-background/75 focus-visible:ring-primary/30 hover:border-primary/30 hover:bg-card/85 relative flex min-h-38 flex-col justify-between overflow-hidden rounded-xl border p-4 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-(--shadow-featured-template-card) focus-visible:ring-2 focus-visible:outline-hidden"
       href={href as never}
     >
       <div
         className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover/card:opacity-100"
-        style={{
-          backgroundImage:
-            'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(236,72,153,0.04) 48%, rgba(14,165,233,0.06))',
-        }}
+        style={{ backgroundImage: 'var(--gradient-featured-template-card)' }}
         aria-hidden="true"
       />
       <div className="relative z-10 flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
-          <span className="text-primary max-w-[calc(100%-2.5rem)] truncate rounded-full border border-violet-500/15 bg-violet-500/[0.06] px-2.5 py-1 text-[11px] font-semibold">
+          <span className="text-primary border-primary/15 bg-primary/6 max-w-[calc(100%-2.5rem)] truncate rounded-full border px-2.5 py-1 text-[11px] font-semibold">
             {category}
           </span>
-          <span className="border-border/70 bg-background/80 text-muted-foreground group-hover/card:text-primary flex size-8 shrink-0 items-center justify-center rounded-full border transition-all duration-300 group-hover/card:translate-x-0.5 group-hover/card:-translate-y-0.5 group-hover/card:border-violet-500/25 group-hover/card:bg-violet-500/10">
+          <span className="border-border/70 bg-background/80 text-muted-foreground group-hover/card:text-primary group-hover/card:border-primary/25 group-hover/card:bg-primary/10 flex size-8 shrink-0 items-center justify-center rounded-full border transition-all duration-300 group-hover/card:translate-x-0.5 group-hover/card:-translate-y-0.5">
             <HugeiconsIcon className="size-3.5" icon={ArrowUpRight01Icon} />
           </span>
         </div>
@@ -105,9 +97,9 @@ function FeaturedRoadmapCard({ template }: { template: RoadmapTemplate }) {
       </div>
 
       <div className="relative z-10 mt-4 flex items-center justify-between gap-3">
-        <span className={cn('flex min-w-0 items-center gap-1.5 text-xs', socialProof.className)}>
-          <HugeiconsIcon className="size-3.5 shrink-0" icon={socialProof.icon} />
-          <span className="truncate">{socialProof.label}</span>
+        <span className={cn('flex min-w-0 items-center gap-1.5 text-xs', badge.className)}>
+          <HugeiconsIcon className="size-3.5 shrink-0" icon={badge.icon} />
+          <span className="truncate">{badge.label}</span>
         </span>
         <span className="bg-primary/60 h-px flex-1 opacity-0 transition-opacity duration-300 group-hover/card:opacity-100" />
       </div>
@@ -115,22 +107,14 @@ function FeaturedRoadmapCard({ template }: { template: RoadmapTemplate }) {
   );
 }
 
-function getTemplateSocialProof(template: RoadmapTemplate) {
+function getFeaturedTemplateBadge(template: RoadmapTemplate) {
   const seed = hashTemplateKey(`${template.id}:${template.title}`);
 
-  if (seed % 3 === 0) {
-    return {
-      className: 'text-emerald-500',
-      icon: BookUserIcon,
-      label: `${(seed % 951) + 50} learners`,
-    };
-  }
-
   return (
-    SOCIAL_PROOF_LABELS[seed % SOCIAL_PROOF_LABELS.length] ?? {
-      className: 'text-rose-500',
-      icon: AnalyticsUpIcon,
-      label: 'Trending now',
+    FEATURED_TEMPLATE_BADGES[seed % FEATURED_TEMPLATE_BADGES.length] ?? {
+      className: 'text-featured-template-choice',
+      icon: Award01Icon,
+      label: "Developers' Choice",
     }
   );
 }

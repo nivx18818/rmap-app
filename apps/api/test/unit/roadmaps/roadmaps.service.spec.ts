@@ -12,6 +12,7 @@ import {
 } from '@repo/db/prisma/client';
 
 import {
+  AppConflictException,
   DeadlineInPastException,
   InvalidStatusTransitionException,
   MilestoneSubmissionInProgressException,
@@ -74,6 +75,7 @@ function makeTxMock() {
     userNodeProgress: {
       count: jest.fn().mockResolvedValue(0),
       createMany: jest.fn().mockResolvedValue({ count: 19 }),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       findFirst: jest.fn().mockResolvedValue(null),
       findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn().mockResolvedValue(null),
@@ -2168,6 +2170,68 @@ describe('RoadmapsService', () => {
       await expect(service.deleteByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
         RoadmapNotFoundException,
       );
+    });
+  });
+
+  describe('deleteTemplateProgress', () => {
+    const roadmapId = 'template-1';
+    const userId = 'user-1';
+
+    it('should delete only the current user progress for a template roadmap', async () => {
+      txMock.roadmap.findFirst.mockResolvedValue({ id: roadmapId });
+      txMock.userNodeProgress.deleteMany.mockResolvedValue({ count: 3 });
+
+      await service.deleteTemplateProgress(userId, roadmapId);
+
+      expect(txMock.roadmap.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: roadmapId,
+          isTemplate: true,
+        },
+        select: { id: true },
+      });
+      expect(txMock.milestoneSubmission.findFirst).toHaveBeenCalledWith({
+        where: {
+          roadmapNode: { roadmapId },
+          status: MilestoneSubmissionStatus.RUNNING,
+          userId,
+        },
+        select: { id: true },
+      });
+      expect(txMock.userNodeProgress.deleteMany).toHaveBeenCalledWith({
+        where: {
+          roadmapNode: { roadmapId },
+          userId,
+        },
+      });
+      expect(txMock.roadmap.update).not.toHaveBeenCalled();
+    });
+
+    it('should be idempotent when the current user has no template progress', async () => {
+      txMock.roadmap.findFirst.mockResolvedValue({ id: roadmapId });
+      txMock.userNodeProgress.deleteMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.deleteTemplateProgress(userId, roadmapId)).resolves.toBeUndefined();
+    });
+
+    it('should throw 404 when the roadmap is missing or is not a template', async () => {
+      txMock.roadmap.findFirst.mockResolvedValue(null);
+
+      await expect(service.deleteTemplateProgress(userId, roadmapId)).rejects.toThrow(
+        RoadmapNotFoundException,
+      );
+      expect(txMock.milestoneSubmission.findFirst).not.toHaveBeenCalled();
+      expect(txMock.userNodeProgress.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('should reject deletion while a milestone submission is running', async () => {
+      txMock.roadmap.findFirst.mockResolvedValue({ id: roadmapId });
+      txMock.milestoneSubmission.findFirst.mockResolvedValue({ id: 'submission-1' });
+
+      await expect(service.deleteTemplateProgress(userId, roadmapId)).rejects.toThrow(
+        AppConflictException,
+      );
+      expect(txMock.userNodeProgress.deleteMany).not.toHaveBeenCalled();
     });
   });
 

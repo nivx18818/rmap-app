@@ -1,7 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { NodeStatus, NodeType, type Prisma } from '@repo/db/prisma/client';
+import {
+  MilestoneSubmissionStatus,
+  NodeStatus,
+  NodeType,
+  type Prisma,
+} from '@repo/db/prisma/client';
 
 import {
+  AppConflictException,
   InvalidStatusTransitionException,
   QuizNotPassedException,
   RoadmapNodeProgressInvalidUpdateException,
@@ -285,6 +291,44 @@ export class RoadmapProgressService {
         roadmap: formatRoadmap(roadmap, now),
         unlockedNodes,
       };
+    });
+  }
+
+  async deleteTemplateProgress(userId: string, roadmapId: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const template = await tx.roadmap.findFirst({
+        where: {
+          id: roadmapId,
+          isTemplate: true,
+        },
+        select: { id: true },
+      });
+
+      if (!template) {
+        throw new RoadmapNotFoundException(roadmapId);
+      }
+
+      const runningSubmission = await tx.milestoneSubmission.findFirst({
+        where: {
+          roadmapNode: { roadmapId },
+          status: MilestoneSubmissionStatus.RUNNING,
+          userId,
+        },
+        select: { id: true },
+      });
+
+      if (runningSubmission) {
+        throw new AppConflictException(
+          'Learning progress cannot be deleted while a milestone submission is running',
+        );
+      }
+
+      await tx.userNodeProgress.deleteMany({
+        where: {
+          roadmapNode: { roadmapId },
+          userId,
+        },
+      });
     });
   }
 

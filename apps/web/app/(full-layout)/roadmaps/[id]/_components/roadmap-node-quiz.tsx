@@ -297,9 +297,12 @@ export function RoadmapNodeQuiz({
                     key={question.id}
                     className="border-border bg-background flex flex-col gap-3 rounded-lg border p-4 shadow-sm"
                   >
-                    <legend className="text-foreground px-1 text-sm font-semibold">
-                      {index + 1}. {question.questionText}
+                    <legend className="sr-only">
+                      Question {index + 1}. {question.questionText}
                     </legend>
+                    <h2 className="text-foreground text-sm leading-6 font-semibold">
+                      {index + 1}. {question.questionText}
+                    </h2>
                     <div className="flex flex-col gap-2">
                       {question.options.map((option) => {
                         const isSelected = answers[question.id] === option.value;

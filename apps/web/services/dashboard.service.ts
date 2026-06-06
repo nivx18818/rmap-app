@@ -5,12 +5,7 @@ import type {
 
 import { ENDPOINTS } from '@/constants/endpoints';
 import { axiosInstance } from '@/lib/axios-instance';
-
-function buildDefaultAvatar(seedSource: string) {
-  const seed = encodeURIComponent(seedSource.trim() || 'user');
-
-  return `https://api.dicebear.com/9.x/adventurer/svg?seed=${seed}`;
-}
+import { buildDefaultAvatar } from '@/utils/user';
 
 function mapDashboardResponse(response: DashboardApiResponse): Dashboard {
   const fullName = response.userProfile.fullName || 'User';

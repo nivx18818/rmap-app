@@ -376,8 +376,19 @@ function RoadmapNodeDetailBody({ nodeDetail }: { nodeDetail: RoadmapNodeDetail }
     'No description available for this node yet.';
 
   if (nodeDetail.nodeType === 'MILESTONE') {
+    const latestSubmission = nodeDetail.latestSubmission;
+    const status = nodeDetail.progress?.status ?? 'LOCKED';
+    const hasFixedAction =
+      latestSubmission?.status === 'RUNNING' ||
+      (status === 'IN_PROGRESS' && latestSubmission?.status !== 'PASSED');
+
     return (
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-4">
+      <div
+        className={cn(
+          'flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pt-4',
+          hasFixedAction ? 'pb-44' : 'pb-4',
+        )}
+      >
         <section className="flex flex-col gap-2">
           <h3 className="text-foreground text-sm font-semibold">Project brief</h3>
           <RoadmapMarkdownDescription value={description} />
@@ -389,6 +400,17 @@ function RoadmapNodeDetailBody({ nodeDetail }: { nodeDetail: RoadmapNodeDetail }
           <h3 className="text-foreground text-sm font-semibold">Test suite</h3>
           <MilestoneTestSuiteView nodeDetail={nodeDetail} />
         </section>
+
+        {latestSubmission && latestSubmission.status !== 'RUNNING' ? (
+          <>
+            <Separator />
+
+            <section className="flex flex-col gap-3">
+              <h3 className="text-foreground text-sm font-semibold">Latest submission</h3>
+              <MilestoneSubmissionFeedback submission={latestSubmission} />
+            </section>
+          </>
+        ) : null}
       </div>
     );
   }
@@ -519,7 +541,7 @@ function RoadmapNodeDetailActions({
   if (isMilestone) {
     if (latestSubmission?.status === 'RUNNING') {
       return (
-        <DrawerFooter>
+        <DrawerFooter className="bg-popover absolute inset-x-0 bottom-0 border-t">
           <LoadingState
             className="py-2"
             message="Running tests..."
@@ -541,9 +563,14 @@ function RoadmapNodeDetailActions({
     }
 
     return (
-      <DrawerFooter>
-        {latestSubmission ? <MilestoneSubmissionFeedback submission={latestSubmission} /> : null}
-
+      <DrawerFooter
+        className={cn(
+          'bg-popover border-t',
+          status === 'IN_PROGRESS' && latestSubmission?.status !== 'PASSED'
+            ? 'absolute inset-x-0 bottom-0'
+            : undefined,
+        )}
+      >
         {status === 'IN_PROGRESS' && latestSubmission?.status !== 'PASSED' ? (
           <form className="flex flex-col gap-3" onSubmit={handleMilestoneSubmit}>
             <div className="flex flex-col gap-2">
@@ -633,6 +660,14 @@ export function RoadmapNodeDetailDrawer({
   const description = nodeDetail
     ? `${NODE_TYPE_LABELS[nodeDetail.nodeType]}${nodeDetail.estimatedHours ? ` - ${nodeDetail.estimatedHours} hours` : ''}`
     : 'Loading node detail';
+  const shouldShowActions =
+    nodeDetail &&
+    canManageProgress &&
+    !(
+      nodeDetail.nodeType === 'MILESTONE' &&
+      nodeDetail.latestSubmission?.status === 'PASSED' &&
+      !actionErrorMessage
+    );
 
   return (
     <Drawer direction={drawerDirection} open={Boolean(selectedNodeId)} onOpenChange={onOpenChange}>
@@ -680,7 +715,7 @@ export function RoadmapNodeDetailDrawer({
           </div>
         )}
 
-        {nodeDetail && canManageProgress ? (
+        {shouldShowActions ? (
           <>
             <Separator />
             <RoadmapNodeDetailActions

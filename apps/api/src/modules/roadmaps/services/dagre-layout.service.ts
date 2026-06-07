@@ -4,7 +4,7 @@
 import * as dagre from '@dagrejs/dagre';
 import { Injectable } from '@nestjs/common';
 
-import type { FlatNode } from './types/ai-roadmap.types';
+import type { FlatNode } from '../types/ai-roadmap.types';
 
 /**
  * Computes a top-to-bottom Dagre layout for a flat list of roadmap nodes.

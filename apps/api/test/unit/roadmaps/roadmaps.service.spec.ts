@@ -29,9 +29,15 @@ import {
 } from '@/common/exceptions/app.exceptions';
 import { AiService } from '@/modules/ai/ai.service';
 import { PrismaService } from '@/modules/prisma/prisma.service';
-import { DagreLayoutService } from '@/modules/roadmaps/dagre-layout.service';
 import { MilestoneExecutionClient } from '@/modules/roadmaps/milestone-execution.client';
 import { RoadmapsService } from '@/modules/roadmaps/roadmaps.service';
+import { DagreLayoutService } from '@/modules/roadmaps/services/dagre-layout.service';
+import { RoadmapGenerationService } from '@/modules/roadmaps/services/roadmap-generation.service';
+import { RoadmapMilestoneService } from '@/modules/roadmaps/services/roadmap-milestone.service';
+import { RoadmapProgressService } from '@/modules/roadmaps/services/roadmap-progress.service';
+import { RoadmapQueryService } from '@/modules/roadmaps/services/roadmap-query.service';
+import { RoadmapQuizService } from '@/modules/roadmaps/services/roadmap-quiz.service';
+import { parseMilestoneTestResult as parseMilestoneTestResultOutput } from '@/modules/roadmaps/utils/milestone-output';
 
 import {
   MOCK_USER_ID,
@@ -437,6 +443,7 @@ describe('RoadmapsService', () => {
   let aiService: jest.Mocked<AiService>;
   let dagreLayout: jest.Mocked<DagreLayoutService>;
   let milestoneExecutionClient: jest.Mocked<MilestoneExecutionClient>;
+  let milestoneService: RoadmapMilestoneService;
 
   beforeEach(async () => {
     txMock = makeTxMock();
@@ -445,6 +452,11 @@ describe('RoadmapsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RoadmapsService,
+        RoadmapGenerationService,
+        RoadmapQueryService,
+        RoadmapProgressService,
+        RoadmapQuizService,
+        RoadmapMilestoneService,
         {
           provide: PrismaService,
           useValue: prismaMock,
@@ -475,6 +487,7 @@ describe('RoadmapsService', () => {
     aiService = module.get(AiService);
     dagreLayout = module.get(DagreLayoutService);
     milestoneExecutionClient = module.get(MilestoneExecutionClient);
+    milestoneService = module.get(RoadmapMilestoneService);
   });
 
   afterEach(() => {
@@ -2787,11 +2800,7 @@ describe('RoadmapsService', () => {
 
   describe('milestone test result parsing', () => {
     const parseMilestoneTestResult = (): ParseMilestoneTestResult => {
-      const target = service as unknown as {
-        parseMilestoneTestResult: ParseMilestoneTestResult;
-      };
-
-      return (output: string) => target.parseMilestoneTestResult(output);
+      return parseMilestoneTestResultOutput;
     };
 
     it('should accept valid marker JSON with six detailed test results', () => {
@@ -2930,14 +2939,7 @@ describe('RoadmapsService', () => {
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({ attemptNumber: 2 });
       txMock.milestoneSubmission.create.mockResolvedValue(submission);
-      jest
-        .spyOn(
-          service as unknown as {
-            executeMilestoneSubmission: (submissionId: string) => Promise<void>;
-          },
-          'executeMilestoneSubmission',
-        )
-        .mockResolvedValue(undefined);
+      jest.spyOn(milestoneService, 'executeMilestoneSubmission').mockResolvedValue(undefined);
     });
 
     it('should create a running submission and queue async execution', async () => {
@@ -2958,10 +2960,7 @@ describe('RoadmapsService', () => {
           },
         }),
       );
-      expect(
-        (service as unknown as { executeMilestoneSubmission: jest.Mock })
-          .executeMilestoneSubmission,
-      ).toHaveBeenCalledWith('submission-1');
+      expect(milestoneService.executeMilestoneSubmission).toHaveBeenCalledWith('submission-1');
       expect(result).toEqual({
         submission: {
           ...submission,
@@ -3101,11 +3100,7 @@ describe('RoadmapsService', () => {
 
   describe('milestone evaluator execution', () => {
     const executeMilestoneSubmission = (): ExecuteMilestoneSubmission => {
-      const target = service as unknown as {
-        executeMilestoneSubmission: ExecuteMilestoneSubmission;
-      };
-
-      return (submissionId: string) => target.executeMilestoneSubmission(submissionId);
+      return (submissionId: string) => milestoneService.executeMilestoneSubmission(submissionId);
     };
 
     beforeEach(() => {
@@ -3220,16 +3215,13 @@ describe('RoadmapsService', () => {
 
   describe('milestone submission completion', () => {
     const completeMilestoneSubmission = (): CompleteMilestoneSubmission => {
-      const target = service as unknown as {
-        completeMilestoneSubmission: CompleteMilestoneSubmission;
-      };
-
       return (
         submissionId: string,
         status: MilestoneSubmissionStatus,
         outputLog: string,
         testResult?: Parameters<CompleteMilestoneSubmission>[3],
-      ) => target.completeMilestoneSubmission(submissionId, status, outputLog, testResult);
+      ) =>
+        milestoneService.completeMilestoneSubmission(submissionId, status, outputLog, testResult);
     };
 
     it('should auto-complete the milestone and unlock next nodes when generated tests pass', async () => {

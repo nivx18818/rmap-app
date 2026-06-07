@@ -1,8 +1,8 @@
 import type { FlatNode } from '@/modules/roadmaps/types/ai-roadmap.types';
 
-import { DagreLayoutService } from '@/modules/roadmaps/dagre-layout.service';
+import { DagreLayoutService } from '@/modules/roadmaps/services/dagre-layout.service';
 
-import { MOCK_FLAT_NODES } from '../../utils/roadmaps.mock';
+import { MOCK_FLAT_NODES } from '../../../utils/roadmaps.mock';
 
 describe('DagreLayoutService', () => {
   let service: DagreLayoutService;

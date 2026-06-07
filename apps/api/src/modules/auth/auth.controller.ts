@@ -154,6 +154,31 @@ export class AuthController {
       return;
     }
 
+    const accessToken = cookieExtractor('ACCESS_TOKEN')(req);
+    if (accessToken) {
+      try {
+        const linked = await this.authService.linkOAuthAccountFromAccessToken(
+          accessToken,
+          req.user,
+        );
+        if (linked) {
+          res.redirect(
+            this.authService.getOAuthCallbackRedirectUrl(req.query.state, {
+              integration: 'connected',
+            }),
+          );
+          return;
+        }
+      } catch {
+        res.redirect(
+          this.authService.getOAuthCallbackRedirectUrl(req.query.state, {
+            integration: 'failed',
+          }),
+        );
+        return;
+      }
+    }
+
     try {
       const [accessToken, refreshToken] = await this.authService.loginWithOAuth(req.user);
       this.setAuthCookies(res, accessToken, refreshToken);

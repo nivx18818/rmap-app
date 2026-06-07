@@ -3,11 +3,11 @@ import { Body, Controller, Get, Patch } from '@nestjs/common';
 import { CurrentUser, type RequestUser } from '../auth/decorators/current-user.decorator';
 import { CreateUserProfileDto } from './dto/create-user-profile.dto';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
-import { UserService } from './user.service';
+import { UsersService } from './users.service';
 
 @Controller('users')
-export class UserController {
-  constructor(private readonly userService: UserService) {}
+export class UsersController {
+  constructor(private readonly userService: UsersService) {}
 
   @Get('me')
   getMe(@CurrentUser() user: RequestUser): CreateUserProfileDto {

@@ -10,7 +10,7 @@ import {
   MissingAuthenticationException,
   RefreshTokenInvalidException,
 } from '@/common/exceptions/app.exceptions';
-import { UserService } from '@/modules/user/user.service';
+import { UsersService } from '@/modules/users/users.service';
 
 import { RefreshTokenService } from '../refresh-token.service';
 import { cookieExtractor } from '../utils/cookie-extractor';
@@ -25,7 +25,7 @@ export interface JwtRefreshPayload {
 export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
   constructor(
     private readonly configService: ConfigService,
-    private readonly userService: UserService,
+    private readonly userService: UsersService,
     private readonly refreshTokenService: RefreshTokenService,
   ) {
     const secret = configService.get<string>('JWT_REFRESH_SECRET');

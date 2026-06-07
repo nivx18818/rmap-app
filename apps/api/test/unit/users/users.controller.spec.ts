@@ -3,12 +3,12 @@ import type { TestingModule } from '@nestjs/testing';
 
 import { Test } from '@nestjs/testing';
 
-import { UserController } from '@/modules/user/user.controller';
-import { UserService } from '@/modules/user/user.service';
+import { UsersController } from '@/modules/users/users.controller';
+import { UsersService } from '@/modules/users/users.service';
 
-describe('UserController', () => {
-  let controller: UserController;
-  let userService: UserService;
+describe('UsersController', () => {
+  let controller: UsersController;
+  let userService: UsersService;
 
   const mockUserService = {
     updateProfile: jest.fn(),
@@ -16,17 +16,17 @@ describe('UserController', () => {
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      controllers: [UserController],
+      controllers: [UsersController],
       providers: [
         {
-          provide: UserService,
+          provide: UsersService,
           useValue: mockUserService,
         },
       ],
     }).compile();
 
-    controller = module.get<UserController>(UserController);
-    userService = module.get<UserService>(UserService);
+    controller = module.get<UsersController>(UsersController);
+    userService = module.get<UsersService>(UsersService);
   });
 
   afterEach(() => {

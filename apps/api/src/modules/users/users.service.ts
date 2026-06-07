@@ -15,7 +15,7 @@ type OAuthAccountInput = {
 };
 
 @Injectable()
-export class UserService {
+export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findByEmail(email: string) {

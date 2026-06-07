@@ -14,7 +14,7 @@ import { PrismaModule } from './modules/prisma/prisma.module';
 import { RoadmapsModule } from './modules/roadmaps/roadmaps.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { TemplatesModule } from './modules/templates/templates.module';
-import { UserModule } from './modules/user/user.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -24,7 +24,7 @@ import { UserModule } from './modules/user/user.module';
     PrismaModule,
     AiModule,
     AuthModule,
-    UserModule,
+    UsersModule,
     OnboardingModule,
     RoadmapsModule,
     SkillsModule,

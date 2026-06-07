@@ -5,7 +5,7 @@ import type { Request } from 'express';
 import { UserRole } from '@repo/db/prisma/client';
 
 import type { RefreshTokenService } from '@/modules/auth/refresh-token.service';
-import type { UserService } from '@/modules/user/user.service';
+import type { UsersService } from '@/modules/users/users.service';
 
 import {
   AppUnauthorizedException,
@@ -41,7 +41,7 @@ describe('JwtRefreshStrategy', () => {
       () =>
         new JwtRefreshStrategy(
           { get: jest.fn() } as unknown as ConfigService,
-          userService as unknown as UserService,
+          userService as unknown as UsersService,
           refreshTokenService as unknown as RefreshTokenService,
         ),
     ).toThrow(InternalServerErrorException);
@@ -92,7 +92,7 @@ describe('JwtRefreshStrategy', () => {
   function makeStrategy() {
     return new JwtRefreshStrategy(
       configService as unknown as ConfigService,
-      userService as unknown as UserService,
+      userService as unknown as UsersService,
       refreshTokenService as unknown as RefreshTokenService,
     );
   }

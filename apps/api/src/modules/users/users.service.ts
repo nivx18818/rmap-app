@@ -1,7 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { type OAuthProvider, Prisma } from '@repo/db/prisma/client';
+import { OAuthProvider, Prisma } from '@repo/db/prisma/client';
 
-import { EmailAlreadyExistsException } from '@/common/exceptions/app.exceptions';
+import {
+  EmailAlreadyExistsException,
+  OAuthAccountAlreadyConnectedException,
+  OAuthDisconnectLastSignInMethodException,
+  OAuthIntegrationNotConnectedException,
+  OAuthProviderAlreadyConnectedException,
+  UserNotFoundException,
+} from '@/common/exceptions/app.exceptions';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserProfileDto } from './dto/create-user-profile.dto';
@@ -12,6 +19,16 @@ type OAuthAccountInput = {
   provider: OAuthProvider;
   providerAccountId: string;
   providerEmail: string;
+};
+
+const INTEGRATION_PROVIDERS = [OAuthProvider.GITHUB, OAuthProvider.GOOGLE] as const;
+
+export type UserIntegration = {
+  canDisconnect: boolean;
+  connected: boolean;
+  connectedAt: Date | null;
+  provider: OAuthProvider;
+  providerEmail: null | string;
 };
 
 @Injectable()
@@ -90,6 +107,21 @@ export class UsersService {
   }
 
   async linkOAuthAccount(userId: string, oauth: OAuthAccountInput) {
+    const existingProviderAccount = await this.prisma.oAuthAccount.findFirst({
+      where: {
+        provider: oauth.provider,
+        userId,
+      },
+    });
+
+    if (existingProviderAccount) {
+      if (existingProviderAccount.providerAccountId === oauth.providerAccountId) {
+        return await this.findById(userId);
+      }
+
+      throw new OAuthProviderAlreadyConnectedException(oauth.provider);
+    }
+
     try {
       await this.prisma.oAuthAccount.create({
         data: {
@@ -101,13 +133,86 @@ export class UsersService {
       });
     } catch (error) {
       if (this.isUniqueConstraintError(error, 'provider', 'providerAccountId')) {
-        return await this.findByOAuthAccount(oauth);
+        const existingUser = await this.findByOAuthAccount(oauth);
+        if (existingUser?.id === userId) {
+          return existingUser;
+        }
+
+        throw new OAuthAccountAlreadyConnectedException(oauth.provider);
       }
 
       throw error;
     }
 
     return await this.findById(userId);
+  }
+
+  async listIntegrations(userId: string): Promise<UserIntegration[]> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        passwordHash: true,
+        oauthAccounts: {
+          select: {
+            createdAt: true,
+            provider: true,
+            providerEmail: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new UserNotFoundException(userId);
+    }
+
+    const connectedCount = user.oauthAccounts.length;
+    const hasPassword = !!user.passwordHash;
+
+    return INTEGRATION_PROVIDERS.map((provider) => {
+      const account = user.oauthAccounts.find((oauthAccount) => oauthAccount.provider === provider);
+      const connected = !!account;
+
+      return {
+        canDisconnect: connected && (hasPassword || connectedCount > 1),
+        connected,
+        connectedAt: account?.createdAt ?? null,
+        provider,
+        providerEmail: account?.providerEmail ?? null,
+      };
+    });
+  }
+
+  async disconnectOAuthAccount(userId: string, provider: OAuthProvider): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        passwordHash: true,
+        oauthAccounts: {
+          select: {
+            id: true,
+            provider: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new UserNotFoundException(userId);
+    }
+
+    const account = user.oauthAccounts.find((oauthAccount) => oauthAccount.provider === provider);
+    if (!account) {
+      throw new OAuthIntegrationNotConnectedException(provider);
+    }
+
+    if (!user.passwordHash && user.oauthAccounts.length <= 1) {
+      throw new OAuthDisconnectLastSignInMethodException();
+    }
+
+    await this.prisma.oAuthAccount.delete({
+      where: { id: account.id },
+    });
   }
 
   async updateProfile(

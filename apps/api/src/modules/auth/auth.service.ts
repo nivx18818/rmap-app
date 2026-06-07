@@ -126,6 +126,42 @@ export class AuthService {
     });
   }
 
+  async linkOAuthAccountFromAccessToken(
+    accessToken: string,
+    profile: OAuthProfile,
+  ): Promise<boolean> {
+    if (!profile.email || !profile.emailVerified) {
+      throw new InvalidCredentialsException();
+    }
+
+    const secret = this.configService.get<string>('JWT_SECRET');
+    if (!secret) {
+      return false;
+    }
+
+    let payload: { email: string; sub: string };
+    try {
+      payload = await this.jwtService.verifyAsync<{ email: string; sub: string }>(accessToken, {
+        secret,
+      });
+    } catch {
+      return false;
+    }
+
+    const user = await this.userService.findById(payload.sub);
+    if (!user) {
+      throw new UserNotFoundException(payload.sub);
+    }
+
+    await this.userService.linkOAuthAccount(user.id, {
+      provider: profile.provider,
+      providerAccountId: profile.providerAccountId,
+      providerEmail: profile.email,
+    });
+
+    return true;
+  }
+
   async refresh(userId: string, email: string): Promise<[string, string]> {
     const payload = { sub: userId, email };
     const tokens = await this.issueTokens(payload);
@@ -214,6 +250,18 @@ export class AuthService {
     }
 
     return signInUrl.toString();
+  }
+
+  getOAuthCallbackRedirectUrl(callbackUrl: unknown, params: Record<string, string>) {
+    const clientUrl = this.getClientUrl();
+    const callbackPath = normalizeOAuthCallbackPath(callbackUrl, this.getOAuthCallbackUrlBase());
+    const callbackRedirectUrl = new URL(callbackPath, clientUrl);
+
+    for (const [key, value] of Object.entries(params)) {
+      callbackRedirectUrl.searchParams.set(key, value);
+    }
+
+    return callbackRedirectUrl.toString();
   }
 
   private async issueTokens(payload: { sub: string; email: string }): Promise<[string, string]> {

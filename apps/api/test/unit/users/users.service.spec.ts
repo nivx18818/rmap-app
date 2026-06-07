@@ -170,6 +170,7 @@ describe('UsersService', () => {
     it('should link an OAuth account to an existing user', async () => {
       const mockUser = makeUser();
       mockCtx.prisma.user.findUnique.mockResolvedValue(mockUser);
+      mockCtx.prisma.oAuthAccount.findFirst.mockResolvedValue(null);
 
       const result = await service.linkOAuthAccount('1', {
         provider: OAuthProvider.GOOGLE,
@@ -188,6 +189,22 @@ describe('UsersService', () => {
       expect(result).toEqual(mockUser);
     });
 
+    it('should reject a second account for the same OAuth provider', async () => {
+      mockCtx.prisma.oAuthAccount.findFirst.mockResolvedValue({
+        provider: OAuthProvider.GITHUB,
+        providerAccountId: 'github-existing',
+        userId: '1',
+      } as Awaited<ReturnType<typeof prismaService.oAuthAccount.findFirst>>);
+
+      await expect(
+        service.linkOAuthAccount('1', {
+          provider: OAuthProvider.GITHUB,
+          providerAccountId: 'github-new',
+          providerEmail: 'test@example.com',
+        }),
+      ).rejects.toThrow('OAuth provider is already connected to this account: GITHUB');
+    });
+
     it('should return the existing linked user if OAuth account linking races', async () => {
       const mockUser = makeUser();
       const error = new PrismaClientKnownRequestError('P2002', {
@@ -196,6 +213,7 @@ describe('UsersService', () => {
         meta: { target: ['provider', 'providerAccountId'] },
       });
 
+      mockCtx.prisma.oAuthAccount.findFirst.mockResolvedValue(null);
       mockCtx.prisma.oAuthAccount.create.mockRejectedValue(error);
       mockCtx.prisma.oAuthAccount.findUnique.mockResolvedValue({
         user: mockUser,
@@ -208,6 +226,104 @@ describe('UsersService', () => {
       });
 
       expect(result).toEqual(mockUser);
+    });
+
+    it('should reject linking an OAuth account owned by another user', async () => {
+      const otherUser = makeUser({ id: 'other-user' });
+      const error = new PrismaClientKnownRequestError('P2002', {
+        code: 'P2002',
+        clientVersion: '1.0',
+        meta: { target: ['provider', 'providerAccountId'] },
+      });
+
+      mockCtx.prisma.oAuthAccount.findFirst.mockResolvedValue(null);
+      mockCtx.prisma.oAuthAccount.create.mockRejectedValue(error);
+      mockCtx.prisma.oAuthAccount.findUnique.mockResolvedValue({
+        user: otherUser,
+      } as unknown as Awaited<ReturnType<typeof prismaService.oAuthAccount.findUnique>>);
+
+      await expect(
+        service.linkOAuthAccount('1', {
+          provider: OAuthProvider.GITHUB,
+          providerAccountId: 'github-123',
+          providerEmail: 'test@example.com',
+        }),
+      ).rejects.toThrow('OAuth account is already connected: GITHUB');
+    });
+  });
+
+  describe('listIntegrations', () => {
+    it('should return all supported providers with connection metadata', async () => {
+      const connectedAt = new Date('2026-06-07T01:00:00.000Z');
+      mockCtx.prisma.user.findUnique.mockResolvedValue({
+        oauthAccounts: [
+          {
+            createdAt: connectedAt,
+            provider: OAuthProvider.GITHUB,
+            providerEmail: 'github@example.com',
+          },
+        ],
+        passwordHash: 'hash',
+      } as unknown as Awaited<ReturnType<typeof prismaService.user.findUnique>>);
+
+      const result = await service.listIntegrations('1');
+
+      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: '1' },
+        select: {
+          passwordHash: true,
+          oauthAccounts: {
+            select: {
+              createdAt: true,
+              provider: true,
+              providerEmail: true,
+            },
+          },
+        },
+      });
+      expect(result).toEqual([
+        {
+          canDisconnect: true,
+          connected: true,
+          connectedAt,
+          provider: OAuthProvider.GITHUB,
+          providerEmail: 'github@example.com',
+        },
+        {
+          canDisconnect: false,
+          connected: false,
+          connectedAt: null,
+          provider: OAuthProvider.GOOGLE,
+          providerEmail: null,
+        },
+      ]);
+    });
+  });
+
+  describe('disconnectOAuthAccount', () => {
+    it('should delete a connected OAuth account when another sign-in method remains', async () => {
+      mockCtx.prisma.user.findUnique.mockResolvedValue({
+        oauthAccounts: [{ id: 'oauth-1', provider: OAuthProvider.GITHUB }],
+        passwordHash: 'hash',
+      } as unknown as Awaited<ReturnType<typeof prismaService.user.findUnique>>);
+
+      await service.disconnectOAuthAccount('1', OAuthProvider.GITHUB);
+
+      expect(prismaService.oAuthAccount.delete).toHaveBeenCalledWith({
+        where: { id: 'oauth-1' },
+      });
+    });
+
+    it('should reject disconnecting the last sign-in method', async () => {
+      mockCtx.prisma.user.findUnique.mockResolvedValue({
+        oauthAccounts: [{ id: 'oauth-1', provider: OAuthProvider.GITHUB }],
+        passwordHash: null,
+      } as unknown as Awaited<ReturnType<typeof prismaService.user.findUnique>>);
+
+      await expect(service.disconnectOAuthAccount('1', OAuthProvider.GITHUB)).rejects.toThrow(
+        'Add a password or connect another provider before disconnecting',
+      );
+      expect(prismaService.oAuthAccount.delete).not.toHaveBeenCalled();
     });
   });
 

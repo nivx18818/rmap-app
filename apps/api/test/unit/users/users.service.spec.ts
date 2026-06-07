@@ -7,7 +7,7 @@ import { PrismaClientKnownRequestError } from '@repo/db/prisma/internal/prismaNa
 
 import { EmailAlreadyExistsException } from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
-import { UserService } from '@/modules/user/user.service';
+import { UsersService } from '@/modules/users/users.service';
 
 import type { Context, MockContext } from '../../utils/prisma-mock';
 
@@ -24,8 +24,8 @@ const makeUser = (overrides: Partial<User> = {}): User => ({
   ...overrides,
 });
 
-describe('UserService', () => {
-  let service: UserService;
+describe('UsersService', () => {
+  let service: UsersService;
   let prismaService: PrismaService;
   let mockCtx: MockContext;
   let ctx: Context;
@@ -36,7 +36,7 @@ describe('UserService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        UserService,
+        UsersService,
         {
           provide: PrismaService,
           useValue: ctx.prisma,
@@ -44,7 +44,7 @@ describe('UserService', () => {
       ],
     }).compile();
 
-    service = module.get<UserService>(UserService);
+    service = module.get<UsersService>(UsersService);
     prismaService = module.get<PrismaService>(PrismaService);
   });
 

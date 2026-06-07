@@ -3,7 +3,7 @@ import type { User } from '@repo/db/prisma/client';
 
 import { UserRole } from '@repo/db/prisma/client';
 
-import type { UserService } from '@/modules/user/user.service';
+import type { UsersService } from '@/modules/users/users.service';
 
 import {
   AppUnauthorizedException,
@@ -34,7 +34,7 @@ describe('JwtStrategy', () => {
       () =>
         new JwtStrategy(
           { get: jest.fn() } as unknown as ConfigService,
-          userService as unknown as UserService,
+          userService as unknown as UsersService,
         ),
     ).toThrow(InternalServerErrorException);
   });
@@ -44,7 +44,7 @@ describe('JwtStrategy', () => {
     userService.findById.mockResolvedValue(user);
     const strategy = new JwtStrategy(
       configService as unknown as ConfigService,
-      userService as unknown as UserService,
+      userService as unknown as UsersService,
     );
 
     await expect(strategy.validate({ email: user.email, sub: user.id })).resolves.toEqual(user);
@@ -55,7 +55,7 @@ describe('JwtStrategy', () => {
     userService.findById.mockResolvedValue(null);
     const strategy = new JwtStrategy(
       configService as unknown as ConfigService,
-      userService as unknown as UserService,
+      userService as unknown as UsersService,
     );
 
     await expect(

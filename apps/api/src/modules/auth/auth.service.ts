@@ -18,7 +18,7 @@ import type { RegisterDto } from './dto/register.dto';
 import type { ResetPasswordDto } from './dto/reset-password.dto';
 import type { OAuthProfile } from './types/oauth-profile.type';
 
-import { UserService } from '../user/user.service';
+import { UsersService } from '../users/users.service';
 import { PasswordResetDeliveryService } from './password-reset-delivery.service';
 import { PasswordResetTokenService } from './password-reset-token.service';
 import { RefreshTokenService } from './refresh-token.service';
@@ -27,7 +27,7 @@ import { normalizeOAuthCallbackPath } from './utils/oauth-callback';
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly userService: UserService,
+    private readonly userService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly refreshTokenService: RefreshTokenService,

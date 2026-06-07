@@ -7,7 +7,7 @@ import {
   AppUnauthorizedException,
   InternalServerErrorException,
 } from '@/common/exceptions/app.exceptions';
-import { UserService } from '@/modules/user/user.service';
+import { UsersService } from '@/modules/users/users.service';
 
 import { cookieExtractor } from '../utils/cookie-extractor';
 
@@ -20,7 +20,7 @@ export interface JwtPayload {
 export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor(
     private readonly configService: ConfigService,
-    private readonly userService: UserService,
+    private readonly userService: UsersService,
   ) {
     const secret = configService.get<string>('JWT_SECRET');
     if (!secret) {

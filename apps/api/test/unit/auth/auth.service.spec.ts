@@ -16,7 +16,7 @@ import { AuthService } from '@/modules/auth/auth.service';
 import { PasswordResetDeliveryService } from '@/modules/auth/password-reset-delivery.service';
 import { PasswordResetTokenService } from '@/modules/auth/password-reset-token.service';
 import { RefreshTokenService } from '@/modules/auth/refresh-token.service';
-import { UserService } from '@/modules/user/user.service';
+import { UsersService } from '@/modules/users/users.service';
 
 const makeUser = (overrides: Partial<User> = {}): User => ({
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -71,7 +71,7 @@ describe('AuthService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
-        { provide: UserService, useValue: userService },
+        { provide: UsersService, useValue: userService },
         { provide: JwtService, useValue: jwtService },
         { provide: ConfigService, useValue: configService },
         { provide: RefreshTokenService, useValue: refreshTokenService },

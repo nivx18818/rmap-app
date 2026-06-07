@@ -1,4 +1,9 @@
-import { GithubIcon, Refresh01Icon, UserCircleIcon } from '@hugeicons/core-free-icons';
+import {
+  ConnectIcon,
+  Profile02Icon,
+  SecurityIcon,
+  UserCircleIcon,
+} from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Avatar, AvatarFallback, AvatarImage } from '@repo/design-system/components/ui/avatar';
 import { Card, CardContent } from '@repo/design-system/components/ui/card';
@@ -37,15 +42,15 @@ export function ProfileNavSidebar({ avatarUrl, displayName, email }: ProfileNavS
           <Separator />
           <TabsList className="w-full flex-col items-stretch bg-transparent p-0">
             <TabsTrigger className="justify-start px-3 py-2" value="profile">
-              <HugeiconsIcon className="size-4" icon={UserCircleIcon} />
+              <HugeiconsIcon className="size-4" icon={Profile02Icon} />
               Profile
             </TabsTrigger>
             <TabsTrigger className="justify-start px-3 py-2" value="security">
-              <HugeiconsIcon className="size-4" icon={Refresh01Icon} />
+              <HugeiconsIcon className="size-4" icon={SecurityIcon} />
               Security
             </TabsTrigger>
-            <TabsTrigger className="justify-start px-3 py-2" disabled value="integrations">
-              <HugeiconsIcon className="size-4" icon={GithubIcon} />
+            <TabsTrigger className="justify-start px-3 py-2" value="integrations">
+              <HugeiconsIcon className="size-4" icon={ConnectIcon} />
               Integrations
             </TabsTrigger>
           </TabsList>

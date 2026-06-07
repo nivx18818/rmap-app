@@ -40,6 +40,8 @@ export const ENDPOINTS = {
     nodes: (templateId: string) => `/templates/${templateId}/nodes`,
   },
   users: {
+    integrations: '/users/me/integrations',
+    integrationByProvider: (provider: string) => `/users/me/integrations/${provider}`,
     me: '/users/me',
   },
 } as const;

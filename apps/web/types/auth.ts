@@ -19,6 +19,16 @@ export interface AuthApiUser {
   role?: string;
 }
 
+export type OAuthProvider = 'GITHUB' | 'GOOGLE';
+
+export interface UserIntegration {
+  canDisconnect: boolean;
+  connected: boolean;
+  connectedAt: null | string;
+  provider: OAuthProvider;
+  providerEmail: null | string;
+}
+
 export interface ChangePasswordPayload {
   currentPassword: string;
   newPassword: string;

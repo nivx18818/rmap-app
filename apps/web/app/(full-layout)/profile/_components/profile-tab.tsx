@@ -15,13 +15,11 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/design-system/c
 import { Input } from '@repo/design-system/components/ui/input';
 import { Separator } from '@repo/design-system/components/ui/separator';
 import { TabsContent } from '@repo/design-system/components/ui/tabs';
-import { useState } from 'react';
-
-import { buildDefaultAvatar } from '@/utils/user';
 
 import type { UseAvatarPickerReturn } from '../_hooks/use-avatar-picker';
 import type { useProfileForm } from '../_hooks/use-profile-form';
 
+import { useProfileTab } from '../_hooks/use-profile-tab';
 import { getInitials } from '../_utils/formatters';
 import { AvatarPicker } from './avatar-picker';
 
@@ -32,43 +30,31 @@ interface ProfileTabProps {
 }
 
 export function ProfileTab({ avatarPicker, displayName, profileForm }: ProfileTabProps) {
-  const [isEditingDetails, setIsEditingDetails] = useState(false);
-
-  const { form, isSaving, onSubmit } = profileForm;
   const {
+    currentAvatarUrl,
+    errors,
+    formAvatarUrl,
+    handleCancelAvatarPicker,
+    handleCancelEdit,
+    handleOpenAvatarPicker,
+    handleRegenerateAvatars,
+    handleResetSelectedAvatar,
+    handleSelectAvatar,
+    handleStartEditingDetails,
+    handleSubmitProfile,
+    isDirty,
+    isEditingDetails,
+    isSaving,
     register,
-    handleSubmit,
-    reset,
-    watch,
-    formState: { errors, isDirty },
-  } = form;
-
-  const formAvatarUrl = watch('avatarUrl');
-  const currentAvatarUrl = formAvatarUrl || buildDefaultAvatar(displayName);
-
-  const handleCancelEdit = () => {
-    setIsEditingDetails(false);
-    reset({
-      fullName: displayName,
-      avatarUrl: watch('avatarUrl'),
-    });
-  };
-
-  const handleSaved = () => {
-    avatarPicker.cancelPicker();
-    setIsEditingDetails(false);
-  };
+  } = useProfileTab({
+    avatarPicker,
+    displayName,
+    profileForm,
+  });
 
   return (
     <TabsContent value="profile">
-      <form
-        className="flex flex-col gap-0"
-        noValidate
-        onSubmit={handleSubmit((values) => {
-          handleSaved();
-          return onSubmit(values);
-        })}
-      >
+      <form className="flex flex-col gap-0" noValidate onSubmit={handleSubmitProfile}>
         <Card className="rounded-lg">
           <CardHeader className="border-b">
             <CardTitle>Public profile</CardTitle>
@@ -108,7 +94,7 @@ export function ProfileTab({ avatarPicker, displayName, profileForm }: ProfileTa
                         variant="outline"
                         size="sm"
                         type="button"
-                        onClick={avatarPicker.cancelPicker}
+                        onClick={handleCancelAvatarPicker}
                       >
                         <HugeiconsIcon className="size-4" icon={ArrowLeft01Icon} />
                         Cancel
@@ -119,7 +105,7 @@ export function ProfileTab({ avatarPicker, displayName, profileForm }: ProfileTa
                         variant="outline"
                         size="sm"
                         type="button"
-                        onClick={avatarPicker.openPicker}
+                        onClick={handleOpenAvatarPicker}
                       >
                         <HugeiconsIcon className="size-4" icon={Edit01Icon} />
                         Change avatar
@@ -134,9 +120,9 @@ export function ProfileTab({ avatarPicker, displayName, profileForm }: ProfileTa
                 <AvatarPicker
                   avatarSeeds={avatarPicker.avatarSeeds}
                   selectedUrl={formAvatarUrl}
-                  onResetSelected={avatarPicker.resetSelected}
-                  onRegenerate={avatarPicker.regenerate}
-                  onSelect={avatarPicker.selectAvatar}
+                  onResetSelected={handleResetSelectedAvatar}
+                  onRegenerate={handleRegenerateAvatars}
+                  onSelect={handleSelectAvatar}
                 />
               )}
             </section>
@@ -195,7 +181,7 @@ export function ProfileTab({ avatarPicker, displayName, profileForm }: ProfileTa
                       variant="outline"
                       size="sm"
                       type="button"
-                      onClick={() => setIsEditingDetails(true)}
+                      onClick={handleStartEditingDetails}
                     >
                       <HugeiconsIcon className="size-4" icon={Edit01Icon} />
                       Edit

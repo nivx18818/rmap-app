@@ -1,7 +1,13 @@
 'use client';
 import type { Route } from 'next';
 
-import { GithubIcon, Logout02Icon, MapsIcon, UserCircleIcon } from '@hugeicons/core-free-icons';
+import {
+  DashboardBrowsingIcon,
+  GithubIcon,
+  Logout02Icon,
+  MapsIcon,
+  UserCircleIcon,
+} from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Button } from '@repo/design-system/components/ui/button';
 import {
@@ -71,7 +77,7 @@ export function Header() {
   const userMenuContent = (
     <DropdownMenuContent className="w-44" align="end">
       <DropdownMenuItem render={<Link href={'/dashboard' as Route<string>} />}>
-        <HugeiconsIcon className="size-4" icon={MapsIcon} />
+        <HugeiconsIcon className="size-4" icon={DashboardBrowsingIcon} />
         Dashboard
       </DropdownMenuItem>
       <DropdownMenuItem render={<Link href={'/profile' as Route<string>} />}>

@@ -38,7 +38,7 @@ export function AvatarPicker({
         </Button>
       </div>
 
-      <div className="grid grid-cols-8 gap-2">
+      <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8">
         {avatarSeeds.map((seed) => {
           const url = buildAvatarUrl(seed);
           const isSelected = selectedUrl === url;

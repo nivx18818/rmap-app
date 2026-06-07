@@ -378,9 +378,7 @@ function RoadmapNodeDetailBody({ nodeDetail }: { nodeDetail: RoadmapNodeDetail }
   if (nodeDetail.nodeType === 'MILESTONE') {
     const latestSubmission = nodeDetail.latestSubmission;
     const status = nodeDetail.progress?.status ?? 'LOCKED';
-    const hasFixedAction =
-      latestSubmission?.status === 'RUNNING' ||
-      (status === 'IN_PROGRESS' && latestSubmission?.status !== 'PASSED');
+    const hasFixedAction = latestSubmission?.status === 'RUNNING' || status === 'IN_PROGRESS';
 
     return (
       <div
@@ -566,12 +564,10 @@ function RoadmapNodeDetailActions({
       <DrawerFooter
         className={cn(
           'bg-popover border-t',
-          status === 'IN_PROGRESS' && latestSubmission?.status !== 'PASSED'
-            ? 'absolute inset-x-0 bottom-0'
-            : undefined,
+          status === 'IN_PROGRESS' ? 'absolute inset-x-0 bottom-0' : undefined,
         )}
       >
-        {status === 'IN_PROGRESS' && latestSubmission?.status !== 'PASSED' ? (
+        {status === 'IN_PROGRESS' ? (
           <form className="flex flex-col gap-3" onSubmit={handleMilestoneSubmit}>
             <div className="flex flex-col gap-2">
               <Label htmlFor="milestone-repo-url">GitHub repository URL</Label>
@@ -665,6 +661,7 @@ export function RoadmapNodeDetailDrawer({
     canManageProgress &&
     !(
       nodeDetail.nodeType === 'MILESTONE' &&
+      status === 'COMPLETED' &&
       nodeDetail.latestSubmission?.status === 'PASSED' &&
       !actionErrorMessage
     );

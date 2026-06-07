@@ -54,7 +54,7 @@ import { clampPercent, formatDate, formatRoleCategory } from '../_utils/formatte
 
 interface DashboardActiveRoadmapsTableProps {
   onSelectRoadmap: (roadmapId: string) => void;
-  onDeleteRoadmap: (roadmapId: string) => void;
+  onRemoveRoadmap: (roadmap: DashboardRoadmap) => Promise<boolean>;
   roadmaps: DashboardRoadmap[];
   selectedRoadmapId: null | string;
 }
@@ -99,11 +99,12 @@ function StatusBadge({ roadmap }: { roadmap: DashboardRoadmap }) {
 
 export function DashboardActiveRoadmapsTable({
   onSelectRoadmap,
-  onDeleteRoadmap,
+  onRemoveRoadmap,
   roadmaps,
   selectedRoadmapId,
 }: DashboardActiveRoadmapsTableProps) {
-  const [roadmapToDelete, setRoadmapToDelete] = useState<string | null>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
+  const [roadmapToRemove, setRoadmapToRemove] = useState<DashboardRoadmap | null>(null);
 
   const {
     statusFilter,
@@ -210,20 +211,21 @@ export function DashboardActiveRoadmapsTable({
                         </TableCell>
                         <TableCell className="pr-4 text-center">
                           <div className="flex items-center justify-center gap-2">
-                            {!roadmap.isTemplate && (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setRoadmapToDelete(roadmap.roadmapId);
-                                }}
-                              >
-                                <HugeiconsIcon icon={Delete02Icon} />
-                                <span className="sr-only">Delete</span>
-                              </Button>
-                            )}
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              disabled={isRemoving}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRoadmapToRemove(roadmap);
+                              }}
+                            >
+                              <HugeiconsIcon icon={Delete02Icon} />
+                              <span className="sr-only">
+                                {roadmap.isTemplate ? 'Delete learning progress' : 'Delete roadmap'}
+                              </span>
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -288,32 +290,56 @@ export function DashboardActiveRoadmapsTable({
               </div>
             )}
             <AlertDialog
-              open={!!roadmapToDelete}
-              onOpenChange={(open) => !open && setRoadmapToDelete(null)}
+              open={!!roadmapToRemove}
+              onOpenChange={(open) => {
+                if (!open && !isRemoving) {
+                  setRoadmapToRemove(null);
+                }
+              }}
             >
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogMedia className="bg-destructive/10 text-destructive">
                     <HugeiconsIcon icon={Delete02Icon} />
                   </AlertDialogMedia>
-                  <AlertDialogTitle>Delete this roadmap?</AlertDialogTitle>
+                  <AlertDialogTitle>
+                    {roadmapToRemove?.isTemplate
+                      ? 'Delete learning progress?'
+                      : 'Delete this roadmap?'}
+                  </AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to delete this AI-generated roadmap? This action cannot be
-                    undone.
+                    {roadmapToRemove?.isTemplate
+                      ? 'This removes your progress for this template roadmap. The template itself will remain available and can be started again.'
+                      : 'Are you sure you want to delete this AI-generated roadmap? This action cannot be undone.'}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel variant="ghost">Cancel</AlertDialogCancel>
+                  <AlertDialogCancel variant="ghost" disabled={isRemoving}>
+                    Cancel
+                  </AlertDialogCancel>
                   <AlertDialogAction
                     variant="destructive"
-                    onClick={() => {
-                      if (roadmapToDelete) {
-                        onDeleteRoadmap(roadmapToDelete);
-                        setRoadmapToDelete(null);
+                    disabled={isRemoving}
+                    onClick={async () => {
+                      if (!roadmapToRemove || isRemoving) return;
+
+                      setIsRemoving(true);
+                      try {
+                        const wasRemoved = await onRemoveRoadmap(roadmapToRemove);
+
+                        if (wasRemoved) {
+                          setRoadmapToRemove(null);
+                        }
+                      } finally {
+                        setIsRemoving(false);
                       }
                     }}
                   >
-                    Delete Roadmap
+                    {isRemoving
+                      ? 'Deleting...'
+                      : roadmapToRemove?.isTemplate
+                        ? 'Delete Progress'
+                        : 'Delete Roadmap'}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

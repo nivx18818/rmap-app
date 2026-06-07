@@ -30,6 +30,7 @@ import { LEAF_NODE_TYPES, ROADMAP_SELECT, VALID_TRANSITIONS } from '../constants
 import { toNumberOrNull } from '../utils/number';
 import { getRoadmapAccessWhere, getRoadmapRelationAccessWhere } from '../utils/roadmap-access';
 import { formatRoadmap } from '../utils/roadmap-formatters';
+import { acquireUserRoadmapLock } from '../utils/roadmap-lock';
 import {
   calculateDeadlineTimelineWarning,
   calculatePercent,
@@ -255,6 +256,8 @@ export class RoadmapProgressService {
 
   async startLearning(userId: string, roadmapId: string): Promise<StartRoadmapResponse> {
     return this.prisma.$transaction(async (tx) => {
+      await acquireUserRoadmapLock(tx, userId, roadmapId);
+
       const roadmap = await tx.roadmap.findFirst({
         select: ROADMAP_SELECT,
         where: getRoadmapAccessWhere(userId, roadmapId),
@@ -296,6 +299,8 @@ export class RoadmapProgressService {
 
   async deleteTemplateProgress(userId: string, roadmapId: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
+      await acquireUserRoadmapLock(tx, userId, roadmapId);
+
       const template = await tx.roadmap.findFirst({
         where: {
           id: roadmapId,

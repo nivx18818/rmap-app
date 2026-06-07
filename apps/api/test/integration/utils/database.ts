@@ -426,14 +426,30 @@ export async function seedPassedMilestoneSubmission(
   prisma: PrismaService,
   options: { milestoneNodeId: string; userId: string },
 ): Promise<void> {
+  const completedAt = new Date('2026-05-02T00:00:00.000Z');
   const testResults = Array.from({ length: 6 }, (_value, index) => ({
     name: `Integration test ${index + 1}`,
     passed: true,
     message: `Integration test ${index + 1} passed.`,
   }));
+
+  await prisma.userNodeProgress.update({
+    where: {
+      userId_roadmapNodeId: {
+        roadmapNodeId: options.milestoneNodeId,
+        userId: options.userId,
+      },
+    },
+    data: {
+      completedAt,
+      startedAt: new Date('2026-05-01T00:00:00.000Z'),
+      status: NodeStatus.COMPLETED,
+    },
+  });
+
   const testSuite = await prisma.milestoneTestSuite.create({
     data: {
-      generatedAt: new Date('2026-05-02T00:00:00.000Z'),
+      generatedAt: completedAt,
       passThresholdPct: 80,
       roadmapNodeId: options.milestoneNodeId,
       status: MilestoneTestSuiteStatus.READY,
@@ -454,7 +470,7 @@ export async function seedPassedMilestoneSubmission(
   await prisma.milestoneSubmission.create({
     data: {
       attemptNumber: 1,
-      completedAt: new Date('2026-05-02T00:00:00.000Z'),
+      completedAt,
       outputLog: 'All tests passed',
       passRatePct: 100,
       passedTests: 6,

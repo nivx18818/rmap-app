@@ -4,6 +4,8 @@
   "displayName": "api-integration",
   "roots": ["<rootDir>", "<rootDir>/../../packages/database/generated/prisma"],
   "testEnvironment": "node",
+  "testTimeout": 30000,
+  "setupFiles": ["<rootDir>/test/setup-integration-env.ts"],
   "testMatch": ["<rootDir>/test/integration/**/*.integration-spec.ts"],
   "extensionsToTreatAsEsm": [".ts"],
   "moduleNameMapper": {

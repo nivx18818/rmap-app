@@ -84,35 +84,27 @@ function hasDeepChildren(key: string, allMappingKeys: string[]): boolean {
   return allMappingKeys.some((k) => k.startsWith(prefix) && k.split(':').length === depth + 1);
 }
 
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
 async function askGroupNameForSkill(
   skillNames: string,
   defaultName: string,
   roadmapSlug: string,
 ): Promise<string> {
-  console.log(
-    `[Agent Auto-Fill] Phân tích tên Group cho cụm skill "${skillNames}" thuộc roadmap "${roadmapSlug}"...`,
-  );
-
-  const rules = [
-    { match: /Hypothesis Testing/i, name: 'Statistics' },
-    { match: /SSR|Lifecycle/i, name: 'Angular Core' },
-    { match: /Real Time|Polling/i, name: 'Realtime Comm' },
-    { match: /ECR/i, name: 'Container Registry' },
-    { match: /CI\/CD/i, name: 'CI/CD Pipelines' },
-    { match: /NEO4J/i, name: 'Graph DB' },
-    { match: /Databases/i, name: 'Databases' },
-  ];
-
-  for (const r of rules) {
-    if (r.match.test(skillNames)) {
-      console.log(`=> Auto-filled with: ${r.name}`);
-      return r.name;
-    }
-  }
-
   const fallback = skillNames.includes(', ') ? 'Core Concepts' : defaultName;
-  console.log(`=> Auto-filled with fallback: ${fallback}`);
-  return fallback;
+
+  return new Promise((resolve) => {
+    rl.question(
+      `\n[Manual Input] Roadmap: "${roadmapSlug}"\nSkills in cluster: ${skillNames}\nEnter Group Name (press Enter to use default: "${fallback}"): `,
+      (answer) => {
+        const finalName = answer.trim() !== '' ? answer.trim() : fallback;
+        resolve(finalName);
+      },
+    );
+  });
 }
 
 interface LayoutNodeInput {
@@ -174,10 +166,57 @@ function computeDagreLayout(nodes: LayoutNodeInput[]) {
 
     // Calculate height consumed by children to push next axis node down dynamically
     const maxLeaves = children.length;
-    const columnHeight = Math.ceil(maxLeaves / 2) * Y_SPACING;
+    let spacing = MIN_RANKSEP;
 
-    // Add dynamic spacing for the next node
-    currentY += Math.max(MIN_RANKSEP, columnHeight + 50);
+    // Explicitly define spacing for 1 to 20 leaves to ensure clear separation
+    switch (maxLeaves) {
+      case 0:
+      case 1:
+      case 2:
+      case 3:
+      case 4:
+        spacing = 150;
+        break;
+      case 5:
+      case 6:
+        spacing = 200;
+        break;
+      case 7:
+      case 8:
+        spacing = 250;
+        break;
+      case 9:
+      case 10:
+        spacing = 300;
+        break;
+      case 11:
+      case 12:
+        spacing = 350;
+        break;
+      case 13:
+      case 14:
+        spacing = 400;
+        break;
+      case 15:
+      case 16:
+        spacing = 450;
+        break;
+      case 17:
+      case 18:
+        spacing = 500;
+        break;
+      case 19:
+      case 20:
+        spacing = 550;
+        break;
+      default:
+        // Fallback for more than 20 leaves
+        const columnHeight = Math.ceil(maxLeaves / 2) * Y_SPACING;
+        spacing = Math.max(MIN_RANKSEP, columnHeight + 50);
+        break;
+    }
+
+    currentY += spacing;
   }
 
   // ── Safety fallback for orphaned leaves ───────────────────────────────
@@ -261,6 +300,25 @@ async function seedRoadmapNodes(roadmapId: string, slug: string): Promise<boolea
     skillMap.set(s.name, s.id);
   }
 
+  async function getOrCreateSkill(name: string, description: string | null): Promise<string> {
+    const trimmedName = name.trim();
+    let skillId = skillMap.get(trimmedName);
+    if (!skillId) {
+      const newSkill = await prisma.skill.upsert({
+        where: { name: trimmedName },
+        update: {},
+        create: {
+          name: trimmedName,
+          description: description || null,
+        },
+      });
+      skillId = newSkill.id;
+      skillMap.set(trimmedName, skillId);
+      log(`    [Skill] Auto-created missing skill: "${trimmedName}"`);
+    }
+    return skillId;
+  }
+
   interface ResolvedNode {
     key: string;
     parentKey: string | null;
@@ -327,10 +385,7 @@ async function seedRoadmapNodes(roadmapId: string, slug: string): Promise<boolea
       });
     } else {
       // Leaf Node (Level 1+)
-      const skillId = skillMap.get(displayName);
-      if (!skillId) {
-        continue;
-      }
+      const skillId = await getOrCreateSkill(displayName, content.description);
 
       let nodeType: NodeType = NodeType.REQUIRED;
       if (jsonNode?.data?.legend?.label?.toLowerCase().includes('option')) {
@@ -385,10 +440,8 @@ async function seedRoadmapNodes(roadmapId: string, slug: string): Promise<boolea
     const hasChildren = Array.from(resolvedNodes.values()).some((n) => n.parentKey === key);
 
     if (!hasChildren) {
-      const skillId = skillMap.get(node.displayName);
-      if (skillId) {
-        currentCluster.push({ key, node, skillId });
-      }
+      const skillId = await getOrCreateSkill(node.displayName, node.description);
+      currentCluster.push({ key, node, skillId });
     } else {
       if (currentCluster.length > 0) {
         await processCluster(currentCluster);
@@ -413,15 +466,19 @@ async function seedRoadmapNodes(roadmapId: string, slug: string): Promise<boolea
 
   const keyToDbIdMap = new Map<string, string>();
 
-  for (const key of sortedKeys) {
+  async function createNodeInDb(key: string): Promise<string | null> {
+    if (keyToDbIdMap.has(key)) {
+      return keyToDbIdMap.get(key)!;
+    }
+
     const node = resolvedNodes.get(key);
     if (!node) {
-      continue;
+      return null;
     }
 
     let parentId: string | null = null;
     if (node.parentKey) {
-      parentId = keyToDbIdMap.get(node.parentKey) || null;
+      parentId = await createNodeInDb(node.parentKey);
     }
 
     const pos = layoutPositions.get(key) || { posX: 0, posY: 0 };
@@ -440,6 +497,16 @@ async function seedRoadmapNodes(roadmapId: string, slug: string): Promise<boolea
     });
 
     keyToDbIdMap.set(key, createdNode.id);
+    return createdNode.id;
+  }
+
+  for (const key of sortedKeys) {
+    await createNodeInDb(key);
+  }
+
+  // Ensure any dynamically created nodes (e.g. wrapperKey) are also seeded
+  for (const key of resolvedNodes.keys()) {
+    await createNodeInDb(key);
   }
 
   log(`  Done: ${keyToDbIdMap.size} nodes seeded.`);
@@ -499,5 +566,6 @@ if (isMain) {
     .finally(async () => {
       await prisma.$disconnect();
       await pool.end();
+      rl.close();
     });
 }

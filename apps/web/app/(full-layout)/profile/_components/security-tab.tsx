@@ -1,5 +1,7 @@
 'use client';
 
+import { SecurityIcon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { Button } from '@repo/design-system/components/ui/button';
 import {
   Card,
@@ -21,17 +23,25 @@ import { PasswordInput } from '@/app/(auth)/_components/password-input';
 
 import type { usePasswordForm } from '../_hooks/use-password-form';
 
+import { useIntegrations } from '../_hooks/use-integrations';
+
 interface SecurityTabProps {
   passwordForm: ReturnType<typeof usePasswordForm>;
 }
 
 export function SecurityTab({ passwordForm }: SecurityTabProps) {
+  const { integrations, isLoading } = useIntegrations();
   const { form, isChanging, onSubmit } = passwordForm;
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = form;
+  const connectedIntegrations = integrations.filter((integration) => integration.connected);
+  const shouldShowOAuthOnlyState =
+    !isLoading &&
+    connectedIntegrations.length === 1 &&
+    connectedIntegrations[0]?.canDisconnect === false;
 
   return (
     <TabsContent value="security">
@@ -43,62 +53,79 @@ export function SecurityTab({ passwordForm }: SecurityTabProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
-          <form
-            className="grid gap-6 md:grid-cols-[220px_minmax(0,1fr)]"
-            noValidate
-            onSubmit={handleSubmit(onSubmit)}
-          >
-            <div>
-              <h3 className="text-heading text-sm font-medium">Password</h3>
-              <p className="text-muted-foreground mt-1 text-sm">
-                Use at least 8 characters. You will sign in again after the change.
-              </p>
+          {shouldShowOAuthOnlyState ? (
+            <div className="flex flex-col items-center justify-center gap-3 px-4 py-12 text-center">
+              <div className="bg-muted text-muted-foreground flex size-12 items-center justify-center rounded-lg">
+                <HugeiconsIcon className="size-6" icon={SecurityIcon} />
+              </div>
+              <div className="max-w-md">
+                <h3 className="text-heading text-base font-medium">
+                  Password security is unavailable
+                </h3>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  This account signs in with an OAuth provider, so there may be no RMap password to
+                  change. Manage connected providers from the Integrations tab.
+                </p>
+              </div>
             </div>
-            <FieldGroup>
-              <Field data-invalid={!!errors.currentPassword}>
-                <FieldLabel htmlFor="current-password">Current password</FieldLabel>
-                <PasswordInput
-                  id="current-password"
-                  autoComplete="current-password"
-                  aria-invalid={!!errors.currentPassword}
-                  {...register('currentPassword')}
-                />
-                <FieldError errors={[errors.currentPassword]} />
-              </Field>
-
-              <div className="grid gap-5 md:grid-cols-2">
-                <Field data-invalid={!!errors.newPassword}>
-                  <FieldLabel htmlFor="new-password">New password</FieldLabel>
+          ) : (
+            <form
+              className="grid gap-6 md:grid-cols-[220px_minmax(0,1fr)]"
+              noValidate
+              onSubmit={handleSubmit(onSubmit)}
+            >
+              <div>
+                <h3 className="text-heading text-sm font-medium">Password</h3>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  Use at least 8 characters. You will sign in again after the change.
+                </p>
+              </div>
+              <FieldGroup>
+                <Field data-invalid={!!errors.currentPassword}>
+                  <FieldLabel htmlFor="current-password">Current password</FieldLabel>
                   <PasswordInput
-                    id="new-password"
-                    autoComplete="new-password"
-                    aria-invalid={!!errors.newPassword}
-                    {...register('newPassword')}
+                    id="current-password"
+                    autoComplete="current-password"
+                    aria-invalid={!!errors.currentPassword}
+                    {...register('currentPassword')}
                   />
-                  <FieldDescription>Minimum 8 characters.</FieldDescription>
-                  <FieldError errors={[errors.newPassword]} />
+                  <FieldError errors={[errors.currentPassword]} />
                 </Field>
 
-                <Field data-invalid={!!errors.confirmPassword}>
-                  <FieldLabel htmlFor="confirm-password">Confirm new password</FieldLabel>
-                  <PasswordInput
-                    id="confirm-password"
-                    autoComplete="new-password"
-                    aria-invalid={!!errors.confirmPassword}
-                    {...register('confirmPassword')}
-                  />
-                  <FieldDescription>Must match the new password.</FieldDescription>
-                  <FieldError errors={[errors.confirmPassword]} />
-                </Field>
-              </div>
+                <div className="grid gap-5 md:grid-cols-2">
+                  <Field data-invalid={!!errors.newPassword}>
+                    <FieldLabel htmlFor="new-password">New password</FieldLabel>
+                    <PasswordInput
+                      id="new-password"
+                      autoComplete="new-password"
+                      aria-invalid={!!errors.newPassword}
+                      {...register('newPassword')}
+                    />
+                    <FieldDescription>Minimum 8 characters.</FieldDescription>
+                    <FieldError errors={[errors.newPassword]} />
+                  </Field>
 
-              <div className="flex justify-end">
-                <Button id="change-password-submit" type="submit" disabled={isChanging}>
-                  {isChanging ? 'Changing password...' : 'Change password'}
-                </Button>
-              </div>
-            </FieldGroup>
-          </form>
+                  <Field data-invalid={!!errors.confirmPassword}>
+                    <FieldLabel htmlFor="confirm-password">Confirm new password</FieldLabel>
+                    <PasswordInput
+                      id="confirm-password"
+                      autoComplete="new-password"
+                      aria-invalid={!!errors.confirmPassword}
+                      {...register('confirmPassword')}
+                    />
+                    <FieldDescription>Must match the new password.</FieldDescription>
+                    <FieldError errors={[errors.confirmPassword]} />
+                  </Field>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button id="change-password-submit" type="submit" disabled={isChanging}>
+                    {isChanging ? 'Changing password...' : 'Change password'}
+                  </Button>
+                </div>
+              </FieldGroup>
+            </form>
+          )}
         </CardContent>
       </Card>
     </TabsContent>

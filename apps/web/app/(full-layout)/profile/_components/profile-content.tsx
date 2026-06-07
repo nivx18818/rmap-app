@@ -37,11 +37,12 @@ interface ProfileContentProps {
 
 export function ProfileContent({ initialTab = null }: ProfileContentProps) {
   const { user } = useAuth();
-  const defaultTab = getDefaultProfileTab(initialTab);
 
   if (!user) {
     return <ProfileContentSkeleton />;
   }
+
+  const defaultTab = getDefaultProfileTab(initialTab);
 
   return <AuthenticatedProfileContent defaultTab={defaultTab} user={user} />;
 }

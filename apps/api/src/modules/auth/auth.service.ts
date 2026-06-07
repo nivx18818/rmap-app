@@ -11,6 +11,7 @@ import {
   InvalidCredentialsException,
   UserNotFoundException,
 } from '@/common/exceptions/app.exceptions';
+import { buildDefaultAvatarUrl } from '@/common/utils/avatar-url.util';
 
 import type { ChangePasswordDto } from './dto/change-password.dto';
 import type { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -45,11 +46,7 @@ export class AuthService {
     }
 
     const passwordHash = await this.hashPassword(password);
-    const avatarUrl =
-      providedAvatarUrl ??
-      `https://api.dicebear.com/10.x/adventurer/svg?seed=${encodeURIComponent(
-        fullName.trim() || email.trim(),
-      )}`;
+    const avatarUrl = providedAvatarUrl ?? buildDefaultAvatarUrl();
 
     const user = await this.userService.create({
       email,
@@ -110,6 +107,7 @@ export class AuthService {
         {
           email: profile.email,
           fullName: profile.fullName,
+          avatarUrl: buildDefaultAvatarUrl(),
         },
         oauthAccountInput,
       ));

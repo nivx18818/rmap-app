@@ -39,7 +39,6 @@ describe('UsersController', () => {
   describe('getMe', () => {
     it('should return formatted user profile', () => {
       const mockUser = {
-        avatarUrl: null,
         id: '1',
         email: 'test@example.com',
         fullName: 'Test User',
@@ -53,7 +52,9 @@ describe('UsersController', () => {
         id: '1',
         email: 'test@example.com',
         fullName: 'Test User',
-        avatarUrl: null,
+        avatarUrl: expect.stringMatching(
+          /^https:\/\/api\.dicebear\.com\/10\.x\/adventurer\/svg\?seed=[a-f0-9-]+$/,
+        ) as unknown as string,
         role: 'user',
         createdAt: new Date('2025-04-24T07:00:00Z'),
       });
@@ -63,7 +64,6 @@ describe('UsersController', () => {
   describe('updateProfile', () => {
     it('should return updated user profile', async () => {
       const mockUser = {
-        avatarUrl: null,
         id: '1',
         email: 'test@example.com',
         fullName: 'Test User',
@@ -87,7 +87,9 @@ describe('UsersController', () => {
         id: '1',
         email: 'test@example.com',
         fullName: 'New Name',
-        avatarUrl: null,
+        avatarUrl: expect.stringMatching(
+          /^https:\/\/api\.dicebear\.com\/10\.x\/adventurer\/svg\?seed=[a-f0-9-]+$/,
+        ) as unknown as string,
         role: 'user',
         createdAt: new Date('2025-04-24T07:00:00Z'),
       });
@@ -108,7 +110,6 @@ describe('UsersController', () => {
       mockUserService.listIntegrations.mockResolvedValue(integrations);
 
       const result = await controller.getIntegrations({
-        avatarUrl: null,
         createdAt: new Date('2025-04-24T07:00:00Z'),
         email: 'test@example.com',
         fullName: 'Test User',
@@ -124,7 +125,6 @@ describe('UsersController', () => {
   describe('disconnectIntegration', () => {
     it('should parse provider and disconnect the integration', async () => {
       const user = {
-        avatarUrl: null,
         createdAt: new Date('2025-04-24T07:00:00Z'),
         email: 'test@example.com',
         fullName: 'Test User',

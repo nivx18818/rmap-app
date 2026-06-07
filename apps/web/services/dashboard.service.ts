@@ -5,7 +5,6 @@ import type {
 
 import { ENDPOINTS } from '@/constants/endpoints';
 import { axiosInstance } from '@/lib/axios-instance';
-import { buildDefaultAvatar } from '@/utils/user';
 
 function mapDashboardResponse(response: DashboardApiResponse): Dashboard {
   const fullName = response.userProfile.fullName || 'User';
@@ -17,7 +16,7 @@ function mapDashboardResponse(response: DashboardApiResponse): Dashboard {
 
   return {
     userProfile: {
-      avatarUrl: response.userProfile.avatarUrl ?? buildDefaultAvatar(fullName || email),
+      avatarUrl: response.userProfile.avatarUrl,
       createdAt: response.userProfile.createdAt ?? '',
       email,
       fullName,

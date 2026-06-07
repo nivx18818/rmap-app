@@ -1,5 +1,5 @@
 export class CreateUserProfileDto {
-  avatarUrl!: null | string;
+  avatarUrl!: string;
   id!: string;
   email!: string;
   fullName!: string;

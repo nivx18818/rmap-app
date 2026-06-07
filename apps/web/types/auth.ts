@@ -8,8 +8,8 @@ export interface AuthUser {
 }
 
 export interface AuthApiUser {
-  avatarUrl?: string | null;
-  avatar_url?: string | null;
+  avatarUrl?: string;
+  avatar_url?: string;
   createdAt?: string;
   created_at?: string;
   email: string;
@@ -36,7 +36,7 @@ export interface ChangePasswordPayload {
 
 export interface UpdateProfilePayload {
   fullName: string;
-  avatarUrl?: null | string;
+  avatarUrl?: string;
 }
 
 export interface SignInPayload {
@@ -45,7 +45,7 @@ export interface SignInPayload {
 }
 
 export interface SignUpPayload {
-  avatarUrl: string;
+  avatarUrl?: string;
   email: string;
   fullName: string;
   password: string;

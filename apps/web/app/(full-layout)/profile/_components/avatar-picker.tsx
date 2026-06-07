@@ -7,7 +7,7 @@ import { buildAvatarUrl } from '../_utils/avatar';
 
 interface AvatarPickerProps {
   avatarSeeds: string[];
-  selectedUrl: null | string | undefined;
+  selectedUrl?: string;
   onRegenerate: () => void;
   onResetSelected: () => void;
   onSelect: (seed: string) => void;

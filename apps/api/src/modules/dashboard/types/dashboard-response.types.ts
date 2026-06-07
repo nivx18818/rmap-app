@@ -2,7 +2,7 @@ import type { RoadmapResponseDto } from '@/modules/roadmaps/dto/roadmap-response
 import type { TimelineWarningResponse } from '@/modules/roadmaps/types/roadmap-progress.types';
 
 export interface DashboardUserProfileResponse {
-  avatarUrl: null | string;
+  avatarUrl: string;
   id: string;
   email: string;
   fullName: string;

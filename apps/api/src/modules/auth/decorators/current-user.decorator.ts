@@ -3,7 +3,7 @@ import type { ExecutionContext } from '@nestjs/common';
 import { createParamDecorator } from '@nestjs/common';
 
 export interface RequestUser {
-  avatarUrl?: null | string;
+  avatarUrl?: string;
   id: string;
   email: string;
   fullName: string;

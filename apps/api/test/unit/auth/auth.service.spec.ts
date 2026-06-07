@@ -18,8 +18,10 @@ import { PasswordResetTokenService } from '@/modules/auth/password-reset-token.s
 import { RefreshTokenService } from '@/modules/auth/refresh-token.service';
 import { UsersService } from '@/modules/users/users.service';
 
+const DEFAULT_AVATAR_URL = 'https://api.dicebear.com/10.x/adventurer/svg?seed=Learner%20One';
+
 const makeUser = (overrides: Partial<User> = {}): User => ({
-  avatarUrl: null,
+  avatarUrl: DEFAULT_AVATAR_URL,
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   email: 'learner@example.test',
   fullName: 'Learner One',
@@ -113,14 +115,18 @@ describe('AuthService', () => {
       email: 'learner@example.test',
       fullName: 'Learner One',
       passwordHash: expect.any(String) as string,
-      avatarUrl: `https://api.dicebear.com/10.x/adventurer/svg?seed=${encodeURIComponent('Learner One')}`,
+      avatarUrl: expect.stringMatching(
+        /^https:\/\/api\.dicebear\.com\/10\.x\/adventurer\/svg\?seed=[a-f0-9-]+$/,
+      ) as unknown as string,
     });
     expect(createdPasswordHash).not.toBe('CorrectHorseBattery1!');
     expect(result).toEqual({
       createdAt: expect.any(Date) as Date,
       email: 'learner@example.test',
       fullName: 'Learner One',
-      avatarUrl: `https://api.dicebear.com/10.x/adventurer/svg?seed=${encodeURIComponent('Learner One')}`,
+      avatarUrl: expect.stringMatching(
+        /^https:\/\/api\.dicebear\.com\/10\.x\/adventurer\/svg\?seed=[a-f0-9-]+$/,
+      ) as unknown as string,
       id: 'user-1',
       role: UserRole.USER,
       updatedAt: expect.any(Date) as Date,
@@ -267,6 +273,9 @@ describe('AuthService', () => {
       {
         email: 'new-oauth@example.test',
         fullName: 'New OAuth User',
+        avatarUrl: expect.stringMatching(
+          /^https:\/\/api\.dicebear\.com\/10\.x\/adventurer\/svg\?seed=[a-f0-9-]+$/,
+        ) as unknown as string,
       },
       {
         provider: OAuthProvider.GOOGLE,

@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const profileInfoSchema = z.object({
   fullName: z.string().trim().min(2, 'Full name must be at least 2 characters').max(100),
-  avatarUrl: z.string().nullable().optional(),
+  avatarUrl: z.string().url(),
 });
 
 export const passwordChangeSchema = z

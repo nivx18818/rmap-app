@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch } fro
 import { OAuthProvider } from '@repo/db/prisma/client';
 
 import { UnsupportedOAuthProviderException } from '@/common/exceptions/app.exceptions';
+import { resolveAvatarUrl } from '@/common/utils/avatar-url.util';
 
 import { CurrentUser, type RequestUser } from '../auth/decorators/current-user.decorator';
 import { CreateUserProfileDto } from './dto/create-user-profile.dto';
@@ -42,7 +43,7 @@ export class UsersController {
 
   private formatCreateUserProfile(user: CreateUserProfileDto | RequestUser): CreateUserProfileDto {
     return {
-      avatarUrl: user.avatarUrl ?? null,
+      avatarUrl: resolveAvatarUrl(user),
       createdAt: user.createdAt,
       email: user.email,
       fullName: user.fullName,

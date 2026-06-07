@@ -14,7 +14,7 @@ interface UseAvatarPickerOptions {
 
 export interface UseAvatarPickerReturn {
   avatarSeeds: string[];
-  avatarUrlSnapshot: null | string;
+  avatarUrlSnapshot?: string;
   isOpen: boolean;
   cancelPicker: () => void;
   openPicker: () => void;
@@ -29,41 +29,37 @@ export function useAvatarPicker({
 }: UseAvatarPickerOptions): UseAvatarPickerReturn {
   const [isOpen, setIsOpen] = useState(false);
   const [avatarSeeds, setAvatarSeeds] = useState<string[]>(() => generateSeeds());
-  // Snapshot of avatarUrl at the moment picker was opened — used for Cancel/X reset
-  const [avatarUrlSnapshot, setAvatarUrlSnapshot] = useState<null | string>(null);
+  const [avatarUrlSnapshot, setAvatarUrlSnapshot] = useState<string | undefined>();
 
   const openPicker = useCallback(() => {
-    setAvatarUrlSnapshot(watch('avatarUrl') ?? null);
+    setAvatarUrlSnapshot(watch('avatarUrl'));
     setIsOpen(true);
   }, [watch]);
 
   const cancelPicker = useCallback(() => {
-    setValue('avatarUrl', avatarUrlSnapshot, {
+    setValue('avatarUrl', avatarUrlSnapshot ?? '', {
       shouldDirty: avatarUrlSnapshot !== watch('avatarUrl'),
     });
     setIsOpen(false);
-    setAvatarUrlSnapshot(null);
+    setAvatarUrlSnapshot(undefined);
   }, [avatarUrlSnapshot, setValue, watch]);
 
   const selectAvatar = useCallback(
     (seed: string) => {
       setValue('avatarUrl', buildAvatarUrl(seed), { shouldDirty: true });
-      // Picker stays open so user can continue browsing
     },
     [setValue],
   );
 
   const resetSelected = useCallback(() => {
-    // X icon: restore to snapshot without closing picker
-    setValue('avatarUrl', avatarUrlSnapshot, {
+    setValue('avatarUrl', avatarUrlSnapshot ?? '', {
       shouldDirty: avatarUrlSnapshot !== watch('avatarUrl'),
     });
   }, [avatarUrlSnapshot, setValue, watch]);
 
   const regenerate = useCallback(() => {
     setAvatarSeeds(generateSeeds());
-    // Reset selected avatar since the new collection won't contain it
-    setValue('avatarUrl', avatarUrlSnapshot, {
+    setValue('avatarUrl', avatarUrlSnapshot ?? '', {
       shouldDirty: avatarUrlSnapshot !== watch('avatarUrl'),
     });
   }, [avatarUrlSnapshot, setValue, watch]);

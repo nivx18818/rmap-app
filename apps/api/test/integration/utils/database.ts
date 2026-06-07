@@ -89,6 +89,9 @@ export async function seedUser(
 ): Promise<User> {
   return prisma.user.create({
     data: {
+      avatarUrl: `https://api.dicebear.com/10.x/adventurer/svg?seed=${encodeURIComponent(
+        options.fullName ?? 'Integration User',
+      )}`,
       email: options.email ?? uniqueEmail('user'),
       fullName: options.fullName ?? 'Integration User',
       passwordHash: await bcrypt.hash(INTEGRATION_PASSWORD, 10),

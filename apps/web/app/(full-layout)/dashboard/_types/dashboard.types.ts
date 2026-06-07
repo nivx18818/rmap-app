@@ -1,7 +1,7 @@
 import type { TimelineWarning } from '../../../(full-layout)/roadmaps/[id]/_types/roadmap-progress.types';
 
 export interface DashboardUserProfile {
-  avatarUrl?: null | string;
+  avatarUrl: string;
   id: string;
   email: string;
   fullName: string;
@@ -74,7 +74,7 @@ export interface DashboardRoadmap {
 }
 
 export interface DashboardApiResponse {
-  userProfile: DashboardUserProfile & { avatarUrl: string | null };
+  userProfile: DashboardUserProfile;
   roadmaps: DashboardRoadmap[];
   streakDays: number;
   activityRecent: DailyActivityEntry[];

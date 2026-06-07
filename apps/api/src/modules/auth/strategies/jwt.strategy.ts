@@ -7,6 +7,7 @@ import {
   AppUnauthorizedException,
   InternalServerErrorException,
 } from '@/common/exceptions/app.exceptions';
+import { resolveAvatarUrl } from '@/common/utils/avatar-url.util';
 import { UsersService } from '@/modules/users/users.service';
 
 import { cookieExtractor } from '../utils/cookie-extractor';
@@ -39,6 +40,6 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     if (!user) {
       throw new AppUnauthorizedException();
     }
-    return user;
+    return { ...user, avatarUrl: resolveAvatarUrl(user) };
   }
 }

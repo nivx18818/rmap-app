@@ -1,7 +1,7 @@
 import type { TransformFnParams } from 'class-transformer';
 
 import { Transform } from 'class-transformer';
-import { IsOptional, IsString, Length } from 'class-validator';
+import { IsOptional, IsString, IsUrl, Length } from 'class-validator';
 
 export class UpdateUserProfileDto {
   @Transform(({ value }: TransformFnParams): unknown =>
@@ -12,6 +12,6 @@ export class UpdateUserProfileDto {
   fullName!: string;
 
   @IsOptional()
-  @IsString()
-  avatarUrl?: null | string;
+  @IsUrl()
+  avatarUrl?: string;
 }

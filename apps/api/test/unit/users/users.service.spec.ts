@@ -13,8 +13,10 @@ import type { Context, MockContext } from '../../utils/prisma-mock';
 
 import { createMockContext, resetMockContext } from '../../utils/prisma-mock';
 
+const DEFAULT_AVATAR_URL = 'https://api.dicebear.com/10.x/adventurer/svg?seed=Test';
+
 const makeUser = (overrides: Partial<User> = {}): User => ({
-  avatarUrl: null,
+  avatarUrl: DEFAULT_AVATAR_URL,
   createdAt: new Date('2025-04-24T07:00:00.000Z'),
   email: 'test@example.com',
   fullName: 'Test',
@@ -91,7 +93,12 @@ describe('UsersService', () => {
       const result = await service.create(createUserDto);
 
       expect(prismaService.user.create).toHaveBeenCalledWith({
-        data: { ...createUserDto },
+        data: {
+          ...createUserDto,
+          avatarUrl: expect.stringMatching(
+            /^https:\/\/api\.dicebear\.com\/10\.x\/adventurer\/svg\?seed=[a-f0-9-]+$/,
+          ) as unknown as string,
+        },
       });
       expect(result).toEqual(mockUser);
     });
@@ -127,6 +134,9 @@ describe('UsersService', () => {
       expect(prismaService.user.create).toHaveBeenCalledWith({
         data: {
           ...createUserDto,
+          avatarUrl: expect.stringMatching(
+            /^https:\/\/api\.dicebear\.com\/10\.x\/adventurer\/svg\?seed=[a-f0-9-]+$/,
+          ) as unknown as string,
           passwordHash: null,
           oauthAccounts: {
             create: {
@@ -356,6 +366,39 @@ describe('UsersService', () => {
         },
       });
       expect(result).toEqual(mockUser);
+    });
+
+    it('should ignore null avatar updates and return a fallback avatar', async () => {
+      const mockUser = {
+        avatarUrl: null,
+        createdAt: new Date('2025-04-24T07:00:00Z'),
+        email: 'test@example.com',
+        fullName: 'New Name',
+        id: '1',
+        role: UserRole.USER,
+      };
+      mockCtx.prisma.user.update.mockResolvedValue(mockUser as unknown as User);
+
+      const result = await service.updateProfile('1', {
+        fullName: 'New Name',
+        avatarUrl: null as unknown as string,
+      });
+
+      expect(prismaService.user.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: { fullName: 'New Name' },
+        select: {
+          avatarUrl: true,
+          id: true,
+          email: true,
+          fullName: true,
+          role: true,
+          createdAt: true,
+        },
+      });
+      expect(result.avatarUrl).toMatch(
+        /^https:\/\/api\.dicebear\.com\/10\.x\/adventurer\/svg\?seed=[a-f0-9-]+$/,
+      );
     });
   });
 

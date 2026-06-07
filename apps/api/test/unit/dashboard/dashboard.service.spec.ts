@@ -50,7 +50,7 @@ interface DashboardRoadmapRecord {
 }
 
 interface DashboardUserRecord {
-  avatarUrl: string | null;
+  avatarUrl: string;
   id: string;
   email: string;
   fullName: string;
@@ -121,7 +121,7 @@ const expectExceptionCode = async (promise: Promise<unknown>, code: ErrorCode): 
 };
 
 const createUserRecord = (overrides: Partial<DashboardUserRecord> = {}): DashboardUserRecord => ({
-  avatarUrl: null,
+  avatarUrl: 'https://api.dicebear.com/10.x/adventurer/svg?seed=Test%20User',
   id: MOCK_USER_ID,
   email: 'test@example.com',
   fullName: 'Test User',

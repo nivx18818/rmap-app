@@ -45,10 +45,7 @@ export function AuthProvider({
   }, []);
 
   const signUp = useCallback(async (payload: SignUpValues) => {
-    const avatarUrl = `https://api.dicebear.com/10.x/adventurer/svg?seed=${encodeURIComponent(crypto.randomUUID())}`;
-
     await authService.register({
-      avatarUrl,
       email: payload.email,
       fullName: payload.fullName,
       password: payload.password,

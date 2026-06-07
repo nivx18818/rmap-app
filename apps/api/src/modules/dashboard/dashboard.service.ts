@@ -15,6 +15,7 @@ import {
   ActivityDateRangeInvalidException,
   UserNotFoundException,
 } from '@/common/exceptions/app.exceptions';
+import { resolveAvatarUrl } from '@/common/utils/avatar-url.util';
 import {
   calculateLongestStreakDays,
   calculateStreakDays,
@@ -183,7 +184,7 @@ export class DashboardService {
 
     return {
       userProfile: {
-        avatarUrl: user.avatarUrl,
+        avatarUrl: resolveAvatarUrl(user),
         id: user.id,
         email: user.email,
         fullName: user.fullName,

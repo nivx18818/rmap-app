@@ -16,7 +16,7 @@ import {
 import { JwtRefreshStrategy } from '@/modules/auth/strategies/jwt-refresh.strategy';
 
 const makeUser = (): User => ({
-  avatarUrl: null,
+  avatarUrl: 'https://api.dicebear.com/10.x/adventurer/svg?seed=Learner%20One',
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   email: 'learner@example.test',
   fullName: 'Learner One',

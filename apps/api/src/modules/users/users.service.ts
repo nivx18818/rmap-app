@@ -9,6 +9,7 @@ import {
   OAuthProviderAlreadyConnectedException,
   UserNotFoundException,
 } from '@/common/exceptions/app.exceptions';
+import { resolveAvatarUrl } from '@/common/utils/avatar-url.util';
 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserProfileDto } from './dto/create-user-profile.dto';
@@ -49,7 +50,12 @@ export class UsersService {
 
   async create(createUserDto: CreateUserDto) {
     try {
-      return await this.prisma.user.create({ data: { ...createUserDto } });
+      return await this.prisma.user.create({
+        data: {
+          ...createUserDto,
+          avatarUrl: createUserDto.avatarUrl ?? resolveAvatarUrl(createUserDto),
+        },
+      });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -73,6 +79,7 @@ export class UsersService {
       return await this.prisma.user.create({
         data: {
           ...createUserDto,
+          avatarUrl: createUserDto.avatarUrl ?? resolveAvatarUrl(createUserDto),
           passwordHash: null,
           oauthAccounts: {
             create: {
@@ -219,9 +226,13 @@ export class UsersService {
     id: string,
     updateUserProfileDto: UpdateUserProfileDto,
   ): Promise<CreateUserProfileDto> {
-    return await this.prisma.user.update({
+    const updateData = {
+      fullName: updateUserProfileDto.fullName,
+      ...(updateUserProfileDto.avatarUrl ? { avatarUrl: updateUserProfileDto.avatarUrl } : {}),
+    };
+    const user = await this.prisma.user.update({
       where: { id },
-      data: { ...updateUserProfileDto },
+      data: updateData,
       select: {
         avatarUrl: true,
         id: true,
@@ -231,6 +242,11 @@ export class UsersService {
         createdAt: true,
       },
     });
+
+    return {
+      ...user,
+      avatarUrl: resolveAvatarUrl(user),
+    };
   }
 
   async updatePasswordHash(id: string, passwordHash: string): Promise<void> {

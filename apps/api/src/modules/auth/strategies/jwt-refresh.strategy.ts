@@ -10,6 +10,7 @@ import {
   MissingAuthenticationException,
   RefreshTokenInvalidException,
 } from '@/common/exceptions/app.exceptions';
+import { resolveAvatarUrl } from '@/common/utils/avatar-url.util';
 import { UsersService } from '@/modules/users/users.service';
 
 import { RefreshTokenService } from '../refresh-token.service';
@@ -54,6 +55,6 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     const user = await this.userService.findById(payload.sub);
     if (!user) throw new AppUnauthorizedException('User not found');
 
-    return user;
+    return { ...user, avatarUrl: resolveAvatarUrl(user) };
   }
 }

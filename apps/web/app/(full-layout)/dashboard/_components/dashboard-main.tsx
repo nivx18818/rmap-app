@@ -11,14 +11,14 @@ import { DashboardOverallProgress } from './dashboard-overall-progress';
 interface DashboardMainProps {
   dashboard: Dashboard;
   onSelectRoadmap: (roadmapId: string) => void;
-  onDeleteRoadmap: (roadmapId: string) => void;
+  onRemoveRoadmap: (roadmap: DashboardRoadmap) => Promise<boolean>;
   selectedRoadmap: DashboardRoadmap | null;
 }
 
 export function DashboardMain({
   dashboard,
   onSelectRoadmap,
-  onDeleteRoadmap,
+  onRemoveRoadmap,
   selectedRoadmap,
 }: DashboardMainProps) {
   const firstName = dashboard.userProfile.fullName.split(' ')[0] || 'there';
@@ -54,7 +54,7 @@ export function DashboardMain({
       <DashboardActiveRoadmapsTable
         roadmaps={dashboard.roadmaps}
         selectedRoadmapId={selectedRoadmap?.roadmapId ?? null}
-        onDeleteRoadmap={onDeleteRoadmap}
+        onRemoveRoadmap={onRemoveRoadmap}
         onSelectRoadmap={onSelectRoadmap}
       />
     </div>

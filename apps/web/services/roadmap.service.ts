@@ -97,6 +97,10 @@ export const roadmapService = {
     await axiosInstance.delete(ENDPOINTS.roadmaps.getById(roadmapId));
   },
 
+  deleteTemplateProgress: async (roadmapId: string) => {
+    await axiosInstance.delete(ENDPOINTS.roadmaps.progress(roadmapId));
+  },
+
   getRoadmapNodes: async (roadmapId: string, filters: RoadmapNodesFilter = {}) => {
     const params = new URLSearchParams();
     if (filters.nodeType) params.set('nodeType', filters.nodeType);

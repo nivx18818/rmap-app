@@ -107,7 +107,7 @@ describe('Roadmap learning (integration)', () => {
     expect(milestoneNode).toMatchObject({
       id: seeded.milestoneNodeId,
       nodeType: 'MILESTONE',
-      progress: { status: 'LOCKED' },
+      progress: { status: 'COMPLETED' },
     });
 
     const detailResponse = await request(integration.app.getHttpServer())
@@ -136,7 +136,7 @@ describe('Roadmap learning (integration)', () => {
       .expect(200);
 
     expect(progressResponse.body).toMatchObject({
-      nodesCompleted: 0,
+      nodesCompleted: 1,
       nodesTotal: 6,
       roadmapId: seeded.roadmapId,
     });

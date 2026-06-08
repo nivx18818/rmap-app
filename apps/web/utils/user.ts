@@ -1,20 +1,17 @@
 import { type AuthApiUser, type AuthUser } from '@/types/auth';
 
 export function buildDefaultAvatar(seedSource: string) {
-  const seed = encodeURIComponent(seedSource.trim() || 'user');
+  const defaultSource = crypto.randomUUID();
+  const seed = encodeURIComponent(seedSource.trim() || defaultSource);
   return `https://api.dicebear.com/10.x/adventurer/svg?seed=${seed}`;
 }
 
 export function normalizeUser(user: AuthApiUser): AuthUser {
-  const fullName = user.fullName ?? user.full_name ?? 'User';
-  const email = user.email;
-  const avatarUrl = user.avatarUrl ?? user.avatar_url ?? buildDefaultAvatar(fullName || email);
-
   return {
-    avatarUrl,
-    createdAt: user.createdAt ?? user.created_at,
-    email,
-    fullName,
+    avatarUrl: user.avatarUrl ?? buildDefaultAvatar(user.email),
+    createdAt: user.createdAt,
+    email: user.email,
+    fullName: user.fullName,
     id: user.id,
     role: user.role,
   };

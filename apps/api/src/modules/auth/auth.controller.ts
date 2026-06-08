@@ -26,6 +26,7 @@ import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
+import { MobileOAuthDto } from './dto/mobile-oauth.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { GithubOAuthGuard } from './guards/github-oauth.guard';
@@ -73,6 +74,20 @@ export class AuthController {
   @Get('google/callback')
   async googleCallback(@Req() req: OAuthRequest, @Res() res: Response) {
     await this.handleOAuthCallback(req, res);
+  }
+
+  @Public()
+  @Post('google/mobile')
+  @HttpCode(HttpStatus.OK)
+  async googleMobileLogin(
+    @Body() mobileOAuthDto: MobileOAuthDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const [accessToken, refreshToken] = await this.authService.loginWithGoogleMobile(
+      mobileOAuthDto.idToken,
+    );
+    this.setAuthCookies(res, accessToken, refreshToken);
+    return { message: 'Login successful' };
   }
 
   @Public()

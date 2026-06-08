@@ -3,7 +3,9 @@ import type { StringValue } from 'ms';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { OAuthProvider } from '@repo/db/prisma/client';
 import * as bcrypt from 'bcrypt';
+import { OAuth2Client } from 'google-auth-library';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -117,6 +119,35 @@ export class AuthService {
       email: user.email,
       sub: user.id,
     });
+  }
+
+  async loginWithGoogleMobile(idToken: string): Promise<[string, string]> {
+    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    const client = new OAuth2Client(clientId);
+
+    try {
+      const ticket = await client.verifyIdToken({
+        idToken,
+        audience: clientId,
+      });
+
+      const payload = ticket.getPayload();
+      if (!payload) {
+        throw new InvalidCredentialsException();
+      }
+
+      const oauthProfile: OAuthProfile = {
+        email: payload.email ?? '',
+        emailVerified: payload.email_verified === true,
+        fullName: payload.name ?? payload.email ?? '',
+        provider: OAuthProvider.GOOGLE,
+        providerAccountId: payload.sub,
+      };
+
+      return await this.loginWithOAuth(oauthProfile);
+    } catch (error) {
+      throw new InvalidCredentialsException();
+    }
   }
 
   async refresh(userId: string, email: string): Promise<[string, string]> {

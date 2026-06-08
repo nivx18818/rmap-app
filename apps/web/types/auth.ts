@@ -8,13 +8,10 @@ export interface AuthUser {
 }
 
 export interface AuthApiUser {
-  avatarUrl?: string;
-  avatar_url?: string;
+  avatarUrl?: string | null;
   createdAt?: string;
-  created_at?: string;
   email: string;
-  fullName?: string;
-  full_name?: string;
+  fullName: string;
   id: string;
   role?: string;
 }

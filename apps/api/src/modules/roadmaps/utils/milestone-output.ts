@@ -7,14 +7,14 @@ import { MilestoneSubmissionInvalidUrlException } from '@/common/exceptions/app.
 import type { MilestoneSubmissionTestResultResponse } from '../types/roadmap-nodes.types';
 import type { MilestoneTestResult } from './roadmap-records';
 
-import { roundToTwo } from './number';
 import {
   MILESTONE_OUTPUT_LOG_LIMIT,
   MILESTONE_RESULT_MARKER,
   MILESTONE_TEST_RESULT_MESSAGE_LIMIT,
   MILESTONE_TEST_RESULT_NAME_LIMIT,
   MILESTONE_TEST_SUITE_CASE_COUNT,
-} from './roadmap.constants';
+} from '../constants/roadmap.constants';
+import { roundToTwo } from './number';
 
 const GITHUB_REPO_URL_PATTERN = /^https:\/\/github\.com\/[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/;
 const ESCAPE_CHARACTER = String.fromCharCode(27);

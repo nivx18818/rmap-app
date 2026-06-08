@@ -12,13 +12,6 @@ import type { RoadmapNodesFilterDto } from '../dto/roadmap-nodes-filter.dto';
 import type { PaginatedRoadmapsResponseDto, RoadmapResponseDto } from '../dto/roadmap-response.dto';
 import type { NodeDetailResponse, RoadmapNodesListResponse } from '../types/roadmap-nodes.types';
 
-import { toNumberOrNull } from '../utils/number';
-import { getRoadmapAccessWhere, getRoadmapRelationAccessWhere } from '../utils/roadmap-access';
-import {
-  formatMilestoneSubmission,
-  formatNodeWithProgress,
-  formatRoadmap,
-} from '../utils/roadmap-formatters';
 import {
   LEAF_NODE_TYPES,
   MILESTONE_SUBMISSION_SELECT,
@@ -26,7 +19,14 @@ import {
   NODE_DETAIL_RESOURCE_LIMIT,
   RESOURCE_TYPE_PRIORITY,
   ROADMAP_SELECT,
-} from '../utils/roadmap.constants';
+} from '../constants/roadmap.constants';
+import { toNumberOrNull } from '../utils/number';
+import { getRoadmapAccessWhere, getRoadmapRelationAccessWhere } from '../utils/roadmap-access';
+import {
+  formatMilestoneSubmission,
+  formatNodeWithProgress,
+  formatRoadmap,
+} from '../utils/roadmap-formatters';
 import { RoadmapMilestoneService } from './roadmap-milestone.service';
 
 @Injectable()

@@ -114,7 +114,7 @@ export class AuthController {
   ) {
     await this.authService.changePassword(user.id, changePasswordDto);
     res.clearCookie('access_token', CLEAR_COOKIE_OPTIONS);
-    res.clearCookie('refresh_token', { ...CLEAR_COOKIE_OPTIONS, path: '/api/v1/auth/refresh' });
+    res.clearCookie('refresh_token', CLEAR_COOKIE_OPTIONS);
     return { message: 'Password changed successfully' };
   }
 

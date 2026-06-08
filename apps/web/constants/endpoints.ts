@@ -12,6 +12,7 @@ export const ENDPOINTS = {
     },
     refresh: '/auth/refresh',
     register: '/auth/register',
+    resetPassword: '/auth/password/reset',
   },
   dashboard: '/dashboard',
   onboarding: {

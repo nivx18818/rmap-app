@@ -327,11 +327,14 @@ export class RoadmapProgressService {
 
     if (groupProgress?.status === NodeStatus.COMPLETED) return;
 
+    await this.unlockProgressNode(tx, userId, groupId, now, unlockedNodes);
+
     await tx.userNodeProgress.update({
       where: { userId_roadmapNodeId: { userId, roadmapNodeId: groupId } },
       data: { status: NodeStatus.COMPLETED, completedAt: now },
     });
 
+    this.addUnlockedNode(unlockedNodes, groupId);
     await this.unlockGroupLeaves(tx, userId, groupId, now, unlockedNodes);
 
     const nextSiblings = await tx.roadmapNode.findMany({
@@ -351,7 +354,7 @@ export class RoadmapProgressService {
     if (firstNext.nodeType === NodeType.MILESTONE) {
       await this.unlockProgressNode(tx, userId, firstNext.id, now, unlockedNodes);
     } else if (firstNext.nodeType === NodeType.GROUP) {
-      await this.unlockGroupLeaves(tx, userId, firstNext.id, now, unlockedNodes);
+      await this.unlockGroup(tx, userId, firstNext.id, now, unlockedNodes);
     }
   }
 
@@ -377,7 +380,18 @@ export class RoadmapProgressService {
 
     if (!nextGroup) return;
 
-    await this.unlockGroupLeaves(tx, userId, nextGroup.id, now, unlockedNodes);
+    await this.unlockGroup(tx, userId, nextGroup.id, now, unlockedNodes);
+  }
+
+  private async unlockGroup(
+    tx: RoadmapTransaction,
+    userId: string,
+    groupId: string,
+    now: Date,
+    unlockedNodes: string[],
+  ): Promise<void> {
+    await this.unlockProgressNode(tx, userId, groupId, now, unlockedNodes);
+    await this.unlockGroupLeaves(tx, userId, groupId, now, unlockedNodes);
   }
 
   private async unlockProgressNode(
@@ -393,7 +407,7 @@ export class RoadmapProgressService {
     });
 
     if (result.count > 0) {
-      unlockedNodes.push(roadmapNodeId);
+      this.addUnlockedNode(unlockedNodes, roadmapNodeId);
     }
   }
 
@@ -422,7 +436,15 @@ export class RoadmapProgressService {
       data: { status: NodeStatus.IN_PROGRESS, startedAt: now },
     });
 
-    unlockedNodes.push(...leafIds);
+    for (const leafId of leafIds) {
+      this.addUnlockedNode(unlockedNodes, leafId);
+    }
+  }
+
+  private addUnlockedNode(unlockedNodes: string[], nodeId: string): void {
+    if (!unlockedNodes.includes(nodeId)) {
+      unlockedNodes.push(nodeId);
+    }
   }
 
   private async unlockInitialRoadmapNodes(

@@ -217,7 +217,7 @@ describe('AuthController', () => {
     expect(response.clearCookie).toHaveBeenCalledWith('access_token', expect.any(Object));
     expect(response.clearCookie).toHaveBeenCalledWith(
       'refresh_token',
-      expect.objectContaining({ path: '/api/v1/auth/refresh' }),
+      expect.objectContaining({ path: '/' }),
     );
   });
 });

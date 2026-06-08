@@ -45,6 +45,11 @@ export interface ForgotPasswordPayload {
   email: string;
 }
 
+export interface ResetPasswordPayload {
+  newPassword: string;
+  token: string;
+}
+
 export interface SignUpPayload {
   avatarUrl?: string;
   email: string;

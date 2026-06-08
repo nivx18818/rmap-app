@@ -4,6 +4,7 @@ import {
   type AuthApiUser,
   type ChangePasswordPayload,
   type ForgotPasswordPayload,
+  type ResetPasswordPayload,
   type SignInPayload,
   type SignUpPayload,
   type UpdateProfilePayload,
@@ -41,6 +42,9 @@ export const authService = {
   register: async (payload: SignUpPayload) => {
     const response = await axiosInstance.post<AuthApiUser>(ENDPOINTS.auth.register, payload);
     return response.data;
+  },
+  resetPassword: async (payload: ResetPasswordPayload) => {
+    await axiosInstance.post<void>(ENDPOINTS.auth.resetPassword, payload);
   },
   updateProfile: async (payload: UpdateProfilePayload) => {
     const response = await axiosInstance.patch<AuthApiUser>(ENDPOINTS.users.me, payload);

@@ -56,7 +56,7 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
       toast.success('Password updated', {
         description: 'You can now sign in with your new password.',
       });
-      router.push('/sign-in');
+      router.replace('/sign-in');
     } catch {
       toast.error('Password reset failed', {
         description: 'The link may be expired or already used. Please request a new one.',

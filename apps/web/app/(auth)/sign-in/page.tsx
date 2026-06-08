@@ -85,6 +85,7 @@ export default function SignInPage() {
               placeholder="name@example.com"
               type="email"
               autoComplete="email"
+              disabled={isSubmitting}
               aria-invalid={!!errors.email}
               {...register('email')}
             />

@@ -20,10 +20,10 @@ import type {
 import type { RoadmapProgressSummaryResponse } from '../types/roadmap-progress.types';
 import type { RoadmapTransaction } from '../utils/roadmap-records';
 
+import { LEAF_NODE_TYPES, ROADMAP_SELECT, VALID_TRANSITIONS } from '../constants/roadmap.constants';
 import { toNumberOrNull } from '../utils/number';
 import { getRoadmapAccessWhere, getRoadmapRelationAccessWhere } from '../utils/roadmap-access';
 import { formatRoadmap } from '../utils/roadmap-formatters';
-import { LEAF_NODE_TYPES, ROADMAP_SELECT, VALID_TRANSITIONS } from '../utils/roadmap.constants';
 import {
   calculateDeadlineTimelineWarning,
   calculatePercent,

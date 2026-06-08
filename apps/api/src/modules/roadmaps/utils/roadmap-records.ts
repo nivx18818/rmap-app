@@ -9,8 +9,8 @@ import { type Prisma, type Roadmap } from '@repo/db/prisma/client';
 
 import type { PrismaService } from '@/modules/prisma/prisma.service';
 
+import type { ROADMAP_SELECT } from '../constants/roadmap.constants';
 import type { MilestoneSubmissionTestResultResponse } from '../types/roadmap-nodes.types';
-import type { ROADMAP_SELECT } from './roadmap.constants';
 
 export type SelectedRoadmap = Pick<Roadmap, keyof typeof ROADMAP_SELECT>;
 

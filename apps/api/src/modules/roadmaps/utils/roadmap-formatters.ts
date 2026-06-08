@@ -13,9 +13,12 @@ import type {
   SelectedRoadmap,
 } from './roadmap-records';
 
+import {
+  MILESTONE_TEST_SUITE_CASE_COUNT,
+  NODE_DETAIL_RESOURCE_LIMIT,
+} from '../constants/roadmap.constants';
 import { formatDateOnly } from './date';
 import { formatDecimal, toNumberOrNull } from './number';
-import { MILESTONE_TEST_SUITE_CASE_COUNT, NODE_DETAIL_RESOURCE_LIMIT } from './roadmap.constants';
 
 export const formatNodeWithProgress = (
   node: RoadmapNodeWithProgressRecord,

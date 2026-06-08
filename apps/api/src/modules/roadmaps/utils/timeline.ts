@@ -1,11 +1,11 @@
 import { NodeStatus } from '@repo/db/prisma/client';
 
-import type { DailyActivityRecord, RoadmapProgressNodeRecord } from './roadmap-records';
-
 import {
   calculateDeadlineTimelineWarning,
   calculateTimelineWarning,
 } from '@/common/utils/timeline-warning.util';
+
+import type { DailyActivityRecord, RoadmapProgressNodeRecord } from './roadmap-records';
 
 import { toUtcDateKey, toUtcMidnightMs } from './date';
 import { roundToOne } from './number';

@@ -18,6 +18,14 @@ import type {
   SubmitQuizResponse,
 } from '../types/roadmap-node-quiz.types';
 
+import {
+  LEAF_NODE_TYPES,
+  NODE_QUIZ_QUESTION_COUNT,
+  QUIZ_GENERATION_POLL_INTERVAL_MS,
+  QUIZ_GENERATION_POLL_TIMEOUT_MS,
+  QUIZ_PASSING_SCORE_PCT,
+  QUIZ_REVIEW_SUGGESTION,
+} from '../constants/roadmap.constants';
 import { delay } from '../utils/async';
 import { toNumberOrNull } from '../utils/number';
 import {
@@ -28,14 +36,6 @@ import {
   toQuizOption,
 } from '../utils/quiz';
 import { getRoadmapRelationAccessWhere } from '../utils/roadmap-access';
-import {
-  LEAF_NODE_TYPES,
-  NODE_QUIZ_QUESTION_COUNT,
-  QUIZ_GENERATION_POLL_INTERVAL_MS,
-  QUIZ_GENERATION_POLL_TIMEOUT_MS,
-  QUIZ_PASSING_SCORE_PCT,
-  QUIZ_REVIEW_SUGGESTION,
-} from '../utils/roadmap.constants';
 import { RoadmapProgressService } from './roadmap-progress.service';
 
 @Injectable()

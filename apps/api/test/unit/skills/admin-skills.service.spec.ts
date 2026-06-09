@@ -263,7 +263,7 @@ describe('AdminSkillsService', () => {
         name: 'JWT Authentication',
         roleCategory: RoleCategory.WEB_DEVELOPMENT,
       }),
-      ErrorCode.CONFLICT,
+      ErrorCode.SKILL_NAME_ALREADY_EXISTS,
     );
   });
 
@@ -357,7 +357,7 @@ describe('AdminSkillsService', () => {
 
     await expectExceptionCode(
       service.updateSkill(skillId, { name: 'Existing Skill' }),
-      ErrorCode.CONFLICT,
+      ErrorCode.SKILL_NAME_ALREADY_EXISTS,
     );
   });
 
@@ -382,7 +382,7 @@ describe('AdminSkillsService', () => {
     prisma.skill.findUnique.mockResolvedValue({ id: skillId });
     prisma.roadmapNode.findFirst.mockResolvedValue({ id: 'node-1' });
 
-    await expectExceptionCode(service.deleteSkill(skillId), ErrorCode.CONFLICT);
+    await expectExceptionCode(service.deleteSkill(skillId), ErrorCode.SKILL_DELETE_REFERENCED);
 
     expect(prisma.skill.delete).not.toHaveBeenCalled();
   });

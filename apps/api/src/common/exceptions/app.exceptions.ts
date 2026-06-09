@@ -379,6 +379,15 @@ export class SkillNotFoundException extends NotFoundException {
   }
 }
 
+export class SkillPrerequisiteNotFoundException extends NotFoundException {
+  constructor(skillId: number | string, prerequisiteSkillId: number | string) {
+    super({
+      code: ErrorCode.SKILL_PREREQUISITE_NOT_FOUND,
+      message: `${getErrorMessage(ErrorCode.SKILL_PREREQUISITE_NOT_FOUND)}: ${skillId} -> ${prerequisiteSkillId}`,
+    });
+  }
+}
+
 export class ResourceNotFoundException extends NotFoundException {
   constructor(identifier: number | string) {
     super({
@@ -410,6 +419,24 @@ export class AppConflictException extends ConflictException {
   }
 }
 
+export class SkillNameAlreadyExistsException extends ConflictException {
+  constructor(name: string) {
+    super({
+      code: ErrorCode.SKILL_NAME_ALREADY_EXISTS,
+      message: `${getErrorMessage(ErrorCode.SKILL_NAME_ALREADY_EXISTS)}: ${name}`,
+    });
+  }
+}
+
+export class SkillDeleteReferencedException extends ConflictException {
+  constructor() {
+    super({
+      code: ErrorCode.SKILL_DELETE_REFERENCED,
+      message: getErrorMessage(ErrorCode.SKILL_DELETE_REFERENCED),
+    });
+  }
+}
+
 export class RefreshTokenAlreadyExistsException extends ConflictException {
   constructor() {
     super({
@@ -433,6 +460,33 @@ export class OAuthAccountAlreadyConnectedException extends ConflictException {
     super({
       code: ErrorCode.OAUTH_ACCOUNT_ALREADY_CONNECTED,
       message: `${getErrorMessage(ErrorCode.OAUTH_ACCOUNT_ALREADY_CONNECTED)}: ${provider}`,
+    });
+  }
+}
+
+export class SkillPrerequisiteAlreadyExistsException extends ConflictException {
+  constructor() {
+    super({
+      code: ErrorCode.SKILL_PREREQUISITE_ALREADY_EXISTS,
+      message: getErrorMessage(ErrorCode.SKILL_PREREQUISITE_ALREADY_EXISTS),
+    });
+  }
+}
+
+export class SkillPrerequisiteSelfReferenceException extends ConflictException {
+  constructor() {
+    super({
+      code: ErrorCode.SKILL_PREREQUISITE_SELF_REFERENCE,
+      message: getErrorMessage(ErrorCode.SKILL_PREREQUISITE_SELF_REFERENCE),
+    });
+  }
+}
+
+export class SkillPrerequisiteCycleException extends ConflictException {
+  constructor() {
+    super({
+      code: ErrorCode.SKILL_PREREQUISITE_CYCLE,
+      message: getErrorMessage(ErrorCode.SKILL_PREREQUISITE_CYCLE),
     });
   }
 }
@@ -643,6 +697,7 @@ export const ErrorCodeToException = {
   [ErrorCode.USER_NODE_PROGRESS_NOT_FOUND]: UserNodeProgressNotFoundException,
   [ErrorCode.OAUTH_INTEGRATION_NOT_CONNECTED]: OAuthIntegrationNotConnectedException,
   [ErrorCode.SKILL_NOT_FOUND]: SkillNotFoundException,
+  [ErrorCode.SKILL_PREREQUISITE_NOT_FOUND]: SkillPrerequisiteNotFoundException,
   [ErrorCode.ROLE_NOT_FOUND]: RoleNotFoundException,
   [ErrorCode.RESOURCE_NOT_FOUND]: ResourceNotFoundException,
   // 409 - Conflict
@@ -651,6 +706,11 @@ export const ErrorCodeToException = {
   [ErrorCode.REFRESH_TOKEN_ALREADY_EXISTS]: RefreshTokenAlreadyExistsException,
   [ErrorCode.OAUTH_PROVIDER_ALREADY_CONNECTED]: OAuthProviderAlreadyConnectedException,
   [ErrorCode.OAUTH_ACCOUNT_ALREADY_CONNECTED]: OAuthAccountAlreadyConnectedException,
+  [ErrorCode.SKILL_NAME_ALREADY_EXISTS]: SkillNameAlreadyExistsException,
+  [ErrorCode.SKILL_DELETE_REFERENCED]: SkillDeleteReferencedException,
+  [ErrorCode.SKILL_PREREQUISITE_ALREADY_EXISTS]: SkillPrerequisiteAlreadyExistsException,
+  [ErrorCode.SKILL_PREREQUISITE_SELF_REFERENCE]: SkillPrerequisiteSelfReferenceException,
+  [ErrorCode.SKILL_PREREQUISITE_CYCLE]: SkillPrerequisiteCycleException,
   // 429 - Too Many Requests
   [ErrorCode.RATE_LIMIT_EXCEEDED]: RateLimitExceededException,
   [ErrorCode.TOO_MANY_MESSAGES]: TooManyMessagesException,

@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, type RoleCategory } from '@repo/db/prisma/client';
 
-import { AppConflictException, SkillNotFoundException } from '@/common/exceptions/app.exceptions';
+import {
+  SkillDeleteReferencedException,
+  SkillNameAlreadyExistsException,
+  SkillNotFoundException,
+} from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
 import type { ListAdminSkillsQueryDto } from './dto/admin-skill-query.dto';
@@ -163,9 +167,7 @@ export class AdminSkillsService {
     });
 
     if (referencedNode) {
-      throw new AppConflictException(
-        'Skill cannot be deleted because it is referenced by roadmap or template nodes',
-      );
+      throw new SkillDeleteReferencedException();
     }
 
     try {
@@ -267,6 +269,6 @@ export class AdminSkillsService {
       return;
     }
 
-    throw new AppConflictException(`A skill with this name already exists: ${name}`);
+    throw new SkillNameAlreadyExistsException(name);
   }
 }

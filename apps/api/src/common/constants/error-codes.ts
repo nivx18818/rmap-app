@@ -46,12 +46,18 @@ export enum ErrorCode {
   ROADMAP_NODE_NOT_FOUND = 40406,
   USER_NODE_PROGRESS_NOT_FOUND = 40407,
   OAUTH_INTEGRATION_NOT_CONNECTED = 40408,
+  SKILL_PREREQUISITE_NOT_FOUND = 40409,
   // 409 - Conflict
   CONFLICT = 40900,
   EMAIL_ALREADY_EXISTS = 40901,
   REFRESH_TOKEN_ALREADY_EXISTS = 40902,
   OAUTH_PROVIDER_ALREADY_CONNECTED = 40903,
   OAUTH_ACCOUNT_ALREADY_CONNECTED = 40904,
+  SKILL_NAME_ALREADY_EXISTS = 40905,
+  SKILL_DELETE_REFERENCED = 40906,
+  SKILL_PREREQUISITE_ALREADY_EXISTS = 40907,
+  SKILL_PREREQUISITE_SELF_REFERENCE = 40908,
+  SKILL_PREREQUISITE_CYCLE = 40909,
   // 429 - Too Many Requests
   RATE_LIMIT_EXCEEDED = 42900,
   TOO_MANY_MESSAGES = 42901,
@@ -118,6 +124,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.ROADMAP_NODE_NOT_FOUND]: 'Roadmap node not found',
   [ErrorCode.USER_NODE_PROGRESS_NOT_FOUND]: 'User node progress not found',
   [ErrorCode.OAUTH_INTEGRATION_NOT_CONNECTED]: 'OAuth integration is not connected',
+  [ErrorCode.SKILL_PREREQUISITE_NOT_FOUND]: 'Skill prerequisite relationship not found',
   // 409 - Conflict
   [ErrorCode.CONFLICT]: 'The resource is in a conflicting state',
   [ErrorCode.EMAIL_ALREADY_EXISTS]: 'Email already registered',
@@ -125,6 +132,12 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.OAUTH_PROVIDER_ALREADY_CONNECTED]:
     'OAuth provider is already connected to this account',
   [ErrorCode.OAUTH_ACCOUNT_ALREADY_CONNECTED]: 'OAuth account is already connected',
+  [ErrorCode.SKILL_NAME_ALREADY_EXISTS]: 'Skill name already exists',
+  [ErrorCode.SKILL_DELETE_REFERENCED]:
+    'Skill cannot be deleted because it is referenced by roadmap or template nodes',
+  [ErrorCode.SKILL_PREREQUISITE_ALREADY_EXISTS]: 'Skill prerequisite relationship already exists',
+  [ErrorCode.SKILL_PREREQUISITE_SELF_REFERENCE]: 'A skill cannot be a prerequisite of itself',
+  [ErrorCode.SKILL_PREREQUISITE_CYCLE]: 'Skill prerequisite relationship would introduce a cycle',
   // 429 - Too Many Requests
   [ErrorCode.RATE_LIMIT_EXCEEDED]: 'Rate limit exceeded',
   [ErrorCode.TOO_MANY_MESSAGES]: 'Too many messages sent',

@@ -3,6 +3,8 @@ import request from 'supertest';
 
 import type { PrismaService } from '@/modules/prisma/prisma.service';
 
+import { ErrorCode } from '@/common/constants/error-codes';
+
 import { getCookieHeader } from './utils/cookies';
 import { seedUser, uniqueEmail } from './utils/database';
 import { setupIntegrationTest } from './utils/integration-test-context';
@@ -177,7 +179,7 @@ describe('Admin skill prerequisite management (integration)', () => {
       .expect(409);
 
     expect(duplicateResponse.body).toMatchObject({
-      code: 40900,
+      code: ErrorCode.SKILL_PREREQUISITE_ALREADY_EXISTS,
     });
 
     await request(integration.app.getHttpServer())
@@ -185,10 +187,14 @@ describe('Admin skill prerequisite management (integration)', () => {
       .set('Cookie', cookie)
       .expect(204);
 
-    await request(integration.app.getHttpServer())
+    const missingEdgeResponse = await request(integration.app.getHttpServer())
       .delete(`/api/v1/admin/skills/${target.id}/prerequisites/${betaPrereq.id}`)
       .set('Cookie', cookie)
       .expect(404);
+
+    expect(missingEdgeResponse.body).toMatchObject({
+      code: ErrorCode.SKILL_PREREQUISITE_NOT_FOUND,
+    });
   });
 
   it('rejects self and transitive prerequisite cycles', async () => {
@@ -204,7 +210,7 @@ describe('Admin skill prerequisite management (integration)', () => {
       .expect(409);
 
     expect(selfResponse.body).toMatchObject({
-      code: 40900,
+      code: ErrorCode.SKILL_PREREQUISITE_SELF_REFERENCE,
     });
 
     await integration.prisma.skillPrerequisite.createMany({
@@ -227,7 +233,7 @@ describe('Admin skill prerequisite management (integration)', () => {
       .expect(409);
 
     expect(transitiveResponse.body).toMatchObject({
-      code: 40900,
+      code: ErrorCode.SKILL_PREREQUISITE_CYCLE,
     });
   });
 

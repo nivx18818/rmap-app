@@ -11,6 +11,7 @@ type GoogleProfile = Profile & {
     email?: string;
     email_verified?: boolean;
     name?: string;
+    picture?: string;
   };
 };
 
@@ -37,6 +38,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const oauthProfile: OAuthProfile = {
       email,
       emailVerified: profile._json?.email_verified === true,
+      avatarUrl: profile._json?.picture ?? profile.photos?.[0]?.value ?? '',
       fullName: profile._json?.name ?? profile.displayName ?? email,
       provider: OAuthProvider.GOOGLE,
       providerAccountId: profile.id,

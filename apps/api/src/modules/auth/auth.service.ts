@@ -103,6 +103,7 @@ export class AuthService {
       existingEmailUser ??
       (await this.userService.createWithOAuth(
         {
+          avatarUrl: profile.avatarUrl ?? '',
           email: profile.email,
           fullName: profile.fullName,
         },
@@ -125,6 +126,7 @@ export class AuthService {
     const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
     const client = new OAuth2Client(clientId);
 
+    let oauthProfile: OAuthProfile;
     try {
       const ticket = await client.verifyIdToken({
         idToken,
@@ -136,16 +138,108 @@ export class AuthService {
         throw new InvalidCredentialsException();
       }
 
-      const oauthProfile: OAuthProfile = {
+      oauthProfile = {
         email: payload.email ?? '',
         emailVerified: payload.email_verified === true,
+        avatarUrl: payload.picture ?? '',
         fullName: payload.name ?? payload.email ?? '',
         provider: OAuthProvider.GOOGLE,
         providerAccountId: payload.sub,
       };
+    } catch (error) {
+      console.error('Verify Token Error:', error);
+      throw new InvalidCredentialsException();
+    }
+
+    return await this.loginWithOAuth(oauthProfile);
+  }
+
+  async loginWithGithubMobile(code: string): Promise<[string, string]> {
+    const clientId = this.configService.get<string>('GITHUB_MOBILE_CLIENT_ID');
+    const clientSecret = this.configService.get<string>('GITHUB_MOBILE_CLIENT_SECRET');
+
+    if (!clientId || !clientSecret) {
+      console.error(
+        'Missing GITHUB_MOBILE_CLIENT_ID or GITHUB_MOBILE_CLIENT_SECRET in backend config',
+      );
+      throw new InvalidCredentialsException();
+    }
+
+    try {
+      const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+          redirect_uri: 'rmap://oauth/callback',
+        }),
+      });
+
+      if (!tokenResponse.ok) {
+        throw new InvalidCredentialsException();
+      }
+
+      const tokenData = (await tokenResponse.json()) as { access_token?: string };
+      const accessToken = tokenData.access_token;
+
+      if (!accessToken) {
+        console.error('GitHub token exchange failed. Response:', tokenData);
+        throw new InvalidCredentialsException();
+      }
+
+      const userResponse = await fetch('https://api.github.com/user', {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!userResponse.ok) {
+        throw new InvalidCredentialsException();
+      }
+
+      const profile = await userResponse.json();
+
+      const emailsResponse = await fetch('https://api.github.com/user/emails', {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      let email: string | null = null;
+      let emailVerified = false;
+
+      if (emailsResponse.ok) {
+        const emails = (await emailsResponse.json()) as any[];
+        const primaryVerifiedEmail = emails.find((e: any) => e.primary && e.verified);
+        const firstVerifiedEmail = emails.find((e: any) => e.verified);
+
+        email = primaryVerifiedEmail?.email ?? firstVerifiedEmail?.email ?? null;
+        emailVerified = !!email;
+      }
+
+      if (!email) {
+        throw new InvalidCredentialsException();
+      }
+
+      const oauthProfile: OAuthProfile = {
+        email,
+        emailVerified,
+        avatarUrl: profile.avatar_url ?? profile.photos?.[0]?.value ?? '',
+        fullName: profile.name || profile.login || email || `github-${profile.id}`,
+        provider: OAuthProvider.GITHUB,
+        providerAccountId: profile.id.toString(),
+      };
 
       return await this.loginWithOAuth(oauthProfile);
     } catch (error) {
+      console.error('GitHub Mobile Login Error:', error);
       throw new InvalidCredentialsException();
     }
   }

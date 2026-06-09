@@ -38,6 +38,7 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
       const oauthProfile: OAuthProfile = {
         email: email ?? '',
         emailVerified: !!email,
+        avatarUrl: profile.photos?.[0]?.value ?? '',
         fullName: profile.displayName || profile.username || email || `github-${profile.id}`,
         provider: OAuthProvider.GITHUB,
         providerAccountId: profile.id,

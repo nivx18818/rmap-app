@@ -25,6 +25,7 @@ import type { OAuthProfile } from './types/oauth-profile.type';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { GithubMobileOAuthDto } from './dto/github-mobile-oauth.dto';
 import { LoginDto } from './dto/login.dto';
 import { MobileOAuthDto } from './dto/mobile-oauth.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -102,6 +103,20 @@ export class AuthController {
   @Get('github/callback')
   async githubCallback(@Req() req: OAuthRequest, @Res() res: Response) {
     await this.handleOAuthCallback(req, res);
+  }
+
+  @Public()
+  @Post('github/mobile')
+  @HttpCode(HttpStatus.OK)
+  async githubMobileLogin(
+    @Body() githubMobileOAuthDto: GithubMobileOAuthDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const [accessToken, refreshToken] = await this.authService.loginWithGithubMobile(
+      githubMobileOAuthDto.code,
+    );
+    this.setAuthCookies(res, accessToken, refreshToken);
+    return { message: 'Login successful' };
   }
 
   @Public()

@@ -19,6 +19,7 @@ import { RefreshTokenService } from '@/modules/auth/refresh-token.service';
 import { UsersService } from '@/modules/users/users.service';
 
 const makeUser = (overrides: Partial<User> = {}): User => ({
+  avatarUrl: '',
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   email: 'learner@example.test',
   fullName: 'Learner One',
@@ -111,6 +112,7 @@ describe('AuthService', () => {
     });
     expect(createdPasswordHash).not.toBe('CorrectHorseBattery1!');
     expect(result).toEqual({
+      avatarUrl: '',
       createdAt: expect.any(Date) as Date,
       email: 'learner@example.test',
       fullName: 'Learner One',

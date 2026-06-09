@@ -32,7 +32,12 @@ export class UsersService {
 
   async create(createUserDto: CreateUserDto) {
     try {
-      return await this.prisma.user.create({ data: { ...createUserDto } });
+      return await this.prisma.user.create({
+        data: {
+          ...createUserDto,
+          avatarUrl: createUserDto.avatarUrl ?? '',
+        },
+      });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -56,6 +61,7 @@ export class UsersService {
       return await this.prisma.user.create({
         data: {
           ...createUserDto,
+          avatarUrl: createUserDto.avatarUrl ?? '',
           passwordHash: null,
           oauthAccounts: {
             create: {

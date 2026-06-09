@@ -89,6 +89,7 @@ export async function seedUser(
 ): Promise<User> {
   return prisma.user.create({
     data: {
+      avatarUrl: '',
       email: options.email ?? uniqueEmail('user'),
       fullName: options.fullName ?? 'Integration User',
       passwordHash: await bcrypt.hash(INTEGRATION_PASSWORD, 10),

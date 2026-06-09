@@ -12,6 +12,7 @@ import {
 import { JwtStrategy } from '@/modules/auth/strategies/jwt.strategy';
 
 const makeUser = (): User => ({
+  avatarUrl: '',
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   email: 'learner@example.test',
   fullName: 'Learner One',

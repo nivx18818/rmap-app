@@ -14,6 +14,7 @@ import type { Context, MockContext } from '../../utils/prisma-mock';
 import { createMockContext, resetMockContext } from '../../utils/prisma-mock';
 
 const makeUser = (overrides: Partial<User> = {}): User => ({
+  avatarUrl: '',
   createdAt: new Date('2025-04-24T07:00:00.000Z'),
   email: 'test@example.com',
   fullName: 'Test',
@@ -90,7 +91,7 @@ describe('UsersService', () => {
       const result = await service.create(createUserDto);
 
       expect(prismaService.user.create).toHaveBeenCalledWith({
-        data: { ...createUserDto },
+        data: { ...createUserDto, avatarUrl: '' },
       });
       expect(result).toEqual(mockUser);
     });
@@ -126,6 +127,7 @@ describe('UsersService', () => {
       expect(prismaService.user.create).toHaveBeenCalledWith({
         data: {
           ...createUserDto,
+          avatarUrl: '',
           passwordHash: null,
           oauthAccounts: {
             create: {

@@ -1,6 +1,8 @@
 import { NodeType, RoleCategory, UserRole } from '@repo/db/prisma/client';
 import request from 'supertest';
 
+import { ErrorCode } from '@/common/constants/error-codes';
+
 import { getCookieHeader } from './utils/cookies';
 import { seedUser, uniqueEmail } from './utils/database';
 import { setupIntegrationTest } from './utils/integration-test-context';
@@ -302,7 +304,7 @@ describe('Admin skill catalog management (integration)', () => {
       .expect(409);
 
     expect(createConflictResponse.body).toMatchObject({
-      code: 40900,
+      code: ErrorCode.SKILL_NAME_ALREADY_EXISTS,
     });
 
     const updateConflictResponse = await request(integration.app.getHttpServer())
@@ -314,7 +316,7 @@ describe('Admin skill catalog management (integration)', () => {
       .expect(409);
 
     expect(updateConflictResponse.body).toMatchObject({
-      code: 40900,
+      code: ErrorCode.SKILL_NAME_ALREADY_EXISTS,
     });
   });
 
@@ -382,7 +384,7 @@ describe('Admin skill catalog management (integration)', () => {
       .expect(409);
 
     expect(conflictResponse.body).toMatchObject({
-      code: 40900,
+      code: ErrorCode.SKILL_DELETE_REFERENCED,
     });
   });
 });

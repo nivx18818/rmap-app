@@ -165,6 +165,10 @@ The following features are **not in the current version scope** but are intentio
 - **NFR-11:** System logs are comprehensive enough for debugging (Winston or Morgan in NestJS).
 - **NFR-12:** If AI roadmap generation fails due to server-side errors (for example Gemini timeout/error), the system must clearly notify users that a server error occurred, ask them to try again later, and suggest checking available default roadmaps while waiting.
 
+**Backend API error contract note:** Skills catalog APIs return structured custom error codes
+for domain failures such as duplicate skill names, referenced skill deletion, invalid prerequisite
+relationships, and missing prerequisite relationships.
+
 ---
 
 ## **4. MODULE ARCHITECTURE OVERVIEW**

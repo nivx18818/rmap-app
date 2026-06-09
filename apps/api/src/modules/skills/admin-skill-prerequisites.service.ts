@@ -2,8 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { Prisma, type RoleCategory } from '@repo/db/prisma/client';
 
 import {
-  AppConflictException,
-  AppNotFoundException,
+  SkillPrerequisiteAlreadyExistsException,
+  SkillPrerequisiteCycleException,
+  SkillPrerequisiteNotFoundException,
+  SkillPrerequisiteSelfReferenceException,
   SkillNotFoundException,
 } from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
@@ -70,7 +72,7 @@ export class AdminSkillPrerequisitesService {
         await this.findSkillOrThrow(skillId, tx);
 
         if (skillId === dto.prerequisiteSkillId) {
-          throw new AppConflictException('A skill cannot be a prerequisite of itself');
+          throw new SkillPrerequisiteSelfReferenceException();
         }
 
         await this.findSkillOrThrow(dto.prerequisiteSkillId, tx);
@@ -90,7 +92,7 @@ export class AdminSkillPrerequisitesService {
       });
     } catch (error) {
       if (this.isPrismaErrorCode(error, 'P2002')) {
-        throw new AppConflictException('Prerequisite relationship already exists');
+        throw new SkillPrerequisiteAlreadyExistsException();
       }
 
       throw error;
@@ -109,9 +111,7 @@ export class AdminSkillPrerequisitesService {
     });
 
     if (result.count === 0) {
-      throw new AppNotFoundException(
-        `Prerequisite relationship not found: ${skillId} -> ${prereqSkillId}`,
-      );
+      throw new SkillPrerequisiteNotFoundException(skillId, prereqSkillId);
     }
   }
 
@@ -179,7 +179,7 @@ export class AdminSkillPrerequisitesService {
     });
 
     if (existing) {
-      throw new AppConflictException('Prerequisite relationship already exists');
+      throw new SkillPrerequisiteAlreadyExistsException();
     }
   }
 
@@ -189,7 +189,7 @@ export class AdminSkillPrerequisitesService {
     prisma: SkillPrerequisitePrismaClient,
   ): Promise<void> {
     if (await this.isSkillReachable(prerequisiteSkillId, skillId, prisma)) {
-      throw new AppConflictException('Prerequisite relationship would introduce a cycle');
+      throw new SkillPrerequisiteCycleException();
     }
   }
 

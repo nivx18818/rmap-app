@@ -280,7 +280,7 @@ describe('AdminSkillPrerequisitesService', () => {
 
     await expectExceptionCode(
       service.createPrerequisite(skillId, { prerequisiteSkillId: prereqSkillId }),
-      ErrorCode.CONFLICT,
+      ErrorCode.SKILL_PREREQUISITE_ALREADY_EXISTS,
     );
 
     expect(txMock.skillPrerequisite.create).not.toHaveBeenCalled();
@@ -294,7 +294,7 @@ describe('AdminSkillPrerequisitesService', () => {
 
     await expectExceptionCode(
       service.createPrerequisite(skillId, { prerequisiteSkillId: prereqSkillId }),
-      ErrorCode.CONFLICT,
+      ErrorCode.SKILL_PREREQUISITE_ALREADY_EXISTS,
     );
   });
 
@@ -303,7 +303,7 @@ describe('AdminSkillPrerequisitesService', () => {
 
     await expectExceptionCode(
       service.createPrerequisite(skillId, { prerequisiteSkillId: skillId }),
-      ErrorCode.CONFLICT,
+      ErrorCode.SKILL_PREREQUISITE_SELF_REFERENCE,
     );
 
     expect(txMock.skillPrerequisite.create).not.toHaveBeenCalled();
@@ -316,7 +316,7 @@ describe('AdminSkillPrerequisitesService', () => {
 
     await expectExceptionCode(
       service.createPrerequisite(skillId, { prerequisiteSkillId: prereqSkillId }),
-      ErrorCode.CONFLICT,
+      ErrorCode.SKILL_PREREQUISITE_CYCLE,
     );
 
     expect(txMock.skillPrerequisite.create).not.toHaveBeenCalled();
@@ -331,7 +331,7 @@ describe('AdminSkillPrerequisitesService', () => {
 
     await expectExceptionCode(
       service.createPrerequisite(skillId, { prerequisiteSkillId: prereqSkillId }),
-      ErrorCode.CONFLICT,
+      ErrorCode.SKILL_PREREQUISITE_CYCLE,
     );
 
     expect(txMock.skillPrerequisite.create).not.toHaveBeenCalled();
@@ -352,13 +352,13 @@ describe('AdminSkillPrerequisitesService', () => {
     });
   });
 
-  it('throws AppNotFoundException when deleting a missing prerequisite edge', async () => {
+  it('throws SkillPrerequisiteNotFoundException when deleting a missing prerequisite edge', async () => {
     prisma.skill.findUnique.mockResolvedValue({ id: skillId });
     prisma.skillPrerequisite.deleteMany.mockResolvedValue({ count: 0 });
 
     await expectExceptionCode(
       service.deletePrerequisite(skillId, prereqSkillId),
-      ErrorCode.NOT_FOUND,
+      ErrorCode.SKILL_PREREQUISITE_NOT_FOUND,
     );
   });
 

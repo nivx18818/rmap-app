@@ -6,6 +6,7 @@ import {
   GithubIcon,
   Logout02Icon,
   MapsIcon,
+  Menu07Icon,
   UserCircleIcon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -37,8 +38,14 @@ export function Header() {
   const { isAuthenticated, isLoading, signOut, user } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const userFirstName = user?.fullName?.split(' ')[0];
-  const userButtonLabel = userFirstName ? `${userFirstName}'s Profile` : 'My Profile';
+  const userFirstName = user?.fullName?.trim().split(/\s+/)[0];
+  const userDisplayName = userFirstName || 'My Profile';
+  const userMenuAriaLabel = userFirstName
+    ? `Open ${userDisplayName} profile menu`
+    : 'Open profile menu';
+  const hamburgerMenuIcon = (
+    <HugeiconsIcon className="size-4" data-icon="inline-end" icon={Menu07Icon} />
+  );
 
   const handleSignOut = async () => {
     setIsLoggingOut(true);
@@ -57,7 +64,7 @@ export function Header() {
   };
 
   const userMenuTrigger = (
-    <Button variant="outline" size="sm" className="rounded-r-[20px]">
+    <Button variant="outline" size="sm" className="rounded-r-[20px]" aria-label={userMenuAriaLabel}>
       {user?.avatarUrl ? (
         <Image
           className="size-6 object-cover"
@@ -70,7 +77,8 @@ export function Header() {
       ) : (
         <HugeiconsIcon className="size-4" icon={UserCircleIcon} />
       )}
-      {userButtonLabel}
+      {userDisplayName}
+      {hamburgerMenuIcon}
     </Button>
   );
 
@@ -251,6 +259,7 @@ export function Header() {
                         variant="outline"
                         size="sm"
                         className="w-full justify-start rounded-xl"
+                        aria-label={userMenuAriaLabel}
                       >
                         {user?.avatarUrl ? (
                           <Image
@@ -264,7 +273,8 @@ export function Header() {
                         ) : (
                           <HugeiconsIcon className="size-4" icon={UserCircleIcon} />
                         )}
-                        {userButtonLabel}
+                        {userDisplayName}
+                        {hamburgerMenuIcon}
                       </Button>
                     }
                   />

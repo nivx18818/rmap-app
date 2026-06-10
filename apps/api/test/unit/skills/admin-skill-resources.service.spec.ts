@@ -27,6 +27,7 @@ interface ResourceRecord {
 
 interface TxMock {
   resource: {
+    count: AsyncMock<number>;
     create: AsyncMock<ResourceRecord>;
     findFirst: AsyncMock<ResourceRecord | null>;
     update: AsyncMock<ResourceRecord>;
@@ -83,6 +84,7 @@ const expectAnyObject = (): object => expect.any(Object) as object;
 
 const makeTxMock = (): TxMock => ({
   resource: {
+    count: jest.fn<Promise<number>, unknown[]>(),
     create: jest.fn<Promise<ResourceRecord>, unknown[]>(),
     findFirst: jest.fn<Promise<ResourceRecord | null>, unknown[]>(),
     update: jest.fn<Promise<ResourceRecord>, unknown[]>(),
@@ -198,10 +200,11 @@ describe('AdminSkillResourcesService', () => {
     });
   });
 
-  it('allows creating additional primary resources', async () => {
+  it('creates a primary resource when fewer than 2 primary resources exist', async () => {
     const resource = makeResource({ isPrimary: true });
 
     txMock.skill.findUnique.mockResolvedValue({ id: skillId });
+    txMock.resource.count.mockResolvedValue(1);
     txMock.resource.create.mockResolvedValue(resource);
 
     const result = await service.createResource(skillId, {
@@ -211,6 +214,12 @@ describe('AdminSkillResourcesService', () => {
       url: 'https://example.test/docs',
     });
 
+    expect(txMock.resource.count).toHaveBeenCalledWith({
+      where: {
+        isPrimary: true,
+        skillId,
+      },
+    });
     expect(txMock.resource.create).toHaveBeenCalledWith({
       data: {
         isFree: true,
@@ -225,15 +234,40 @@ describe('AdminSkillResourcesService', () => {
     expect(result).toMatchObject({ isPrimary: true });
   });
 
-  it('allows updating a non-primary resource to primary without checking a primary limit', async () => {
+  it('throws SkillPrimaryResourcesLimitException when creating a third primary resource', async () => {
+    txMock.skill.findUnique.mockResolvedValue({ id: skillId });
+    txMock.resource.count.mockResolvedValue(2);
+
+    await expectExceptionCode(
+      service.createResource(skillId, {
+        isPrimary: true,
+        resourceType: ResourceType.DOCS,
+        title: 'Official docs',
+        url: 'https://example.test/docs',
+      }),
+      ErrorCode.SKILL_PRIMARY_RESOURCES_LIMIT,
+    );
+
+    expect(txMock.resource.create).not.toHaveBeenCalled();
+  });
+
+  it('allows updating a non-primary resource to primary when fewer than 2 primary resources exist', async () => {
     const updatedResource = makeResource({ isPrimary: true });
 
     txMock.skill.findUnique.mockResolvedValue({ id: skillId });
     txMock.resource.findFirst.mockResolvedValue(makeResource({ isPrimary: false }));
+    txMock.resource.count.mockResolvedValue(1);
     txMock.resource.update.mockResolvedValue(updatedResource);
 
     const result = await service.updateResource(skillId, resourceId, { isPrimary: true });
 
+    expect(txMock.resource.count).toHaveBeenCalledWith({
+      where: {
+        id: { not: resourceId },
+        isPrimary: true,
+        skillId,
+      },
+    });
     expect(txMock.resource.update).toHaveBeenCalledWith({
       data: {
         isPrimary: true,
@@ -242,6 +276,19 @@ describe('AdminSkillResourcesService', () => {
       where: { id: resourceId },
     });
     expect(result).toMatchObject({ isPrimary: true });
+  });
+
+  it('throws SkillPrimaryResourcesLimitException when updating a third resource to primary', async () => {
+    txMock.skill.findUnique.mockResolvedValue({ id: skillId });
+    txMock.resource.findFirst.mockResolvedValue(makeResource({ isPrimary: false }));
+    txMock.resource.count.mockResolvedValue(2);
+
+    await expectExceptionCode(
+      service.updateResource(skillId, resourceId, { isPrimary: true }),
+      ErrorCode.SKILL_PRIMARY_RESOURCES_LIMIT,
+    );
+
+    expect(txMock.resource.update).not.toHaveBeenCalled();
   });
 
   it('allows updating an existing primary resource without false-positive primary conflicts', async () => {
@@ -264,6 +311,7 @@ describe('AdminSkillResourcesService', () => {
       select: expectAnyObject(),
       where: { id: resourceId },
     });
+    expect(txMock.resource.count).not.toHaveBeenCalled();
     expect(result).toMatchObject({ isPrimary: true, title: 'Updated docs' });
   });
 

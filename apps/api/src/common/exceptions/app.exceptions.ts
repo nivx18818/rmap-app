@@ -491,6 +491,15 @@ export class SkillPrerequisiteCycleException extends ConflictException {
   }
 }
 
+export class SkillPrimaryResourcesLimitException extends ConflictException {
+  constructor() {
+    super({
+      code: ErrorCode.SKILL_PRIMARY_RESOURCES_LIMIT,
+      message: getErrorMessage(ErrorCode.SKILL_PRIMARY_RESOURCES_LIMIT),
+    });
+  }
+}
+
 // ================
 // 429 - Rate Limit
 // ================
@@ -711,6 +720,7 @@ export const ErrorCodeToException = {
   [ErrorCode.SKILL_PREREQUISITE_ALREADY_EXISTS]: SkillPrerequisiteAlreadyExistsException,
   [ErrorCode.SKILL_PREREQUISITE_SELF_REFERENCE]: SkillPrerequisiteSelfReferenceException,
   [ErrorCode.SKILL_PREREQUISITE_CYCLE]: SkillPrerequisiteCycleException,
+  [ErrorCode.SKILL_PRIMARY_RESOURCES_LIMIT]: SkillPrimaryResourcesLimitException,
   // 429 - Too Many Requests
   [ErrorCode.RATE_LIMIT_EXCEEDED]: RateLimitExceededException,
   [ErrorCode.TOO_MANY_MESSAGES]: TooManyMessagesException,

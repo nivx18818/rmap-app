@@ -58,6 +58,7 @@ export enum ErrorCode {
   SKILL_PREREQUISITE_ALREADY_EXISTS = 40907,
   SKILL_PREREQUISITE_SELF_REFERENCE = 40908,
   SKILL_PREREQUISITE_CYCLE = 40909,
+  SKILL_PRIMARY_RESOURCES_LIMIT = 40910,
   // 429 - Too Many Requests
   RATE_LIMIT_EXCEEDED = 42900,
   TOO_MANY_MESSAGES = 42901,
@@ -138,6 +139,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.SKILL_PREREQUISITE_ALREADY_EXISTS]: 'Skill prerequisite relationship already exists',
   [ErrorCode.SKILL_PREREQUISITE_SELF_REFERENCE]: 'A skill cannot be a prerequisite of itself',
   [ErrorCode.SKILL_PREREQUISITE_CYCLE]: 'Skill prerequisite relationship would introduce a cycle',
+  [ErrorCode.SKILL_PRIMARY_RESOURCES_LIMIT]: 'Skill already has 2 primary resources',
   // 429 - Too Many Requests
   [ErrorCode.RATE_LIMIT_EXCEEDED]: 'Rate limit exceeded',
   [ErrorCode.TOO_MANY_MESSAGES]: 'Too many messages sent',

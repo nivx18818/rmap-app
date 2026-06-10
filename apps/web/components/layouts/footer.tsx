@@ -9,6 +9,7 @@ export function Footer() {
   const pathname = usePathname();
   const shouldHideFooter =
     pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/admin') ||
     pathname.startsWith('/profile') ||
     pathname.startsWith('/roadmaps');
 

@@ -273,12 +273,67 @@
     border: 1px solid var(--color-btn-white-border);
     box-shadow: 0 -3px 6px -2px var(--color-btn-white-inner-shadow) inset;
     color: var(--color-foreground);
+    isolation: isolate;
+    overflow: hidden;
+    position: relative;
+    transition:
+      border-color 300ms,
+      color 300ms;
+  }
+
+  .btn-white::before {
+    background: linear-gradient(to top, rgb(139 92 246 / 20%), transparent);
+    border-top-left-radius: 9999px;
+    border-top-right-radius: 9999px;
+    bottom: -0.5rem;
+    content: '';
+    filter: blur(4px);
+    height: 100%;
+    left: 1rem;
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    right: 1rem;
+    transform: scale(0);
+    transform-origin: bottom;
+    transition:
+      opacity 300ms,
+      transform 300ms;
+  }
+
+  .btn-white::after {
+    background: linear-gradient(
+      to right,
+      rgb(139 92 246 / 0%) 10%,
+      rgb(167 139 250),
+      rgb(139 92 246 / 0%) 90%
+    );
+    bottom: -0.125rem;
+    content: '';
+    height: 1px;
+    left: 0.25rem;
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    right: 0.25rem;
+    transform: scaleX(0);
+    transition:
+      opacity 300ms,
+      transform 300ms;
   }
 
   .btn-white:hover {
-    background-color: var(--color-btn-white-background-active);
-    border: 1px solid var(--color-btn-white-border-active);
-    box-shadow: 0 0 6px 2px var(--color-btn-white-inner-shadow-active) inset;
+    color: var(--color-primary);
+  }
+
+  .btn-white:hover::before {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .btn-white:hover::after {
+    opacity: 1;
+    transform: scaleX(1);
   }
 
   .btn-secondary {

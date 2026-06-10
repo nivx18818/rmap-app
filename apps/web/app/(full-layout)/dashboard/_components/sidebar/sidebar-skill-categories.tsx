@@ -144,7 +144,12 @@ export function SidebarSkillCategories({ skillCategories }: SidebarSkillCategori
               />
               <span className="truncate">{category.label}</span>
             </span>
-            <span className="font-semibold">{NUMBER_FORMATTER.format(category.totalSkills)}</span>
+            <span
+              className="font-semibold"
+              title={`${NUMBER_FORMATTER.format(category.completedSkills)} completed of ${NUMBER_FORMATTER.format(category.totalSkills)} skills`}
+            >
+              {NUMBER_FORMATTER.format(category.completedSkills)}
+            </span>
           </div>
         ))}
         {skillCategories.length === 0 ? (

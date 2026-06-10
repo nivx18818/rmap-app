@@ -12,6 +12,7 @@ import {
 } from '@repo/db/prisma/client';
 
 import {
+  AppConflictException,
   DeadlineInPastException,
   InvalidStatusTransitionException,
   MilestoneSubmissionInProgressException,
@@ -52,12 +53,19 @@ import {
 
 function makeTxMock() {
   return {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     dailyActivity: {
       upsert: jest.fn().mockResolvedValue({}),
     },
     milestoneSubmission: {
       create: jest.fn(),
       findFirst: jest.fn().mockResolvedValue(null),
+      findUnique: jest.fn().mockResolvedValue({
+        createdAt: new Date('2026-01-04T00:00:00Z'),
+        roadmapNode: { roadmapId: 'roadmap-1' },
+        roadmapNodeId: 'milestone-1',
+        userId: MOCK_USER_ID,
+      }),
       update: jest.fn(),
     },
     roadmap: {
@@ -74,6 +82,7 @@ function makeTxMock() {
     userNodeProgress: {
       count: jest.fn().mockResolvedValue(0),
       createMany: jest.fn().mockResolvedValue({ count: 19 }),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
       findFirst: jest.fn().mockResolvedValue(null),
       findMany: jest.fn().mockResolvedValue([]),
       findUnique: jest.fn().mockResolvedValue(null),
@@ -97,6 +106,7 @@ interface RoadmapNodeQuizSelection {
   posY?: number;
   skillId: string | null;
   userNodeProgress?: Array<{
+    startedAt?: Date | null;
     status: NodeStatus;
   }>;
   skill?: {
@@ -1712,6 +1722,38 @@ describe('RoadmapsService', () => {
       expect(result.milestoneTestSuite?.testCases).toHaveLength(6);
     });
 
+    it('should ignore milestone submissions from an earlier learning cycle', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue(
+        makeNodeDetail({
+          skillId: null,
+          nodeType: NodeType.MILESTONE,
+          estimatedHours: null,
+          skill: null,
+          milestoneTestSuite: makeMilestoneTestSuite({ roadmapNodeId: nodeId }),
+          milestoneSubmissions: [
+            {
+              id: 'old-submission',
+              repoUrl: 'https://github.com/acme/old-project',
+              testSuiteId: 'suite-1',
+              status: MilestoneSubmissionStatus.PASSED,
+              outputLog: 'ok',
+              passRatePct: 100,
+              passedTests: 6,
+              testResults: makeMilestoneTestResults(6),
+              totalTests: 6,
+              attemptNumber: 1,
+              createdAt: new Date('2025-12-31T23:59:59Z'),
+              completedAt: new Date('2025-12-31T23:59:59Z'),
+            },
+          ],
+        }),
+      );
+
+      const result = await service.getNodeDetail(MOCK_USER_ID, roadmapId, nodeId);
+
+      expect(result.latestSubmission).toBeNull();
+    });
+
     it('should throw RoadmapNodeNotFoundException when the node is not found', async () => {
       prisma.roadmapNode.findFirst.mockResolvedValue(null);
 
@@ -2072,6 +2114,7 @@ describe('RoadmapsService', () => {
       expect(result.roadmap.id).toBe(roadmapId);
       expect(result.roadmap.startedAt).toEqual(expect.any(String));
       expect(result.unlockedNodes).toEqual(['group-1', 'leaf-1', 'leaf-2']);
+      expect(txMock.$queryRaw).toHaveBeenCalled();
     });
 
     it('should be idempotent when the roadmap is already started', async () => {
@@ -2083,6 +2126,7 @@ describe('RoadmapsService', () => {
 
       expect(txMock.roadmap.update).not.toHaveBeenCalled();
       expect(txMock.roadmap.count).not.toHaveBeenCalled();
+      expect(txMock.$queryRaw).toHaveBeenCalled();
       expect(txMock.userNodeProgress.updateMany).not.toHaveBeenCalled();
       expect(result.roadmap.id).toBe(roadmapId);
       expect(result.roadmap.startedAt).toBe(startedAt.toISOString());
@@ -2168,6 +2212,69 @@ describe('RoadmapsService', () => {
       await expect(service.deleteByIdForOwner('user-1', 'roadmap-1')).rejects.toThrow(
         RoadmapNotFoundException,
       );
+    });
+  });
+
+  describe('deleteTemplateProgress', () => {
+    const roadmapId = 'template-1';
+    const userId = 'user-1';
+
+    it('should delete only the current user progress for a template roadmap', async () => {
+      txMock.roadmap.findFirst.mockResolvedValue({ id: roadmapId });
+      txMock.userNodeProgress.deleteMany.mockResolvedValue({ count: 3 });
+
+      await service.deleteTemplateProgress(userId, roadmapId);
+
+      expect(txMock.roadmap.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: roadmapId,
+          isTemplate: true,
+        },
+        select: { id: true },
+      });
+      expect(txMock.milestoneSubmission.findFirst).toHaveBeenCalledWith({
+        where: {
+          roadmapNode: { roadmapId },
+          status: MilestoneSubmissionStatus.RUNNING,
+          userId,
+        },
+        select: { id: true },
+      });
+      expect(txMock.userNodeProgress.deleteMany).toHaveBeenCalledWith({
+        where: {
+          roadmapNode: { roadmapId },
+          userId,
+        },
+      });
+      expect(txMock.roadmap.update).not.toHaveBeenCalled();
+      expect(txMock.$queryRaw).toHaveBeenCalled();
+    });
+
+    it('should be idempotent when the current user has no template progress', async () => {
+      txMock.roadmap.findFirst.mockResolvedValue({ id: roadmapId });
+      txMock.userNodeProgress.deleteMany.mockResolvedValue({ count: 0 });
+
+      await expect(service.deleteTemplateProgress(userId, roadmapId)).resolves.toBeUndefined();
+    });
+
+    it('should throw 404 when the roadmap is missing or is not a template', async () => {
+      txMock.roadmap.findFirst.mockResolvedValue(null);
+
+      await expect(service.deleteTemplateProgress(userId, roadmapId)).rejects.toThrow(
+        RoadmapNotFoundException,
+      );
+      expect(txMock.milestoneSubmission.findFirst).not.toHaveBeenCalled();
+      expect(txMock.userNodeProgress.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('should reject deletion while a milestone submission is running', async () => {
+      txMock.roadmap.findFirst.mockResolvedValue({ id: roadmapId });
+      txMock.milestoneSubmission.findFirst.mockResolvedValue({ id: 'submission-1' });
+
+      await expect(service.deleteTemplateProgress(userId, roadmapId)).rejects.toThrow(
+        AppConflictException,
+      );
+      expect(txMock.userNodeProgress.deleteMany).not.toHaveBeenCalled();
     });
   });
 
@@ -2630,12 +2737,25 @@ describe('RoadmapsService', () => {
 
       const result = await service.submitNodeQuiz(MOCK_USER_ID, roadmapId, nodeId, submitDto);
 
-      expect(result.unlockedNodes).toEqual(['same-group-optional', 'next-group-leaf']);
+      expect(result.unlockedNodes).toEqual([
+        'group-1',
+        'same-group-optional',
+        'group-2',
+        'next-group-leaf',
+      ]);
       expect(txMock.userNodeProgress.updateMany).toHaveBeenNthCalledWith(1, {
-        where: { userId: MOCK_USER_ID, roadmapNodeId: { in: ['same-group-optional'] } },
+        where: { userId: MOCK_USER_ID, roadmapNodeId: 'group-1', status: NodeStatus.LOCKED },
         data: { status: NodeStatus.IN_PROGRESS, startedAt: expectAnyDate() },
       });
       expect(txMock.userNodeProgress.updateMany).toHaveBeenNthCalledWith(2, {
+        where: { userId: MOCK_USER_ID, roadmapNodeId: { in: ['same-group-optional'] } },
+        data: { status: NodeStatus.IN_PROGRESS, startedAt: expectAnyDate() },
+      });
+      expect(txMock.userNodeProgress.updateMany).toHaveBeenNthCalledWith(3, {
+        where: { userId: MOCK_USER_ID, roadmapNodeId: 'group-2', status: NodeStatus.LOCKED },
+        data: { status: NodeStatus.IN_PROGRESS, startedAt: expectAnyDate() },
+      });
+      expect(txMock.userNodeProgress.updateMany).toHaveBeenNthCalledWith(4, {
         where: { userId: MOCK_USER_ID, roadmapNodeId: { in: ['next-group-leaf'] } },
         data: { status: NodeStatus.IN_PROGRESS, startedAt: expectAnyDate() },
       });
@@ -2948,6 +3068,7 @@ describe('RoadmapsService', () => {
   describe('submitMilestoneSubmission', () => {
     const nodeId = 'milestone-1';
     const roadmapId = 'roadmap-1';
+    const startedAt = new Date('2026-01-03T00:00:00Z');
     const createdAt = new Date('2026-01-04T00:00:00Z');
     const submission = {
       id: 'submission-1',
@@ -2973,12 +3094,16 @@ describe('RoadmapsService', () => {
         roadmap: { roleCategory: RoleCategory.WEB_DEVELOPMENT },
         milestoneTestSuite: makeMilestoneTestSuite({ roadmapNodeId: nodeId }),
         skillId: null,
-        userNodeProgress: [{ status: NodeStatus.IN_PROGRESS }],
+        userNodeProgress: [{ startedAt, status: NodeStatus.IN_PROGRESS }],
       });
       txMock.milestoneSubmission.findFirst
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({ attemptNumber: 2 });
       txMock.milestoneSubmission.create.mockResolvedValue(submission);
+      txMock.userNodeProgress.findUnique.mockResolvedValue({
+        startedAt,
+        status: NodeStatus.IN_PROGRESS,
+      });
       jest.spyOn(milestoneService, 'executeMilestoneSubmission').mockResolvedValue(undefined);
     });
 
@@ -3008,6 +3133,7 @@ describe('RoadmapsService', () => {
           completedAt: null,
         },
       });
+      expect(txMock.$queryRaw).toHaveBeenCalled();
     });
 
     it('should reject non-GitHub repo URLs with a custom exception', async () => {
@@ -3073,6 +3199,31 @@ describe('RoadmapsService', () => {
       ).rejects.toThrow(MilestoneSubmissionInProgressException);
       expect(txMock.milestoneSubmission.create).not.toHaveBeenCalled();
     });
+
+    it('should reject submission when progress was deleted before the transaction acquired its lock', async () => {
+      txMock.userNodeProgress.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.submitMilestoneSubmission(MOCK_USER_ID, roadmapId, nodeId, {
+          repoUrl: 'https://github.com/acme/api-project',
+        }),
+      ).rejects.toThrow(UserNodeProgressNotFoundException);
+      expect(txMock.milestoneSubmission.create).not.toHaveBeenCalled();
+    });
+
+    it('should reject submission when progress was reset and restarted before the transaction lock', async () => {
+      txMock.userNodeProgress.findUnique.mockResolvedValue({
+        startedAt: new Date('2026-01-05T00:00:00Z'),
+        status: NodeStatus.IN_PROGRESS,
+      });
+
+      await expect(
+        service.submitMilestoneSubmission(MOCK_USER_ID, roadmapId, nodeId, {
+          repoUrl: 'https://github.com/acme/api-project',
+        }),
+      ).rejects.toThrow(AppConflictException);
+      expect(txMock.milestoneSubmission.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('getLatestMilestoneSubmission', () => {
@@ -3087,6 +3238,12 @@ describe('RoadmapsService', () => {
         id: nodeId,
         nodeType: NodeType.MILESTONE,
         skillId: null,
+        userNodeProgress: [
+          {
+            startedAt: new Date('2026-01-01T00:00:00Z'),
+            status: NodeStatus.IN_PROGRESS,
+          },
+        ],
       });
       prisma.milestoneSubmission.findFirst.mockResolvedValue({
         id: 'submission-1',
@@ -3107,7 +3264,11 @@ describe('RoadmapsService', () => {
 
       expect(prisma.milestoneSubmission.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { roadmapNodeId: nodeId, userId: MOCK_USER_ID },
+          where: {
+            createdAt: { gte: new Date('2026-01-01T00:00:00Z') },
+            roadmapNodeId: nodeId,
+            userId: MOCK_USER_ID,
+          },
         }),
       );
       expect(result).toEqual({
@@ -3126,6 +3287,25 @@ describe('RoadmapsService', () => {
           completedAt: completedAt.toISOString(),
         },
       });
+    });
+
+    it('should not return an old submission before the current milestone is started', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({
+        id: nodeId,
+        nodeType: NodeType.MILESTONE,
+        skillId: null,
+        userNodeProgress: [
+          {
+            startedAt: null,
+            status: NodeStatus.LOCKED,
+          },
+        ],
+      });
+
+      await expect(
+        service.getLatestMilestoneSubmission(MOCK_USER_ID, roadmapId, nodeId),
+      ).resolves.toEqual({ submission: null });
+      expect(prisma.milestoneSubmission.findFirst).not.toHaveBeenCalled();
     });
 
     it('should throw RoadmapNodeNotFoundException when the node is not owned by the user', async () => {
@@ -3156,6 +3336,7 @@ describe('RoadmapsService', () => {
         userId: MOCK_USER_ID,
       });
       txMock.milestoneSubmission.update.mockResolvedValue({
+        createdAt: new Date('2026-01-04T00:00:00Z'),
         roadmapNode: { roadmapId: 'roadmap-1' },
         roadmapNodeId: 'milestone-1',
         userId: MOCK_USER_ID,
@@ -3172,7 +3353,10 @@ describe('RoadmapsService', () => {
         testResults: testResult.testResults,
         totalTests: testResult.totalTests,
       });
-      txMock.userNodeProgress.findUnique.mockResolvedValue({ status: NodeStatus.IN_PROGRESS });
+      txMock.userNodeProgress.findUnique.mockResolvedValue({
+        startedAt: new Date('2026-01-03T00:00:00Z'),
+        status: NodeStatus.IN_PROGRESS,
+      });
       txMock.roadmapNode.findFirst.mockResolvedValue({
         nodeType: NodeType.MILESTONE,
         parentId: null,
@@ -3266,11 +3450,15 @@ describe('RoadmapsService', () => {
 
     it('should auto-complete the milestone and unlock next nodes when generated tests pass', async () => {
       txMock.milestoneSubmission.update.mockResolvedValue({
+        createdAt: new Date('2026-01-04T00:00:00Z'),
         roadmapNode: { roadmapId: 'roadmap-1' },
         roadmapNodeId: 'milestone-1',
         userId: MOCK_USER_ID,
       });
-      txMock.userNodeProgress.findUnique.mockResolvedValue({ status: NodeStatus.IN_PROGRESS });
+      txMock.userNodeProgress.findUnique.mockResolvedValue({
+        startedAt: new Date('2026-01-03T00:00:00Z'),
+        status: NodeStatus.IN_PROGRESS,
+      });
       txMock.roadmapNode.findFirst
         .mockResolvedValueOnce({
           nodeType: NodeType.MILESTONE,
@@ -3321,6 +3509,7 @@ describe('RoadmapsService', () => {
 
     it('should record failed generated test metrics without completing progress', async () => {
       txMock.milestoneSubmission.update.mockResolvedValue({
+        createdAt: new Date('2026-01-04T00:00:00Z'),
         roadmapNode: { roadmapId: 'roadmap-1' },
         roadmapNodeId: 'milestone-1',
         userId: MOCK_USER_ID,
@@ -3346,6 +3535,53 @@ describe('RoadmapsService', () => {
           }),
         }),
       );
+      expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
+      expect(txMock.userNodeProgress.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('should complete a passing submission without recreating progress after a reset', async () => {
+      txMock.milestoneSubmission.update.mockResolvedValue({
+        createdAt: new Date('2026-01-04T00:00:00Z'),
+        roadmapNode: { roadmapId: 'roadmap-1' },
+        roadmapNodeId: 'milestone-1',
+        userId: MOCK_USER_ID,
+      });
+      txMock.userNodeProgress.findUnique.mockResolvedValue(null);
+
+      await completeMilestoneSubmission()(
+        'submission-1',
+        MilestoneSubmissionStatus.PASSED,
+        'ok',
+        makeParsedMilestoneTestResult(6),
+      );
+
+      expect(txMock.milestoneSubmission.update).toHaveBeenCalled();
+      expect(txMock.$queryRaw).toHaveBeenCalled();
+      expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
+      expect(txMock.userNodeProgress.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('should not complete restarted progress with an older passing submission', async () => {
+      txMock.milestoneSubmission.update.mockResolvedValue({
+        createdAt: new Date('2026-01-04T00:00:00Z'),
+        roadmapNode: { roadmapId: 'roadmap-1' },
+        roadmapNodeId: 'milestone-1',
+        userId: MOCK_USER_ID,
+      });
+      txMock.userNodeProgress.findUnique.mockResolvedValue({
+        startedAt: new Date('2026-01-05T00:00:00Z'),
+        status: NodeStatus.IN_PROGRESS,
+      });
+
+      await completeMilestoneSubmission()(
+        'submission-1',
+        MilestoneSubmissionStatus.PASSED,
+        'ok',
+        makeParsedMilestoneTestResult(6),
+      );
+
+      expect(txMock.milestoneSubmission.update).toHaveBeenCalled();
+      expect(txMock.$queryRaw).toHaveBeenCalled();
       expect(txMock.userNodeProgress.update).not.toHaveBeenCalled();
       expect(txMock.userNodeProgress.updateMany).not.toHaveBeenCalled();
     });
@@ -3529,7 +3765,7 @@ describe('RoadmapsService', () => {
           data: expectObjectContaining({ status: NodeStatus.IN_PROGRESS }),
         }),
       );
-      expect(result.unlockedNodes).toEqual(['leaf-2', 'leaf-3']);
+      expect(result.unlockedNodes).toEqual(['group-1', 'group-2', 'leaf-2', 'leaf-3']);
     });
 
     it('should unlock milestone without unlocking next GROUP when milestone follows the completed group', async () => {
@@ -3555,10 +3791,9 @@ describe('RoadmapsService', () => {
         status: NodeStatus.COMPLETED,
       });
 
-      expect(txMock.userNodeProgress.update).not.toHaveBeenCalledWith(
+      expect(txMock.userNodeProgress.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId_roadmapNodeId: { userId: MOCK_USER_ID, roadmapNodeId: milestoneId } },
-          data: expectObjectContaining({ status: NodeStatus.COMPLETED }),
+          where: { userId_roadmapNodeId: { userId: MOCK_USER_ID, roadmapNodeId: 'group-1' } },
         }),
       );
       expect(txMock.userNodeProgress.updateMany).toHaveBeenCalledWith(
@@ -3581,7 +3816,7 @@ describe('RoadmapsService', () => {
           }),
         }),
       );
-      expect(result.unlockedNodes).toEqual([milestoneId]);
+      expect(result.unlockedNodes).toEqual(['group-1', milestoneId]);
     });
 
     it('should reject manual milestone completion because generated tests complete it automatically', async () => {

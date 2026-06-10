@@ -2,6 +2,8 @@ export const API_BASE_PATH = process.env.NEXT_PUBLIC_API_BASE_PATH ?? '/api/v1';
 
 export const ENDPOINTS = {
   auth: {
+    changePassword: '/auth/password',
+    forgotPassword: '/auth/password/forgot',
     login: '/auth/login',
     logout: '/auth/logout',
     oauth: {
@@ -10,6 +12,7 @@ export const ENDPOINTS = {
     },
     refresh: '/auth/refresh',
     register: '/auth/register',
+    resetPassword: '/auth/password/reset',
   },
   dashboard: '/dashboard',
   onboarding: {
@@ -39,6 +42,8 @@ export const ENDPOINTS = {
     nodes: (templateId: string) => `/templates/${templateId}/nodes`,
   },
   users: {
+    integrations: '/users/me/integrations',
+    integrationByProvider: (provider: string) => `/users/me/integrations/${provider}`,
     me: '/users/me',
   },
 } as const;

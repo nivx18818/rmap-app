@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Req,
   Res,
@@ -24,6 +25,7 @@ import type { OAuthProfile } from './types/oauth-profile.type';
 
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { GithubMobileOAuthDto } from './dto/github-mobile-oauth.dto';
 import { LoginDto } from './dto/login.dto';
@@ -133,6 +135,19 @@ export class AuthController {
     await this.authService.resetPassword(resetPasswordDto);
   }
 
+  @Patch('password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @CurrentUser() user: RequestUser,
+    @Body() changePasswordDto: ChangePasswordDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    await this.authService.changePassword(user.id, changePasswordDto);
+    res.clearCookie('access_token', CLEAR_COOKIE_OPTIONS);
+    res.clearCookie('refresh_token', CLEAR_COOKIE_OPTIONS);
+    return { message: 'Password changed successfully' };
+  }
+
   @Public()
   @UseGuards(JwtRefreshGuard)
   @Post('refresh')
@@ -167,6 +182,31 @@ export class AuthController {
     if (!req.user) {
       res.redirect(this.authService.getOAuthFailureRedirectUrl(req.query.state));
       return;
+    }
+
+    const accessToken = cookieExtractor('ACCESS_TOKEN')(req);
+    if (accessToken) {
+      try {
+        const linked = await this.authService.linkOAuthAccountFromAccessToken(
+          accessToken,
+          req.user,
+        );
+        if (linked) {
+          res.redirect(
+            this.authService.getOAuthCallbackRedirectUrl(req.query.state, {
+              integration: 'connected',
+            }),
+          );
+          return;
+        }
+      } catch {
+        res.redirect(
+          this.authService.getOAuthCallbackRedirectUrl(req.query.state, {
+            integration: 'failed',
+          }),
+        );
+        return;
+      }
     }
 
     try {

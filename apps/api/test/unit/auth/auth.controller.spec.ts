@@ -12,6 +12,7 @@ import { AuthController } from '@/modules/auth/auth.controller';
 
 describe('AuthController', () => {
   const authService = {
+    changePassword: jest.fn(),
     getOAuthFailureRedirectUrl: jest.fn(),
     getOAuthRedirectUrl: jest.fn(),
     login: jest.fn(),
@@ -194,6 +195,25 @@ describe('AuthController', () => {
     });
 
     expect(authService.logout).toHaveBeenCalledWith('user-1');
+    expect(response.clearCookie).toHaveBeenCalledWith('access_token', expect.any(Object));
+    expect(response.clearCookie).toHaveBeenCalledWith(
+      'refresh_token',
+      expect.objectContaining({ path: '/' }),
+    );
+  });
+
+  it('changes password and clears auth cookies', async () => {
+    const user = { id: 'user-1' } as RequestUser;
+    const dto = {
+      currentPassword: 'CorrectHorseBattery1!',
+      newPassword: 'N3wS3cur3P@ss',
+    };
+
+    await expect(controller.changePassword(user, dto, response)).resolves.toEqual({
+      message: 'Password changed successfully',
+    });
+
+    expect(authService.changePassword).toHaveBeenCalledWith('user-1', dto);
     expect(response.clearCookie).toHaveBeenCalledWith('access_token', expect.any(Object));
     expect(response.clearCookie).toHaveBeenCalledWith(
       'refresh_token',

@@ -6,12 +6,6 @@ import type {
 import { ENDPOINTS } from '@/constants/endpoints';
 import { axiosInstance } from '@/lib/axios-instance';
 
-function buildDefaultAvatar(seedSource: string) {
-  const seed = encodeURIComponent(seedSource.trim() || 'user');
-
-  return `https://api.dicebear.com/9.x/adventurer/svg?seed=${seed}`;
-}
-
 function mapDashboardResponse(response: DashboardApiResponse): Dashboard {
   const fullName = response.userProfile.fullName || 'User';
   const email = response.userProfile.email;
@@ -22,7 +16,7 @@ function mapDashboardResponse(response: DashboardApiResponse): Dashboard {
 
   return {
     userProfile: {
-      avatarUrl: response.userProfile.avatarUrl ?? buildDefaultAvatar(fullName || email),
+      avatarUrl: response.userProfile.avatarUrl,
       createdAt: response.userProfile.createdAt ?? '',
       email,
       fullName,

@@ -24,7 +24,7 @@ export function getSafeCallbackUrl(): string {
   }
 }
 
-export function buildOAuthLoginUrl(provider: OAuthProvider): string {
+export function buildOAuthLoginUrl(provider: OAuthProvider, callbackUrlOverride?: string): string {
   const path = `${API_BASE_PATH}${ENDPOINTS.auth.oauth[provider]}`;
 
   if (typeof window === 'undefined') {
@@ -32,7 +32,7 @@ export function buildOAuthLoginUrl(provider: OAuthProvider): string {
   }
 
   const url = new URL(path, window.location.origin);
-  const callbackUrl = getSafeCallbackUrl();
+  const callbackUrl = callbackUrlOverride ?? getSafeCallbackUrl();
   if (callbackUrl !== '/') {
     url.searchParams.set('callbackUrl', callbackUrl);
   }

@@ -24,6 +24,7 @@ export enum ErrorCode {
   QUIZ_SUBMISSION_INVALID = 40016,
   MILESTONE_SUBMISSION_INVALID_STATE = 40017,
   ROADMAP_NODE_PROGRESS_INVALID_UPDATE = 40018,
+  UNSUPPORTED_OAUTH_PROVIDER = 40019,
   // 401 - Unauthorized
   UNAUTHORIZED = 40100,
   INVALID_ACCESS_TOKEN = 40101,
@@ -34,6 +35,7 @@ export enum ErrorCode {
   INVALID_PASSWORD_RESET_TOKEN = 40106,
   // 403 - Forbidden
   FORBIDDEN = 40300,
+  OAUTH_DISCONNECT_LAST_SIGN_IN_METHOD = 40301,
   // 404 - Not Found
   NOT_FOUND = 40400,
   USER_NOT_FOUND = 40401,
@@ -43,11 +45,19 @@ export enum ErrorCode {
   RESOURCE_NOT_FOUND = 40405,
   ROADMAP_NODE_NOT_FOUND = 40406,
   USER_NODE_PROGRESS_NOT_FOUND = 40407,
+  OAUTH_INTEGRATION_NOT_CONNECTED = 40408,
+  SKILL_PREREQUISITE_NOT_FOUND = 40409,
   // 409 - Conflict
   CONFLICT = 40900,
   EMAIL_ALREADY_EXISTS = 40901,
   REFRESH_TOKEN_ALREADY_EXISTS = 40902,
-  ACTIVE_ROADMAP_LIMIT_EXCEEDED = 40903,
+  OAUTH_PROVIDER_ALREADY_CONNECTED = 40903,
+  OAUTH_ACCOUNT_ALREADY_CONNECTED = 40904,
+  SKILL_NAME_ALREADY_EXISTS = 40905,
+  SKILL_DELETE_REFERENCED = 40906,
+  SKILL_PREREQUISITE_ALREADY_EXISTS = 40907,
+  SKILL_PREREQUISITE_SELF_REFERENCE = 40908,
+  SKILL_PREREQUISITE_CYCLE = 40909,
   // 429 - Too Many Requests
   RATE_LIMIT_EXCEEDED = 42900,
   TOO_MANY_MESSAGES = 42901,
@@ -91,6 +101,7 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.QUIZ_SUBMISSION_INVALID]: 'Quiz submission is invalid',
   [ErrorCode.MILESTONE_SUBMISSION_INVALID_STATE]: 'Milestone submission state is invalid',
   [ErrorCode.ROADMAP_NODE_PROGRESS_INVALID_UPDATE]: 'Roadmap node progress update is invalid',
+  [ErrorCode.UNSUPPORTED_OAUTH_PROVIDER]: 'Unsupported OAuth provider',
   // 401 - Unauthorized
   [ErrorCode.UNAUTHORIZED]: 'Authentication required',
   [ErrorCode.INVALID_ACCESS_TOKEN]: 'Invalid authentication token',
@@ -101,6 +112,8 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.INVALID_PASSWORD_RESET_TOKEN]: 'Invalid or expired password reset token',
   // 403 - Forbidden
   [ErrorCode.FORBIDDEN]: 'Access denied',
+  [ErrorCode.OAUTH_DISCONNECT_LAST_SIGN_IN_METHOD]:
+    'Add a password or connect another provider before disconnecting',
   // 404 - Not Found
   [ErrorCode.NOT_FOUND]: 'Resource not found',
   [ErrorCode.USER_NOT_FOUND]: 'User not found',
@@ -110,12 +123,21 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.RESOURCE_NOT_FOUND]: 'Learning resource not found',
   [ErrorCode.ROADMAP_NODE_NOT_FOUND]: 'Roadmap node not found',
   [ErrorCode.USER_NODE_PROGRESS_NOT_FOUND]: 'User node progress not found',
+  [ErrorCode.OAUTH_INTEGRATION_NOT_CONNECTED]: 'OAuth integration is not connected',
+  [ErrorCode.SKILL_PREREQUISITE_NOT_FOUND]: 'Skill prerequisite relationship not found',
   // 409 - Conflict
   [ErrorCode.CONFLICT]: 'The resource is in a conflicting state',
   [ErrorCode.EMAIL_ALREADY_EXISTS]: 'Email already registered',
   [ErrorCode.REFRESH_TOKEN_ALREADY_EXISTS]: 'Refresh token already exists',
-  [ErrorCode.ACTIVE_ROADMAP_LIMIT_EXCEEDED]:
-    'You can only learn up to 5 active roadmaps at the same time',
+  [ErrorCode.OAUTH_PROVIDER_ALREADY_CONNECTED]:
+    'OAuth provider is already connected to this account',
+  [ErrorCode.OAUTH_ACCOUNT_ALREADY_CONNECTED]: 'OAuth account is already connected',
+  [ErrorCode.SKILL_NAME_ALREADY_EXISTS]: 'Skill name already exists',
+  [ErrorCode.SKILL_DELETE_REFERENCED]:
+    'Skill cannot be deleted because it is referenced by roadmap or template nodes',
+  [ErrorCode.SKILL_PREREQUISITE_ALREADY_EXISTS]: 'Skill prerequisite relationship already exists',
+  [ErrorCode.SKILL_PREREQUISITE_SELF_REFERENCE]: 'A skill cannot be a prerequisite of itself',
+  [ErrorCode.SKILL_PREREQUISITE_CYCLE]: 'Skill prerequisite relationship would introduce a cycle',
   // 429 - Too Many Requests
   [ErrorCode.RATE_LIMIT_EXCEEDED]: 'Rate limit exceeded',
   [ErrorCode.TOO_MANY_MESSAGES]: 'Too many messages sent',

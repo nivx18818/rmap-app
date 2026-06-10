@@ -85,6 +85,7 @@ export default function SignInPage() {
               placeholder="name@example.com"
               type="email"
               autoComplete="email"
+              disabled={isSubmitting}
               aria-invalid={!!errors.email}
               {...register('email')}
             />
@@ -98,7 +99,7 @@ export default function SignInPage() {
               </FieldLabel>
               <Link
                 className="text-primary hover:text-primary-active text-sm font-medium hover:underline"
-                href={'/' as Route<string>}
+                href={'/forgot-password' as Route<string>}
               >
                 Forgot password?
               </Link>

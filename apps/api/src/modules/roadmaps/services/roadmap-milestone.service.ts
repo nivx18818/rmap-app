@@ -8,11 +8,13 @@ import {
 } from '@repo/db/prisma/client';
 
 import {
+  AppConflictException,
   InvalidStatusTransitionException,
   MilestoneSubmissionInProgressException,
   MilestoneSubmissionInvalidStateException,
   MilestoneTestSuiteGenerationUnavailableException,
   RoadmapNodeNotFoundException,
+  UserNodeProgressNotFoundException,
 } from '@/common/exceptions/app.exceptions';
 import { AiService, type GeneratedMilestoneTestSuite } from '@/modules/ai/ai.service';
 import { PrismaService } from '@/modules/prisma/prisma.service';
@@ -28,15 +30,6 @@ import type {
   MilestoneTestSuiteRecord,
 } from '../utils/roadmap-records';
 
-import { MilestoneExecutionClient } from '../milestone-execution.client';
-import { delay } from '../utils/async';
-import {
-  assertMilestoneSubmissionPayload,
-  sanitizeMilestoneOutputLog,
-  toMilestoneTestResult,
-} from '../utils/milestone-output';
-import { getRoadmapRelationAccessWhere } from '../utils/roadmap-access';
-import { formatMilestoneSubmission, formatMilestoneTestSuite } from '../utils/roadmap-formatters';
 import {
   MILESTONE_EXECUTION_TIMEOUT_MS,
   MILESTONE_GENERATED_TEST_COMMAND,
@@ -47,7 +40,17 @@ import {
   MILESTONE_TEST_SUITE_POLL_INTERVAL_MS,
   MILESTONE_TEST_SUITE_POLL_TIMEOUT_MS,
   MILESTONE_TEST_SUITE_SELECT,
-} from '../utils/roadmap.constants';
+} from '../constants/roadmap.constants';
+import { MilestoneExecutionClient } from '../milestone-execution.client';
+import { delay } from '../utils/async';
+import {
+  assertMilestoneSubmissionPayload,
+  sanitizeMilestoneOutputLog,
+  toMilestoneTestResult,
+} from '../utils/milestone-output';
+import { getRoadmapRelationAccessWhere } from '../utils/roadmap-access';
+import { formatMilestoneSubmission, formatMilestoneTestSuite } from '../utils/roadmap-formatters';
+import { acquireUserRoadmapLock } from '../utils/roadmap-lock';
 import { RoadmapProgressService } from './roadmap-progress.service';
 
 @Injectable()
@@ -92,7 +95,7 @@ export class RoadmapMilestoneService {
         },
         userNodeProgress: {
           where: { userId },
-          select: { status: true },
+          select: { startedAt: true, status: true },
           take: 1,
         },
       },
@@ -108,7 +111,8 @@ export class RoadmapMilestoneService {
       );
     }
 
-    const currentStatus = node.userNodeProgress[0]?.status ?? NodeStatus.LOCKED;
+    const currentProgress = node.userNodeProgress[0];
+    const currentStatus = currentProgress?.status ?? NodeStatus.LOCKED;
 
     if (currentStatus === NodeStatus.LOCKED) {
       throw new InvalidStatusTransitionException(currentStatus, NodeStatus.IN_PROGRESS);
@@ -118,6 +122,11 @@ export class RoadmapMilestoneService {
       throw new MilestoneSubmissionInvalidStateException(
         'Completed milestones cannot receive new submissions',
       );
+    }
+
+    const currentCycleStartedAt = currentProgress?.startedAt;
+    if (!currentCycleStartedAt) {
+      throw new AppConflictException('Milestone learning progress is not active');
     }
 
     const testSuite = await this.resolveMilestoneTestSuiteForNodeDetail({
@@ -134,6 +143,36 @@ export class RoadmapMilestoneService {
     }
 
     const submission = await this.prisma.$transaction(async (tx) => {
+      await acquireUserRoadmapLock(tx, userId, roadmapId);
+
+      const latestProgress = await tx.userNodeProgress.findUnique({
+        where: {
+          userId_roadmapNodeId: {
+            roadmapNodeId: node.id,
+            userId,
+          },
+        },
+        select: { startedAt: true, status: true },
+      });
+
+      if (!latestProgress) {
+        throw new UserNodeProgressNotFoundException(node.id);
+      }
+
+      if (latestProgress.startedAt?.getTime() !== currentCycleStartedAt.getTime()) {
+        throw new AppConflictException('Learning progress changed before submission could start');
+      }
+
+      if (latestProgress.status === NodeStatus.LOCKED) {
+        throw new InvalidStatusTransitionException(latestProgress.status, NodeStatus.IN_PROGRESS);
+      }
+
+      if (latestProgress.status === NodeStatus.COMPLETED) {
+        throw new MilestoneSubmissionInvalidStateException(
+          'Completed milestones cannot receive new submissions',
+        );
+      }
+
       const runningSubmission = await tx.milestoneSubmission.findFirst({
         where: {
           roadmapNodeId: node.id,
@@ -186,7 +225,15 @@ export class RoadmapMilestoneService {
         roadmapId,
         roadmap: getRoadmapRelationAccessWhere(userId),
       },
-      select: { id: true, nodeType: true },
+      select: {
+        id: true,
+        nodeType: true,
+        userNodeProgress: {
+          where: { userId },
+          select: { startedAt: true },
+          take: 1,
+        },
+      },
     });
 
     if (!node) {
@@ -199,8 +246,14 @@ export class RoadmapMilestoneService {
       );
     }
 
+    const progressStartedAt = node.userNodeProgress[0]?.startedAt;
+    if (!progressStartedAt) {
+      return { submission: null };
+    }
+
     const submission = await this.prisma.milestoneSubmission.findFirst({
       where: {
+        createdAt: { gte: progressStartedAt },
         roadmapNodeId: node.id,
         userId,
       },
@@ -308,6 +361,30 @@ export class RoadmapMilestoneService {
             passed: test.passed,
           })) as Prisma.InputJsonValue)
         : undefined;
+      const submissionContext = await tx.milestoneSubmission.findUnique({
+        where: { id: submissionId },
+        select: {
+          createdAt: true,
+          roadmapNode: {
+            select: {
+              roadmapId: true,
+            },
+          },
+          roadmapNodeId: true,
+          userId: true,
+        },
+      });
+
+      if (!submissionContext) {
+        return;
+      }
+
+      await acquireUserRoadmapLock(
+        tx,
+        submissionContext.userId,
+        submissionContext.roadmapNode.roadmapId,
+      );
+
       const submission = await tx.milestoneSubmission.update({
         where: { id: submissionId },
         data: {
@@ -320,6 +397,7 @@ export class RoadmapMilestoneService {
           totalTests: testResult?.totalTests,
         },
         select: {
+          createdAt: true,
           roadmapNode: {
             select: {
               roadmapId: true,
@@ -341,10 +419,14 @@ export class RoadmapMilestoneService {
             userId: submission.userId,
           },
         },
-        select: { status: true },
+        select: { startedAt: true, status: true },
       });
 
-      if (currentProgress?.status === NodeStatus.COMPLETED) {
+      if (
+        !currentProgress?.startedAt ||
+        submission.createdAt < currentProgress.startedAt ||
+        currentProgress.status === NodeStatus.COMPLETED
+      ) {
         return;
       }
 

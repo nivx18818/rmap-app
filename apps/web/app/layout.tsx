@@ -26,7 +26,7 @@ export default async function RootLayout({
       <body className={fonts} suppressHydrationWarning>
         <AuthProvider initialUser={initialUser}>
           <TooltipProvider>{children}</TooltipProvider>
-          <Toaster position="top-right" richColors closeButton />
+          <Toaster position="bottom-right" richColors closeButton />
         </AuthProvider>
       </body>
     </html>

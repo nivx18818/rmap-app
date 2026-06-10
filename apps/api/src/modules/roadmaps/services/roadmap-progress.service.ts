@@ -1,8 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { NodeStatus, NodeType, type Prisma } from '@repo/db/prisma/client';
+import {
+  MilestoneSubmissionStatus,
+  NodeStatus,
+  NodeType,
+  type Prisma,
+} from '@repo/db/prisma/client';
 
 import {
-  ActiveRoadmapLimitExceededException,
+  AppConflictException,
   InvalidStatusTransitionException,
   QuizNotPassedException,
   RoadmapNodeProgressInvalidUpdateException,
@@ -21,15 +26,16 @@ import type {
 import type { RoadmapProgressSummaryResponse } from '../types/roadmap-progress.types';
 import type { RoadmapTransaction } from '../utils/roadmap-records';
 
+import {
+  LEAF_NODE_TYPES,
+  ROADMAP_SELECT,
+  VALID_TRANSITIONS,
+  MAX_ACTIVE_LEARNING_ROADMAPS,
+} from '../constants/roadmap.constants';
 import { toNumberOrNull } from '../utils/number';
 import { getRoadmapAccessWhere, getRoadmapRelationAccessWhere } from '../utils/roadmap-access';
 import { formatRoadmap } from '../utils/roadmap-formatters';
-import {
-  LEAF_NODE_TYPES,
-  MAX_ACTIVE_LEARNING_ROADMAPS,
-  ROADMAP_SELECT,
-  VALID_TRANSITIONS,
-} from '../utils/roadmap.constants';
+import { acquireUserRoadmapLock } from '../utils/roadmap-lock';
 import {
   calculateDeadlineTimelineWarning,
   calculatePercent,
@@ -255,6 +261,8 @@ export class RoadmapProgressService {
 
   async startLearning(userId: string, roadmapId: string): Promise<StartRoadmapResponse> {
     return this.prisma.$transaction(async (tx) => {
+      await acquireUserRoadmapLock(tx, userId, roadmapId);
+
       const roadmap = await tx.roadmap.findFirst({
         select: ROADMAP_SELECT,
         where: getRoadmapAccessWhere(userId, roadmapId),
@@ -284,7 +292,7 @@ export class RoadmapProgressService {
       const activeLearningRoadmaps = await this.countActiveLearningRoadmaps(tx, userId, roadmap.id);
 
       if (activeLearningRoadmaps >= MAX_ACTIVE_LEARNING_ROADMAPS) {
-        throw new ActiveRoadmapLimitExceededException();
+        throw new AppConflictException('Maximum number of active roadmaps exceeded.');
       }
 
       const now = new Date();
@@ -335,6 +343,46 @@ export class RoadmapProgressService {
     });
   }
 
+  async deleteTemplateProgress(userId: string, roadmapId: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      await acquireUserRoadmapLock(tx, userId, roadmapId);
+
+      const template = await tx.roadmap.findFirst({
+        where: {
+          id: roadmapId,
+          isTemplate: true,
+        },
+        select: { id: true },
+      });
+
+      if (!template) {
+        throw new RoadmapNotFoundException(roadmapId);
+      }
+
+      const runningSubmission = await tx.milestoneSubmission.findFirst({
+        where: {
+          roadmapNode: { roadmapId },
+          status: MilestoneSubmissionStatus.RUNNING,
+          userId,
+        },
+        select: { id: true },
+      });
+
+      if (runningSubmission) {
+        throw new AppConflictException(
+          'Learning progress cannot be deleted while a milestone submission is running',
+        );
+      }
+
+      await tx.userNodeProgress.deleteMany({
+        where: {
+          roadmapNode: { roadmapId },
+          userId,
+        },
+      });
+    });
+  }
+
   private async cascadeGroupCompletion(
     tx: RoadmapTransaction,
     userId: string,
@@ -374,11 +422,14 @@ export class RoadmapProgressService {
 
     if (groupProgress?.status === NodeStatus.COMPLETED) return;
 
+    await this.unlockProgressNode(tx, userId, groupId, now, unlockedNodes);
+
     await tx.userNodeProgress.update({
       where: { userId_roadmapNodeId: { userId, roadmapNodeId: groupId } },
       data: { status: NodeStatus.COMPLETED, completedAt: now },
     });
 
+    this.addUnlockedNode(unlockedNodes, groupId);
     await this.unlockGroupLeaves(tx, userId, groupId, now, unlockedNodes);
 
     const nextSiblings = await tx.roadmapNode.findMany({
@@ -398,7 +449,7 @@ export class RoadmapProgressService {
     if (firstNext.nodeType === NodeType.MILESTONE) {
       await this.unlockProgressNode(tx, userId, firstNext.id, now, unlockedNodes);
     } else if (firstNext.nodeType === NodeType.GROUP) {
-      await this.unlockGroupLeaves(tx, userId, firstNext.id, now, unlockedNodes);
+      await this.unlockGroup(tx, userId, firstNext.id, now, unlockedNodes);
     }
   }
 
@@ -424,7 +475,18 @@ export class RoadmapProgressService {
 
     if (!nextGroup) return;
 
-    await this.unlockGroupLeaves(tx, userId, nextGroup.id, now, unlockedNodes);
+    await this.unlockGroup(tx, userId, nextGroup.id, now, unlockedNodes);
+  }
+
+  private async unlockGroup(
+    tx: RoadmapTransaction,
+    userId: string,
+    groupId: string,
+    now: Date,
+    unlockedNodes: string[],
+  ): Promise<void> {
+    await this.unlockProgressNode(tx, userId, groupId, now, unlockedNodes);
+    await this.unlockGroupLeaves(tx, userId, groupId, now, unlockedNodes);
   }
 
   private async unlockProgressNode(
@@ -440,7 +502,7 @@ export class RoadmapProgressService {
     });
 
     if (result.count > 0) {
-      unlockedNodes.push(roadmapNodeId);
+      this.addUnlockedNode(unlockedNodes, roadmapNodeId);
     }
   }
 
@@ -469,7 +531,15 @@ export class RoadmapProgressService {
       data: { status: NodeStatus.IN_PROGRESS, startedAt: now },
     });
 
-    unlockedNodes.push(...leafIds);
+    for (const leafId of leafIds) {
+      this.addUnlockedNode(unlockedNodes, leafId);
+    }
+  }
+
+  private addUnlockedNode(unlockedNodes: string[], nodeId: string): void {
+    if (!unlockedNodes.includes(nodeId)) {
+      unlockedNodes.push(nodeId);
+    }
   }
 
   private async unlockInitialRoadmapNodes(

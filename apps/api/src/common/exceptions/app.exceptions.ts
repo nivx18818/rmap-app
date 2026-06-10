@@ -88,6 +88,15 @@ export class AppBadRequestException extends BadRequestException {
   }
 }
 
+export class UnsupportedOAuthProviderException extends BadRequestException {
+  constructor() {
+    super({
+      code: ErrorCode.UNSUPPORTED_OAUTH_PROVIDER,
+      message: getErrorMessage(ErrorCode.UNSUPPORTED_OAUTH_PROVIDER),
+    });
+  }
+}
+
 export class DeadlineInPastException extends BadRequestException {
   constructor() {
     super({
@@ -285,6 +294,15 @@ export class AppForbiddenException extends ForbiddenException {
   }
 }
 
+export class OAuthDisconnectLastSignInMethodException extends ForbiddenException {
+  constructor() {
+    super({
+      code: ErrorCode.OAUTH_DISCONNECT_LAST_SIGN_IN_METHOD,
+      message: getErrorMessage(ErrorCode.OAUTH_DISCONNECT_LAST_SIGN_IN_METHOD),
+    });
+  }
+}
+
 // ===============
 // 404 - Not Found
 // ===============
@@ -343,11 +361,29 @@ export class UserNodeProgressNotFoundException extends NotFoundException {
   }
 }
 
+export class OAuthIntegrationNotConnectedException extends NotFoundException {
+  constructor(provider: string) {
+    super({
+      code: ErrorCode.OAUTH_INTEGRATION_NOT_CONNECTED,
+      message: `${getErrorMessage(ErrorCode.OAUTH_INTEGRATION_NOT_CONNECTED)}: ${provider}`,
+    });
+  }
+}
+
 export class SkillNotFoundException extends NotFoundException {
   constructor(identifier: number | string) {
     super({
       code: ErrorCode.SKILL_NOT_FOUND,
       message: `${getErrorMessage(ErrorCode.SKILL_NOT_FOUND)}: ${identifier}`,
+    });
+  }
+}
+
+export class SkillPrerequisiteNotFoundException extends NotFoundException {
+  constructor(skillId: number | string, prerequisiteSkillId: number | string) {
+    super({
+      code: ErrorCode.SKILL_PREREQUISITE_NOT_FOUND,
+      message: `${getErrorMessage(ErrorCode.SKILL_PREREQUISITE_NOT_FOUND)}: ${skillId} -> ${prerequisiteSkillId}`,
     });
   }
 }
@@ -383,6 +419,24 @@ export class AppConflictException extends ConflictException {
   }
 }
 
+export class SkillNameAlreadyExistsException extends ConflictException {
+  constructor(name: string) {
+    super({
+      code: ErrorCode.SKILL_NAME_ALREADY_EXISTS,
+      message: `${getErrorMessage(ErrorCode.SKILL_NAME_ALREADY_EXISTS)}: ${name}`,
+    });
+  }
+}
+
+export class SkillDeleteReferencedException extends ConflictException {
+  constructor() {
+    super({
+      code: ErrorCode.SKILL_DELETE_REFERENCED,
+      message: getErrorMessage(ErrorCode.SKILL_DELETE_REFERENCED),
+    });
+  }
+}
+
 export class RefreshTokenAlreadyExistsException extends ConflictException {
   constructor() {
     super({
@@ -392,11 +446,47 @@ export class RefreshTokenAlreadyExistsException extends ConflictException {
   }
 }
 
-export class ActiveRoadmapLimitExceededException extends ConflictException {
+export class OAuthProviderAlreadyConnectedException extends ConflictException {
+  constructor(provider: string) {
+    super({
+      code: ErrorCode.OAUTH_PROVIDER_ALREADY_CONNECTED,
+      message: `${getErrorMessage(ErrorCode.OAUTH_PROVIDER_ALREADY_CONNECTED)}: ${provider}`,
+    });
+  }
+}
+
+export class OAuthAccountAlreadyConnectedException extends ConflictException {
+  constructor(provider: string) {
+    super({
+      code: ErrorCode.OAUTH_ACCOUNT_ALREADY_CONNECTED,
+      message: `${getErrorMessage(ErrorCode.OAUTH_ACCOUNT_ALREADY_CONNECTED)}: ${provider}`,
+    });
+  }
+}
+
+export class SkillPrerequisiteAlreadyExistsException extends ConflictException {
   constructor() {
     super({
-      code: ErrorCode.ACTIVE_ROADMAP_LIMIT_EXCEEDED,
-      message: getErrorMessage(ErrorCode.ACTIVE_ROADMAP_LIMIT_EXCEEDED),
+      code: ErrorCode.SKILL_PREREQUISITE_ALREADY_EXISTS,
+      message: getErrorMessage(ErrorCode.SKILL_PREREQUISITE_ALREADY_EXISTS),
+    });
+  }
+}
+
+export class SkillPrerequisiteSelfReferenceException extends ConflictException {
+  constructor() {
+    super({
+      code: ErrorCode.SKILL_PREREQUISITE_SELF_REFERENCE,
+      message: getErrorMessage(ErrorCode.SKILL_PREREQUISITE_SELF_REFERENCE),
+    });
+  }
+}
+
+export class SkillPrerequisiteCycleException extends ConflictException {
+  constructor() {
+    super({
+      code: ErrorCode.SKILL_PREREQUISITE_CYCLE,
+      message: getErrorMessage(ErrorCode.SKILL_PREREQUISITE_CYCLE),
     });
   }
 }
@@ -587,6 +677,7 @@ export const ErrorCodeToException = {
   [ErrorCode.QUIZ_SUBMISSION_INVALID]: QuizSubmissionInvalidException,
   [ErrorCode.MILESTONE_SUBMISSION_INVALID_STATE]: MilestoneSubmissionInvalidStateException,
   [ErrorCode.ROADMAP_NODE_PROGRESS_INVALID_UPDATE]: RoadmapNodeProgressInvalidUpdateException,
+  [ErrorCode.UNSUPPORTED_OAUTH_PROVIDER]: UnsupportedOAuthProviderException,
   // 401 - Unauthorized
   [ErrorCode.UNAUTHORIZED]: AppUnauthorizedException,
   [ErrorCode.INVALID_ACCESS_TOKEN]: InvalidTokenException,
@@ -597,20 +688,29 @@ export const ErrorCodeToException = {
   [ErrorCode.INVALID_PASSWORD_RESET_TOKEN]: InvalidPasswordResetTokenException,
   // 403 - Forbidden
   [ErrorCode.FORBIDDEN]: AppForbiddenException,
+  [ErrorCode.OAUTH_DISCONNECT_LAST_SIGN_IN_METHOD]: OAuthDisconnectLastSignInMethodException,
   // 404 - Not Found
   [ErrorCode.NOT_FOUND]: AppNotFoundException,
   [ErrorCode.USER_NOT_FOUND]: UserNotFoundException,
   [ErrorCode.ROADMAP_NOT_FOUND]: RoadmapNotFoundException,
   [ErrorCode.ROADMAP_NODE_NOT_FOUND]: RoadmapNodeNotFoundException,
   [ErrorCode.USER_NODE_PROGRESS_NOT_FOUND]: UserNodeProgressNotFoundException,
+  [ErrorCode.OAUTH_INTEGRATION_NOT_CONNECTED]: OAuthIntegrationNotConnectedException,
   [ErrorCode.SKILL_NOT_FOUND]: SkillNotFoundException,
+  [ErrorCode.SKILL_PREREQUISITE_NOT_FOUND]: SkillPrerequisiteNotFoundException,
   [ErrorCode.ROLE_NOT_FOUND]: RoleNotFoundException,
   [ErrorCode.RESOURCE_NOT_FOUND]: ResourceNotFoundException,
   // 409 - Conflict
   [ErrorCode.CONFLICT]: AppConflictException,
   [ErrorCode.EMAIL_ALREADY_EXISTS]: EmailAlreadyExistsException,
   [ErrorCode.REFRESH_TOKEN_ALREADY_EXISTS]: RefreshTokenAlreadyExistsException,
-  [ErrorCode.ACTIVE_ROADMAP_LIMIT_EXCEEDED]: ActiveRoadmapLimitExceededException,
+  [ErrorCode.OAUTH_PROVIDER_ALREADY_CONNECTED]: OAuthProviderAlreadyConnectedException,
+  [ErrorCode.OAUTH_ACCOUNT_ALREADY_CONNECTED]: OAuthAccountAlreadyConnectedException,
+  [ErrorCode.SKILL_NAME_ALREADY_EXISTS]: SkillNameAlreadyExistsException,
+  [ErrorCode.SKILL_DELETE_REFERENCED]: SkillDeleteReferencedException,
+  [ErrorCode.SKILL_PREREQUISITE_ALREADY_EXISTS]: SkillPrerequisiteAlreadyExistsException,
+  [ErrorCode.SKILL_PREREQUISITE_SELF_REFERENCE]: SkillPrerequisiteSelfReferenceException,
+  [ErrorCode.SKILL_PREREQUISITE_CYCLE]: SkillPrerequisiteCycleException,
   // 429 - Too Many Requests
   [ErrorCode.RATE_LIMIT_EXCEEDED]: RateLimitExceededException,
   [ErrorCode.TOO_MANY_MESSAGES]: TooManyMessagesException,

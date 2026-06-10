@@ -12,7 +12,7 @@ import {
 import { JwtStrategy } from '@/modules/auth/strategies/jwt.strategy';
 
 const makeUser = (): User => ({
-  avatarUrl: '',
+  avatarUrl: 'https://api.dicebear.com/10.x/adventurer/svg?seed=Learner%20One',
   createdAt: new Date('2026-01-01T00:00:00.000Z'),
   email: 'learner@example.test',
   fullName: 'Learner One',

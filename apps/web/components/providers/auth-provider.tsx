@@ -9,8 +9,10 @@ import { authService } from '@/services/auth.service';
 import { normalizeUser } from '@/utils/user';
 
 export interface AuthContextValue {
+  clearUser: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
+  refreshUser: () => Promise<void>;
   signIn: (payload: SignInValues) => Promise<void>;
   signOut: () => Promise<void>;
   signUp: (payload: SignUpValues) => Promise<void>;
@@ -26,6 +28,15 @@ export function AuthProvider({
   initialUser: AuthUser | null;
 }) {
   const [user, setUser] = useState<AuthUser | null>(initialUser);
+
+  const refreshUser = useCallback(async () => {
+    const profile = await authService.getMe();
+    setUser(normalizeUser(profile));
+  }, []);
+
+  const clearUser = useCallback(() => {
+    setUser(null);
+  }, []);
 
   const signIn = useCallback(async (payload: SignInValues) => {
     await authService.login(payload);
@@ -58,12 +69,14 @@ export function AuthProvider({
     () => ({
       isAuthenticated: !!user,
       isLoading: false,
+      clearUser,
+      refreshUser,
       signIn,
       signOut,
       signUp,
       user,
     }),
-    [signIn, signOut, signUp, user],
+    [clearUser, refreshUser, signIn, signOut, signUp, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

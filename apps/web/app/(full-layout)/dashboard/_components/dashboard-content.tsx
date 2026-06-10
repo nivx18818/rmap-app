@@ -6,6 +6,7 @@ import { Button } from '@repo/design-system/components/ui/button';
 import { Card, CardContent } from '@repo/design-system/components/ui/card';
 import { Skeleton } from '@repo/design-system/components/ui/skeleton';
 import { toast } from '@repo/design-system/lib/toast';
+import { isAxiosError } from 'axios';
 import { useEffect, useMemo, useState } from 'react';
 
 import { HeroGradient } from '@/components/shared/hero-gradient';
@@ -66,18 +67,32 @@ export function DashboardContent() {
     roadmaps.find((roadmap) => roadmap.roadmapId === selectedRoadmapId) ?? defaultFocusRoadmap;
   const hasAnyRoadmap = dashboard ? dashboard.roadmaps.length > 0 : false;
 
-  const handleDeleteRoadmap = async (roadmapId: string) => {
+  const handleRemoveRoadmap = async (roadmap: DashboardRoadmap): Promise<boolean> => {
     try {
-      await roadmapService.deleteRoadmap(roadmapId);
-      toast.success('Roadmap deleted successfully');
+      if (roadmap.isTemplate) {
+        await roadmapService.deleteTemplateProgress(roadmap.roadmapId);
+        toast.success('Learning progress deleted successfully');
+      } else {
+        await roadmapService.deleteRoadmap(roadmap.roadmapId);
+        toast.success('Roadmap deleted successfully');
+      }
 
-      if (selectedRoadmapId === roadmapId) {
+      if (selectedRoadmapId === roadmap.roadmapId) {
         setSelectedRoadmapId(null);
       }
 
       await refreshDashboard();
-    } catch {
-      toast.error('Failed to delete roadmap');
+      return true;
+    } catch (error) {
+      if (roadmap.isTemplate && isAxiosError(error) && error.response?.status === 409) {
+        toast.error('Learning progress cannot be deleted while a milestone submission is running.');
+      } else {
+        toast.error(
+          roadmap.isTemplate ? 'Failed to delete learning progress' : 'Failed to delete roadmap',
+        );
+      }
+
+      return false;
     }
   };
 
@@ -141,7 +156,7 @@ export function DashboardContent() {
             <DashboardMain
               dashboard={dashboard}
               selectedRoadmap={selectedRoadmap}
-              onDeleteRoadmap={handleDeleteRoadmap}
+              onRemoveRoadmap={handleRemoveRoadmap}
               onSelectRoadmap={setSelectedRoadmapId}
             />
           </div>

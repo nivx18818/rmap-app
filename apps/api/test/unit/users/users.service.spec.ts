@@ -13,8 +13,10 @@ import type { Context, MockContext } from '../../utils/prisma-mock';
 
 import { createMockContext, resetMockContext } from '../../utils/prisma-mock';
 
+const DEFAULT_AVATAR_URL = 'https://api.dicebear.com/10.x/adventurer/svg?seed=Test';
+
 const makeUser = (overrides: Partial<User> = {}): User => ({
-  avatarUrl: '',
+  avatarUrl: DEFAULT_AVATAR_URL,
   createdAt: new Date('2025-04-24T07:00:00.000Z'),
   email: 'test@example.com',
   fullName: 'Test',
@@ -91,7 +93,12 @@ describe('UsersService', () => {
       const result = await service.create(createUserDto);
 
       expect(prismaService.user.create).toHaveBeenCalledWith({
-        data: { ...createUserDto, avatarUrl: '' },
+        data: {
+          ...createUserDto,
+          avatarUrl: expect.stringMatching(
+            /^https:\/\/api\.dicebear\.com\/10\.x\/adventurer\/svg\?seed=[a-f0-9-]+$/,
+          ) as unknown as string,
+        },
       });
       expect(result).toEqual(mockUser);
     });
@@ -127,7 +134,9 @@ describe('UsersService', () => {
       expect(prismaService.user.create).toHaveBeenCalledWith({
         data: {
           ...createUserDto,
-          avatarUrl: '',
+          avatarUrl: expect.stringMatching(
+            /^https:\/\/api\.dicebear\.com\/10\.x\/adventurer\/svg\?seed=[a-f0-9-]+$/,
+          ) as unknown as string,
           passwordHash: null,
           oauthAccounts: {
             create: {
@@ -171,6 +180,7 @@ describe('UsersService', () => {
     it('should link an OAuth account to an existing user', async () => {
       const mockUser = makeUser();
       mockCtx.prisma.user.findUnique.mockResolvedValue(mockUser);
+      mockCtx.prisma.oAuthAccount.findFirst.mockResolvedValue(null);
 
       const result = await service.linkOAuthAccount('1', {
         provider: OAuthProvider.GOOGLE,
@@ -189,6 +199,22 @@ describe('UsersService', () => {
       expect(result).toEqual(mockUser);
     });
 
+    it('should reject a second account for the same OAuth provider', async () => {
+      mockCtx.prisma.oAuthAccount.findFirst.mockResolvedValue({
+        provider: OAuthProvider.GITHUB,
+        providerAccountId: 'github-existing',
+        userId: '1',
+      } as Awaited<ReturnType<typeof prismaService.oAuthAccount.findFirst>>);
+
+      await expect(
+        service.linkOAuthAccount('1', {
+          provider: OAuthProvider.GITHUB,
+          providerAccountId: 'github-new',
+          providerEmail: 'test@example.com',
+        }),
+      ).rejects.toThrow('OAuth provider is already connected to this account: GITHUB');
+    });
+
     it('should return the existing linked user if OAuth account linking races', async () => {
       const mockUser = makeUser();
       const error = new PrismaClientKnownRequestError('P2002', {
@@ -197,6 +223,7 @@ describe('UsersService', () => {
         meta: { target: ['provider', 'providerAccountId'] },
       });
 
+      mockCtx.prisma.oAuthAccount.findFirst.mockResolvedValue(null);
       mockCtx.prisma.oAuthAccount.create.mockRejectedValue(error);
       mockCtx.prisma.oAuthAccount.findUnique.mockResolvedValue({
         user: mockUser,
@@ -210,11 +237,110 @@ describe('UsersService', () => {
 
       expect(result).toEqual(mockUser);
     });
+
+    it('should reject linking an OAuth account owned by another user', async () => {
+      const otherUser = makeUser({ id: 'other-user' });
+      const error = new PrismaClientKnownRequestError('P2002', {
+        code: 'P2002',
+        clientVersion: '1.0',
+        meta: { target: ['provider', 'providerAccountId'] },
+      });
+
+      mockCtx.prisma.oAuthAccount.findFirst.mockResolvedValue(null);
+      mockCtx.prisma.oAuthAccount.create.mockRejectedValue(error);
+      mockCtx.prisma.oAuthAccount.findUnique.mockResolvedValue({
+        user: otherUser,
+      } as unknown as Awaited<ReturnType<typeof prismaService.oAuthAccount.findUnique>>);
+
+      await expect(
+        service.linkOAuthAccount('1', {
+          provider: OAuthProvider.GITHUB,
+          providerAccountId: 'github-123',
+          providerEmail: 'test@example.com',
+        }),
+      ).rejects.toThrow('OAuth account is already connected: GITHUB');
+    });
+  });
+
+  describe('listIntegrations', () => {
+    it('should return all supported providers with connection metadata', async () => {
+      const connectedAt = new Date('2026-06-07T01:00:00.000Z');
+      mockCtx.prisma.user.findUnique.mockResolvedValue({
+        oauthAccounts: [
+          {
+            createdAt: connectedAt,
+            provider: OAuthProvider.GITHUB,
+            providerEmail: 'github@example.com',
+          },
+        ],
+        passwordHash: 'hash',
+      } as unknown as Awaited<ReturnType<typeof prismaService.user.findUnique>>);
+
+      const result = await service.listIntegrations('1');
+
+      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+        where: { id: '1' },
+        select: {
+          passwordHash: true,
+          oauthAccounts: {
+            select: {
+              createdAt: true,
+              provider: true,
+              providerEmail: true,
+            },
+          },
+        },
+      });
+      expect(result).toEqual([
+        {
+          canDisconnect: true,
+          connected: true,
+          connectedAt,
+          provider: OAuthProvider.GITHUB,
+          providerEmail: 'github@example.com',
+        },
+        {
+          canDisconnect: false,
+          connected: false,
+          connectedAt: null,
+          provider: OAuthProvider.GOOGLE,
+          providerEmail: null,
+        },
+      ]);
+    });
+  });
+
+  describe('disconnectOAuthAccount', () => {
+    it('should delete a connected OAuth account when another sign-in method remains', async () => {
+      mockCtx.prisma.user.findUnique.mockResolvedValue({
+        oauthAccounts: [{ id: 'oauth-1', provider: OAuthProvider.GITHUB }],
+        passwordHash: 'hash',
+      } as unknown as Awaited<ReturnType<typeof prismaService.user.findUnique>>);
+
+      await service.disconnectOAuthAccount('1', OAuthProvider.GITHUB);
+
+      expect(prismaService.oAuthAccount.delete).toHaveBeenCalledWith({
+        where: { id: 'oauth-1' },
+      });
+    });
+
+    it('should reject disconnecting the last sign-in method', async () => {
+      mockCtx.prisma.user.findUnique.mockResolvedValue({
+        oauthAccounts: [{ id: 'oauth-1', provider: OAuthProvider.GITHUB }],
+        passwordHash: null,
+      } as unknown as Awaited<ReturnType<typeof prismaService.user.findUnique>>);
+
+      await expect(service.disconnectOAuthAccount('1', OAuthProvider.GITHUB)).rejects.toThrow(
+        'Add a password or connect another provider before disconnecting',
+      );
+      expect(prismaService.oAuthAccount.delete).not.toHaveBeenCalled();
+    });
   });
 
   describe('updateProfile', () => {
     it('should update and return the user', async () => {
       const mockUser = {
+        avatarUrl: 'https://res.cloudinary.com/demo/avatar.png',
         createdAt: new Date('2025-04-24T07:00:00Z'),
         email: 'test@example.com',
         fullName: 'New Name',
@@ -223,12 +349,15 @@ describe('UsersService', () => {
       };
       mockCtx.prisma.user.update.mockResolvedValue(mockUser as unknown as User);
 
-      const result = await service.updateProfile('1', { fullName: 'New Name' });
+      const result = await service.updateProfile('1', {
+        fullName: 'New Name',
+      });
 
       expect(prismaService.user.update).toHaveBeenCalledWith({
         where: { id: '1' },
         data: { fullName: 'New Name' },
         select: {
+          avatarUrl: true,
           id: true,
           email: true,
           fullName: true,
@@ -237,6 +366,53 @@ describe('UsersService', () => {
         },
       });
       expect(result).toEqual(mockUser);
+    });
+
+    it('should ignore null avatar updates and return a fallback avatar', async () => {
+      const mockUser = {
+        avatarUrl: null,
+        createdAt: new Date('2025-04-24T07:00:00Z'),
+        email: 'test@example.com',
+        fullName: 'New Name',
+        id: '1',
+        role: UserRole.USER,
+      };
+      mockCtx.prisma.user.update.mockResolvedValue(mockUser as unknown as User);
+
+      const result = await service.updateProfile('1', {
+        fullName: 'New Name',
+        avatarUrl: null as unknown as string,
+      });
+
+      expect(prismaService.user.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: { fullName: 'New Name' },
+        select: {
+          avatarUrl: true,
+          id: true,
+          email: true,
+          fullName: true,
+          role: true,
+          createdAt: true,
+        },
+      });
+      expect(result.avatarUrl).toMatch(
+        /^https:\/\/api\.dicebear\.com\/10\.x\/adventurer\/svg\?seed=[a-f0-9-]+$/,
+      );
+    });
+  });
+
+  describe('updatePasswordHash', () => {
+    it('should update only the password hash', async () => {
+      mockCtx.prisma.user.update.mockResolvedValue({ id: '1' } as User);
+
+      await service.updatePasswordHash('1', 'new-hash');
+
+      expect(prismaService.user.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: { passwordHash: 'new-hash' },
+        select: { id: true },
+      });
     });
   });
 });

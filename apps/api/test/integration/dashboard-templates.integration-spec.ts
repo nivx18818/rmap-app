@@ -1,7 +1,8 @@
+import { MilestoneSubmissionStatus, NodeStatus, NodeType } from '@repo/db/prisma/client';
 import request from 'supertest';
 
 import { getCookieHeader } from './utils/cookies';
-import { seedRoadmapWorkflow } from './utils/database';
+import { seedRoadmapWorkflow, seedUser, uniqueEmail } from './utils/database';
 import { setupIntegrationTest } from './utils/integration-test-context';
 
 type PublicTemplatesBody = {
@@ -24,6 +25,10 @@ type ActivityBody = {
 type StartTemplateBody = {
   roadmap: { id: string; isTemplate: boolean; startedAt: null | string };
   unlockedNodes: string[];
+};
+
+type DashboardBody = {
+  roadmaps: Array<{ roadmapId: string }>;
 };
 
 describe('Learner dashboard and public templates (integration)', () => {
@@ -124,5 +129,181 @@ describe('Learner dashboard and public templates (integration)', () => {
 
     expect(learnerTemplateNode?.id).toBe(seeded.templateNodeId);
     expect(learnerTemplateNode?.progress?.status).toBe('IN_PROGRESS');
+  });
+
+  it('deletes only the current learner progress for a template roadmap', async () => {
+    const seeded = await seedRoadmapWorkflow(integration.prisma);
+    const templateMilestone = await integration.prisma.roadmapNode.create({
+      data: {
+        description: 'Template milestone',
+        name: 'Template Capstone',
+        nodeType: NodeType.MILESTONE,
+        posX: 0,
+        posY: 100,
+        roadmapId: seeded.templateId,
+      },
+    });
+    const otherUser = await seedUser(integration.prisma, {
+      email: uniqueEmail('template-progress-other-user'),
+    });
+    await integration.prisma.userNodeProgress.create({
+      data: {
+        roadmapNodeId: seeded.templateNodeId,
+        startedAt: new Date('2026-06-01T00:00:00.000Z'),
+        status: NodeStatus.IN_PROGRESS,
+        userId: otherUser.id,
+      },
+    });
+
+    const loginResponse = await integration.loginAs(seeded.user.email);
+    const cookie = getCookieHeader(loginResponse, ['access_token']);
+
+    await request(integration.app.getHttpServer())
+      .post(`/api/v1/roadmaps/${seeded.templateId}/start`)
+      .set('Cookie', cookie)
+      .expect(200);
+
+    const previousCycleStartedAt = new Date('2026-06-01T00:00:00.000Z');
+    await integration.prisma.userNodeProgress.update({
+      where: {
+        userId_roadmapNodeId: {
+          roadmapNodeId: templateMilestone.id,
+          userId: seeded.user.id,
+        },
+      },
+      data: {
+        completedAt: new Date('2026-06-02T00:00:00.000Z'),
+        startedAt: previousCycleStartedAt,
+        status: NodeStatus.COMPLETED,
+      },
+    });
+    await integration.prisma.milestoneSubmission.create({
+      data: {
+        completedAt: new Date('2026-06-02T00:00:00.000Z'),
+        repoUrl: 'https://github.com/example/previous-template-submission',
+        roadmapNodeId: templateMilestone.id,
+        status: MilestoneSubmissionStatus.PASSED,
+        userId: seeded.user.id,
+      },
+    });
+
+    await request(integration.app.getHttpServer())
+      .delete(`/api/v1/roadmaps/${seeded.templateId}/progress`)
+      .set('Cookie', cookie)
+      .expect(204);
+
+    const [
+      template,
+      templateNode,
+      currentUserProgress,
+      otherUserProgress,
+      dailyActivityCount,
+      milestoneSubmissionCount,
+    ] = await Promise.all([
+      integration.prisma.roadmap.findUnique({ where: { id: seeded.templateId } }),
+      integration.prisma.roadmapNode.findUnique({ where: { id: seeded.templateNodeId } }),
+      integration.prisma.userNodeProgress.count({
+        where: {
+          roadmapNode: { roadmapId: seeded.templateId },
+          userId: seeded.user.id,
+        },
+      }),
+      integration.prisma.userNodeProgress.count({
+        where: {
+          roadmapNode: { roadmapId: seeded.templateId },
+          userId: otherUser.id,
+        },
+      }),
+      integration.prisma.dailyActivity.count({ where: { userId: seeded.user.id } }),
+      integration.prisma.milestoneSubmission.count({
+        where: { roadmapNodeId: templateMilestone.id, userId: seeded.user.id },
+      }),
+    ]);
+
+    expect(template?.isTemplate).toBe(true);
+    expect(templateNode?.roadmapId).toBe(seeded.templateId);
+    expect(currentUserProgress).toBe(0);
+    expect(otherUserProgress).toBe(1);
+    expect(dailyActivityCount).toBe(2);
+    expect(milestoneSubmissionCount).toBe(1);
+
+    const dashboardResponse = await request(integration.app.getHttpServer())
+      .get('/api/v1/dashboard')
+      .set('Cookie', cookie)
+      .expect(200);
+    const dashboardBody = dashboardResponse.body as DashboardBody;
+
+    expect(dashboardBody.roadmaps.some((roadmap) => roadmap.roadmapId === seeded.templateId)).toBe(
+      false,
+    );
+
+    await request(integration.app.getHttpServer())
+      .delete(`/api/v1/roadmaps/${seeded.templateId}/progress`)
+      .set('Cookie', cookie)
+      .expect(204);
+
+    await request(integration.app.getHttpServer())
+      .post(`/api/v1/roadmaps/${seeded.templateId}/start`)
+      .set('Cookie', cookie)
+      .expect(200);
+
+    const latestSubmissionResponse = await request(integration.app.getHttpServer())
+      .get(
+        `/api/v1/roadmaps/${seeded.templateId}/nodes/${templateMilestone.id}/milestone-submissions/latest`,
+      )
+      .set('Cookie', cookie)
+      .expect(200);
+
+    expect(latestSubmissionResponse.body).toEqual({ submission: null });
+  });
+
+  it('rejects progress deletion for a non-template roadmap', async () => {
+    const seeded = await seedRoadmapWorkflow(integration.prisma);
+
+    await request(integration.app.getHttpServer())
+      .delete(`/api/v1/roadmaps/${seeded.templateId}/progress`)
+      .expect(401);
+
+    const loginResponse = await integration.loginAs(seeded.user.email);
+    const cookie = getCookieHeader(loginResponse, ['access_token']);
+
+    await request(integration.app.getHttpServer())
+      .delete(`/api/v1/roadmaps/${seeded.roadmapId}/progress`)
+      .set('Cookie', cookie)
+      .expect(404);
+  });
+
+  it('rejects progress deletion while a milestone submission is running', async () => {
+    const seeded = await seedRoadmapWorkflow(integration.prisma);
+    const loginResponse = await integration.loginAs(seeded.user.email);
+    const cookie = getCookieHeader(loginResponse, ['access_token']);
+
+    await request(integration.app.getHttpServer())
+      .post(`/api/v1/roadmaps/${seeded.templateId}/start`)
+      .set('Cookie', cookie)
+      .expect(200);
+
+    await integration.prisma.milestoneSubmission.create({
+      data: {
+        repoUrl: 'https://github.com/example/running-template-submission',
+        roadmapNodeId: seeded.templateNodeId,
+        status: MilestoneSubmissionStatus.RUNNING,
+        userId: seeded.user.id,
+      },
+    });
+
+    await request(integration.app.getHttpServer())
+      .delete(`/api/v1/roadmaps/${seeded.templateId}/progress`)
+      .set('Cookie', cookie)
+      .expect(409);
+
+    const remainingProgress = await integration.prisma.userNodeProgress.count({
+      where: {
+        roadmapNode: { roadmapId: seeded.templateId },
+        userId: seeded.user.id,
+      },
+    });
+
+    expect(remainingProgress).toBe(1);
   });
 });

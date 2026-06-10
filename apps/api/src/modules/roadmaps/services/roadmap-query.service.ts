@@ -11,14 +11,8 @@ import type { ListRoadmapsQueryDto } from '../dto/list-roadmaps-query.dto';
 import type { RoadmapNodesFilterDto } from '../dto/roadmap-nodes-filter.dto';
 import type { PaginatedRoadmapsResponseDto, RoadmapResponseDto } from '../dto/roadmap-response.dto';
 import type { NodeDetailResponse, RoadmapNodesListResponse } from '../types/roadmap-nodes.types';
+import type { MilestoneSubmissionRecord } from '../utils/roadmap-records';
 
-import { toNumberOrNull } from '../utils/number';
-import { getRoadmapAccessWhere, getRoadmapRelationAccessWhere } from '../utils/roadmap-access';
-import {
-  formatMilestoneSubmission,
-  formatNodeWithProgress,
-  formatRoadmap,
-} from '../utils/roadmap-formatters';
 import {
   LEAF_NODE_TYPES,
   MILESTONE_SUBMISSION_SELECT,
@@ -26,7 +20,14 @@ import {
   NODE_DETAIL_RESOURCE_LIMIT,
   RESOURCE_TYPE_PRIORITY,
   ROADMAP_SELECT,
-} from '../utils/roadmap.constants';
+} from '../constants/roadmap.constants';
+import { toNumberOrNull } from '../utils/number';
+import { getRoadmapAccessWhere, getRoadmapRelationAccessWhere } from '../utils/roadmap-access';
+import {
+  formatMilestoneSubmission,
+  formatNodeWithProgress,
+  formatRoadmap,
+} from '../utils/roadmap-formatters';
 import { RoadmapMilestoneService } from './roadmap-milestone.service';
 
 @Injectable()
@@ -242,7 +243,12 @@ export class RoadmapQueryService {
     const nodeResponse = formatNodeWithProgress(node);
     const latestSubmission =
       node.nodeType === NodeType.MILESTONE
-        ? formatMilestoneSubmission(node.milestoneSubmissions[0] ?? null)
+        ? formatMilestoneSubmission(
+            this.getCurrentCycleMilestoneSubmission(
+              node.userNodeProgress[0]?.startedAt,
+              node.milestoneSubmissions[0],
+            ),
+          )
         : null;
     const milestoneTestSuite =
       node.nodeType === NodeType.MILESTONE
@@ -336,6 +342,17 @@ export class RoadmapQueryService {
     if (result.count === 0) {
       throw new RoadmapNotFoundException(roadmapId);
     }
+  }
+
+  private getCurrentCycleMilestoneSubmission(
+    progressStartedAt: Date | null | undefined,
+    submission: MilestoneSubmissionRecord | null | undefined,
+  ): MilestoneSubmissionRecord | null {
+    if (!progressStartedAt || !submission || submission.createdAt < progressStartedAt) {
+      return null;
+    }
+
+    return submission;
   }
 
   private async findStartedAtByRoadmapId(

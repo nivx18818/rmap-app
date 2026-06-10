@@ -10,7 +10,10 @@ import {
 import type { SubmitQuizDto } from '../dto/submit-quiz.dto';
 import type { QuizOption } from '../types/roadmap-node-quiz.types';
 
-import { NODE_QUIZ_BANK_QUESTION_COUNT, NODE_QUIZ_QUESTION_COUNT } from './roadmap.constants';
+import {
+  NODE_QUIZ_BANK_QUESTION_COUNT,
+  NODE_QUIZ_QUESTION_COUNT,
+} from '../constants/roadmap.constants';
 
 export const toQuizOption = (value: string): QuizOption => value.toLowerCase() as QuizOption;
 

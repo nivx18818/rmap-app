@@ -13,7 +13,9 @@ import {
   InvalidCredentialsException,
   UserNotFoundException,
 } from '@/common/exceptions/app.exceptions';
+import { buildDefaultAvatarUrl } from '@/common/utils/avatar-url.util';
 
+import type { ChangePasswordDto } from './dto/change-password.dto';
 import type { ForgotPasswordDto } from './dto/forgot-password.dto';
 import type { LoginDto } from './dto/login.dto';
 import type { RegisterDto } from './dto/register.dto';
@@ -38,7 +40,7 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, password, fullName } = registerDto;
+    const { email, password, fullName, avatarUrl: providedAvatarUrl } = registerDto;
 
     const existingUser = await this.userService.findByEmail(email);
     if (existingUser) {
@@ -46,11 +48,13 @@ export class AuthService {
     }
 
     const passwordHash = await this.hashPassword(password);
+    const avatarUrl = providedAvatarUrl ?? buildDefaultAvatarUrl();
 
     const user = await this.userService.create({
       email,
       passwordHash,
       fullName,
+      avatarUrl,
     });
 
     const { passwordHash: _, ...result } = user;
@@ -103,7 +107,7 @@ export class AuthService {
       existingEmailUser ??
       (await this.userService.createWithOAuth(
         {
-          avatarUrl: profile.avatarUrl ?? '',
+          avatarUrl: profile.avatarUrl || buildDefaultAvatarUrl(),
           email: profile.email,
           fullName: profile.fullName,
         },
@@ -244,6 +248,42 @@ export class AuthService {
     }
   }
 
+  async linkOAuthAccountFromAccessToken(
+    accessToken: string,
+    profile: OAuthProfile,
+  ): Promise<boolean> {
+    if (!profile.email || !profile.emailVerified) {
+      throw new InvalidCredentialsException();
+    }
+
+    const secret = this.configService.get<string>('JWT_SECRET');
+    if (!secret) {
+      return false;
+    }
+
+    let payload: { email: string; sub: string };
+    try {
+      payload = await this.jwtService.verifyAsync<{ email: string; sub: string }>(accessToken, {
+        secret,
+      });
+    } catch {
+      return false;
+    }
+
+    const user = await this.userService.findById(payload.sub);
+    if (!user) {
+      throw new UserNotFoundException(payload.sub);
+    }
+
+    await this.userService.linkOAuthAccount(user.id, {
+      provider: profile.provider,
+      providerAccountId: profile.providerAccountId,
+      providerEmail: profile.email,
+    });
+
+    return true;
+  }
+
   async refresh(userId: string, email: string): Promise<[string, string]> {
     const payload = { sub: userId, email };
     const tokens = await this.issueTokens(payload);
@@ -290,6 +330,30 @@ export class AuthService {
     await this.refreshTokenService.revokeAllByUser(userId);
   }
 
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      throw new UserNotFoundException(userId);
+    }
+
+    if (!user.passwordHash) {
+      throw new InvalidCredentialsException();
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      changePasswordDto.currentPassword,
+      user.passwordHash,
+    );
+
+    if (!isCurrentPasswordValid) {
+      throw new InvalidCredentialsException();
+    }
+
+    const passwordHash = await this.hashPassword(changePasswordDto.newPassword);
+    await this.userService.updatePasswordHash(userId, passwordHash);
+    await this.refreshTokenService.revokeAllByUser(userId);
+  }
+
   getOAuthRedirectUrl(callbackUrl: unknown) {
     const clientUrl = this.getClientUrl();
     const callbackPath = normalizeOAuthCallbackPath(callbackUrl, this.getOAuthCallbackUrlBase());
@@ -308,6 +372,18 @@ export class AuthService {
     }
 
     return signInUrl.toString();
+  }
+
+  getOAuthCallbackRedirectUrl(callbackUrl: unknown, params: Record<string, string>) {
+    const clientUrl = this.getClientUrl();
+    const callbackPath = normalizeOAuthCallbackPath(callbackUrl, this.getOAuthCallbackUrlBase());
+    const callbackRedirectUrl = new URL(callbackPath, clientUrl);
+
+    for (const [key, value] of Object.entries(params)) {
+      callbackRedirectUrl.searchParams.set(key, value);
+    }
+
+    return callbackRedirectUrl.toString();
   }
 
   private async issueTokens(payload: { sub: string; email: string }): Promise<[string, string]> {

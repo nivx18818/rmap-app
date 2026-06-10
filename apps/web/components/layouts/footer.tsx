@@ -1,8 +1,21 @@
+'use client';
+
 import { MapsIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { SectionContainer } from '@repo/design-system/components/common/section-container';
+import { usePathname } from 'next/navigation';
 
 export function Footer() {
+  const pathname = usePathname();
+  const shouldHideFooter =
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/profile') ||
+    pathname.startsWith('/roadmaps');
+
+  if (shouldHideFooter) {
+    return null;
+  }
+
   return (
     <footer
       style={{

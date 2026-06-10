@@ -2,14 +2,22 @@
 import type { Route } from 'next';
 
 import {
+  DashboardBrowsingIcon,
   GithubIcon,
-  Login01Icon,
   Logout02Icon,
   MapsIcon,
+  Menu07Icon,
   UserCircleIcon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { Button } from '@repo/design-system/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@repo/design-system/components/ui/dropdown-menu';
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -30,8 +38,14 @@ export function Header() {
   const { isAuthenticated, isLoading, signOut, user } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const userFirstName = user?.fullName?.split(' ')[0];
-  const userDashboardLabel = userFirstName ? `${userFirstName}'s Dashboard` : 'Dashboard';
+  const userFirstName = user?.fullName?.trim().split(/\s+/)[0];
+  const userDisplayName = userFirstName || 'My Profile';
+  const userMenuAriaLabel = userFirstName
+    ? `Open ${userDisplayName} profile menu`
+    : 'Open profile menu';
+  const hamburgerMenuIcon = (
+    <HugeiconsIcon className="size-4" data-icon="inline-end" icon={Menu07Icon} />
+  );
 
   const handleSignOut = async () => {
     setIsLoggingOut(true);
@@ -48,6 +62,43 @@ export function Header() {
       setIsLoggingOut(false);
     }
   };
+
+  const userMenuTrigger = (
+    <Button variant="outline" size="sm" className="rounded-r-[20px]" aria-label={userMenuAriaLabel}>
+      {user?.avatarUrl ? (
+        <Image
+          className="size-6 object-cover"
+          src={user.avatarUrl}
+          alt={user.fullName}
+          width={20}
+          height={20}
+          unoptimized
+        />
+      ) : (
+        <HugeiconsIcon className="size-4" icon={UserCircleIcon} />
+      )}
+      {userDisplayName}
+      {hamburgerMenuIcon}
+    </Button>
+  );
+
+  const userMenuContent = (
+    <DropdownMenuContent className="w-44" align="end">
+      <DropdownMenuItem render={<Link href={'/dashboard' as Route<string>} />}>
+        <HugeiconsIcon className="size-4" icon={DashboardBrowsingIcon} />
+        Dashboard
+      </DropdownMenuItem>
+      <DropdownMenuItem render={<Link href={'/profile' as Route<string>} />}>
+        <HugeiconsIcon className="size-4" icon={UserCircleIcon} />
+        Profile
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem variant="destructive" disabled={isLoggingOut} onClick={handleSignOut}>
+        <HugeiconsIcon className="size-4" icon={Logout02Icon} />
+        {isLoggingOut ? 'Signing out...' : 'Sign out'}
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  );
 
   return (
     <header className="absolute inset-x-0 top-0 z-50 mx-auto flex max-w-300 items-center justify-between px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-6.5">
@@ -79,7 +130,7 @@ export function Header() {
         <Button
           variant="outline"
           size="sm"
-          className="rounded-full"
+          className="rounded-l-[20px]"
           aria-label="Star us on GitHub"
           render={
             <Link
@@ -95,57 +146,18 @@ export function Header() {
         />
 
         {!isLoading && !isAuthenticated && (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full"
-              render={<Link href={'/sign-in' as Route<string>}>Login</Link>}
-            />
-
-            <Button
-              size="sm"
-              className="rounded-full"
-              render={<Link href={'/sign-up' as Route<string>}>Get started</Link>}
-            />
-          </>
+          <Button
+            size="sm"
+            className="rounded-r-[20px]"
+            render={<Link href={'/sign-in' as Route<string>}>Get started</Link>}
+          />
         )}
 
         {!isLoading && isAuthenticated && (
-          <>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full"
-              render={
-                <Link className="flex items-center gap-2" href={'/dashboard' as Route<string>}>
-                  {user?.avatarUrl ? (
-                    <Image
-                      className="size-6 rounded-full object-cover"
-                      src={user.avatarUrl}
-                      alt={user.fullName}
-                      width={20}
-                      height={20}
-                      unoptimized
-                    />
-                  ) : (
-                    <HugeiconsIcon className="size-4" icon={UserCircleIcon} />
-                  )}
-                  {userDashboardLabel}
-                </Link>
-              }
-            />
-
-            <Button
-              size="sm"
-              className="rounded-full"
-              disabled={isLoggingOut}
-              onClick={handleSignOut}
-            >
-              {isLoggingOut ? 'Signing out...' : 'Sign out'}
-              {!isLoggingOut && <HugeiconsIcon className="size-4" icon={Logout02Icon} />}
-            </Button>
-          </>
+          <DropdownMenu>
+            <DropdownMenuTrigger render={userMenuTrigger} />
+            {userMenuContent}
+          </DropdownMenu>
         )}
       </div>
 
@@ -194,41 +206,28 @@ export function Header() {
 
           {!isLoading && !isAuthenticated && (
             <div className="flex flex-col gap-2">
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full rounded-xl"
-                  aria-label="Star us on GitHub"
-                  render={
-                    <Link
-                      className="flex w-full items-center gap-2"
-                      href="https://github.com/nivx18818/rmap-app"
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >
-                      <HugeiconsIcon className="size-4" icon={GithubIcon} />
-                      Star us
-                    </Link>
-                  }
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full rounded-xl"
-                  render={
-                    <Link href={'/sign-in' as Route<string>}>
-                      Login
-                      <HugeiconsIcon className="size-4" icon={Login01Icon} />
-                    </Link>
-                  }
-                />
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full rounded-xl"
+                aria-label="Star us on GitHub"
+                render={
+                  <Link
+                    className="flex w-full items-center gap-2"
+                    href="https://github.com/nivx18818/rmap-app"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <HugeiconsIcon className="size-4" icon={GithubIcon} />
+                    Star us
+                  </Link>
+                }
+              />
 
               <Button
                 size="sm"
                 className="w-full rounded-xl"
-                render={<Link href={'/sign-up' as Route<string>}>Get started</Link>}
+                render={<Link href={'/sign-in' as Route<string>}>Get started</Link>}
               />
             </div>
           )}
@@ -253,42 +252,59 @@ export function Header() {
                     </Link>
                   }
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start rounded-xl"
-                  render={
-                    <Link
-                      className="flex w-full items-center gap-2"
-                      href={'/dashboard' as Route<string>}
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start rounded-xl"
+                        aria-label={userMenuAriaLabel}
+                      >
+                        {user?.avatarUrl ? (
+                          <Image
+                            className="size-6 rounded-full object-cover"
+                            src={user.avatarUrl}
+                            alt={user.fullName}
+                            width={20}
+                            height={20}
+                            unoptimized
+                          />
+                        ) : (
+                          <HugeiconsIcon className="size-4" icon={UserCircleIcon} />
+                        )}
+                        {userDisplayName}
+                        {hamburgerMenuIcon}
+                      </Button>
+                    }
+                  />
+                  <DropdownMenuContent className="w-44" align="end">
+                    <DropdownMenuItem
+                      render={<Link href={'/dashboard' as Route<string>} />}
+                      onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      {user?.avatarUrl ? (
-                        <Image
-                          className="size-6 rounded-full object-cover"
-                          src={user.avatarUrl}
-                          alt={user.fullName}
-                          width={20}
-                          height={20}
-                          unoptimized
-                        />
-                      ) : (
-                        <HugeiconsIcon className="size-4" icon={UserCircleIcon} />
-                      )}
-                      {userDashboardLabel}
-                    </Link>
-                  }
-                />
+                      <HugeiconsIcon className="size-4" icon={MapsIcon} />
+                      Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      render={<Link href={'/profile' as Route<string>} />}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <HugeiconsIcon className="size-4" icon={UserCircleIcon} />
+                      Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      disabled={isLoggingOut}
+                      onClick={handleSignOut}
+                    >
+                      <HugeiconsIcon className="size-4" icon={Logout02Icon} />
+                      {isLoggingOut ? 'Signing out...' : 'Sign out'}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-
-              <Button
-                size="sm"
-                className="w-full rounded-xl"
-                disabled={isLoggingOut}
-                onClick={handleSignOut}
-              >
-                {isLoggingOut ? 'Signing out...' : 'Sign out'}
-                {!isLoggingOut && <HugeiconsIcon className="size-4" icon={Logout02Icon} />}
-              </Button>
             </div>
           )}
         </div>

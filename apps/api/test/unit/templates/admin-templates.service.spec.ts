@@ -59,8 +59,10 @@ interface TxMock {
 interface AdminTemplatesPrismaMock {
   $transaction: AsyncMock<unknown, [unknown]>;
   roadmap: {
+    count: AsyncMock<number>;
     create: AsyncMock<TemplateRoadmapRecord>;
     deleteMany: AsyncMock<{ count: number }>;
+    findMany: AsyncMock<TemplateRoadmapRecord[]>;
     findFirst: AsyncMock<TemplateRoadmapRecord | null>;
     update: AsyncMock<TemplateRoadmapRecord>;
   };
@@ -162,8 +164,10 @@ const createPrismaMock = (txMock: TxMock): AdminTemplatesPrismaMock => ({
     return callback(txMock);
   }),
   roadmap: {
+    count: jest.fn<Promise<number>, unknown[]>(),
     create: jest.fn<Promise<TemplateRoadmapRecord>, unknown[]>(),
     deleteMany: jest.fn<Promise<{ count: number }>, unknown[]>(),
+    findMany: jest.fn<Promise<TemplateRoadmapRecord[]>, unknown[]>(),
     findFirst: jest.fn<Promise<TemplateRoadmapRecord | null>, unknown[]>(),
     update: jest.fn<Promise<TemplateRoadmapRecord>, unknown[]>(),
   },
@@ -212,6 +216,57 @@ describe('AdminTemplatesService', () => {
   });
 
   describe('templates', () => {
+    it('lists admin templates without requiring template nodes', async () => {
+      const emptyTemplate = makeTemplate({
+        id: 'empty-template',
+        title: 'Empty Backend Template',
+      });
+
+      prisma.roadmap.findMany.mockResolvedValue([emptyTemplate]);
+      prisma.roadmap.count.mockResolvedValue(1);
+
+      const result = await service.listTemplates({
+        page: 1,
+        perPage: 10,
+        q: 'Backend',
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+      });
+
+      expect(prisma.roadmap.findMany).toHaveBeenCalledWith({
+        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+        select: expectAnyObject(),
+        skip: 0,
+        take: 10,
+        where: {
+          isTemplate: true,
+          roleCategory: RoleCategory.WEB_DEVELOPMENT,
+          title: {
+            contains: 'Backend',
+            mode: 'insensitive',
+          },
+        },
+      });
+      expect(prisma.roadmap.count).toHaveBeenCalledWith({
+        where: {
+          isTemplate: true,
+          roleCategory: RoleCategory.WEB_DEVELOPMENT,
+          title: {
+            contains: 'Backend',
+            mode: 'insensitive',
+          },
+        },
+      });
+      expect(result).toEqual({
+        data: [expect.objectContaining({ id: 'empty-template', title: 'Empty Backend Template' })],
+        meta: {
+          page: 1,
+          perPage: 10,
+          total: 1,
+          totalPages: 1,
+        },
+      });
+    });
+
     it('creates templates with personal roadmap fields forced to null', async () => {
       const template = makeTemplate({ estimatedWeeks: null });
 
@@ -242,15 +297,38 @@ describe('AdminTemplatesService', () => {
       expect(result.userId).toBeNull();
     });
 
-    it('updates template metadata without changing role category', async () => {
+    it('reads a template by id', async () => {
       const template = makeTemplate();
-      const updated = makeTemplate({ estimatedWeeks: null, title: 'Updated Template' });
+
+      prisma.roadmap.findFirst.mockResolvedValue(template);
+
+      const result = await service.getTemplate(templateId);
+
+      expect(prisma.roadmap.findFirst).toHaveBeenCalledWith({
+        select: expectAnyObject(),
+        where: { id: templateId, isTemplate: true },
+      });
+      expect(result).toMatchObject({
+        id: templateId,
+        isTemplate: true,
+        title: template.title,
+      });
+    });
+
+    it('updates template metadata including role category', async () => {
+      const template = makeTemplate();
+      const updated = makeTemplate({
+        estimatedWeeks: null,
+        roleCategory: RoleCategory.DEVOPS,
+        title: 'Updated Template',
+      });
 
       prisma.roadmap.findFirst.mockResolvedValue(template);
       prisma.roadmap.update.mockResolvedValue(updated);
 
       const result = await service.updateTemplate(templateId, {
         estimatedWeeks: null,
+        roleCategory: RoleCategory.DEVOPS,
         title: 'Updated Template',
       });
 
@@ -261,6 +339,7 @@ describe('AdminTemplatesService', () => {
       expect(prisma.roadmap.update).toHaveBeenCalledWith({
         data: {
           estimatedWeeks: null,
+          roleCategory: RoleCategory.DEVOPS,
           title: 'Updated Template',
         },
         select: expectAnyObject(),
@@ -268,6 +347,7 @@ describe('AdminTemplatesService', () => {
       });
       expect(result.title).toBe('Updated Template');
       expect(result.estimatedWeeks).toBeNull();
+      expect(result.roleCategory).toBe(RoleCategory.DEVOPS);
     });
 
     it('deletes only template roadmaps', async () => {

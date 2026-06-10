@@ -1,5 +1,15 @@
 import type { NodeType } from '@repo/db/prisma/client';
 
+import type {
+  PaginationMetaDto,
+  RoadmapResponseDto,
+} from '@/modules/roadmaps/dto/roadmap-response.dto';
+
+export interface AdminTemplatesListResponse {
+  data: RoadmapResponseDto[];
+  meta: PaginationMetaDto;
+}
+
 export interface TemplateNodeResponse {
   createdAt: string;
   description: null | string;

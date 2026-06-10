@@ -36,7 +36,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             'radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 30%), radial-gradient(circle at 88% 0%, color-mix(in srgb, var(--chart-2) 16%, transparent), transparent 24%), linear-gradient(135deg, var(--background), var(--muted))',
         }}
       />
-      <div className="relative mx-auto flex min-h-screen w-full max-w-360 flex-col px-4 py-4 sm:px-6 lg:px-8">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-360 flex-col px-4 pt-4 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
         <header className="border-border/70 bg-background/80 flex flex-col gap-4 rounded-3xl border p-4 shadow-sm backdrop-blur-md lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 flex-col gap-1">
             <Link className="font-heading text-foreground w-fit text-2xl font-bold" href="/">
@@ -57,13 +57,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
           </div>
         </header>
 
-        <div className="grid flex-1 gap-4 py-4 lg:grid-cols-[240px_minmax(0,1fr)]">
-          <aside className="border-border/70 bg-card/85 h-fit rounded-3xl border p-3 shadow-sm backdrop-blur-md">
-            <AdminNavigation />
-          </aside>
-
-          <main className="min-w-0">{children}</main>
-        </div>
+        <main className="min-w-0 flex-1 py-4">{children}</main>
+        <AdminNavigation />
       </div>
     </div>
   );

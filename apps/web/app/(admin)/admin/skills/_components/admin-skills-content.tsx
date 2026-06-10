@@ -316,7 +316,7 @@ export function AdminSkillsContent() {
         </div>
       </section>
 
-      <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1.25fr)_minmax(420px,0.75fr)]">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
         <Card className="bg-card/90 backdrop-blur-md">
           <CardHeader>
             <CardTitle>Skill catalog</CardTitle>
@@ -464,7 +464,7 @@ export function AdminSkillsContent() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card/90 backdrop-blur-md">
+        <Card className="bg-card/90 backdrop-blur-md lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
           <CardHeader>
             <CardTitle>Selected-skill resources</CardTitle>
             <CardDescription>

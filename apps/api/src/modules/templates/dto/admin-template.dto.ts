@@ -1,5 +1,5 @@
 import { RoleCategory } from '@repo/db/prisma/client';
-import { Transform, Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
   IsEnum,
   IsInt,
@@ -18,6 +18,18 @@ const toTrimmedString = ({ value }): unknown => (typeof value === 'string' ? val
 const toUppercaseString = ({ value }): unknown =>
   typeof value === 'string' ? value.toUpperCase() : value;
 
+const toNullableNumber = ({ value }): unknown => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null || value === '') {
+    return null;
+  }
+
+  return Number(value);
+};
+
 export class CreateTemplateDto {
   @Transform(toTrimmedString)
   @IsString()
@@ -35,8 +47,8 @@ export class CreateTemplateDto {
   @MaxLength(2000)
   description!: string;
 
-  @ValidateIf(isDefined)
-  @Type(() => Number)
+  @ValidateIf((_object, value) => value !== undefined && value !== null)
+  @Transform(toNullableNumber)
   @IsInt()
   @Min(1)
   @Max(520)
@@ -52,14 +64,19 @@ export class UpdateTemplateDto {
   title?: string;
 
   @ValidateIf(isDefined)
+  @Transform(toUppercaseString)
+  @IsEnum(RoleCategory)
+  roleCategory?: RoleCategory;
+
+  @ValidateIf(isDefined)
   @Transform(toTrimmedString)
   @IsString()
   @IsNotEmpty()
   @MaxLength(2000)
   description?: string;
 
-  @ValidateIf(isDefined)
-  @Type(() => Number)
+  @ValidateIf((_object, value) => value !== undefined && value !== null)
+  @Transform(toNullableNumber)
   @IsInt()
   @Min(1)
   @Max(520)

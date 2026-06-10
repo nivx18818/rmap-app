@@ -28,6 +28,36 @@ describe('Admin template management (integration)', () => {
       .expect(201);
     const template = templateResponse.body as { id: string };
 
+    const listTemplatesResponse = await request(integration.app.getHttpServer())
+      .get('/api/v1/admin/templates')
+      .query({ q: 'Main Flow Template', roleCategory: 'web_development' })
+      .set('Cookie', cookie)
+      .expect(200);
+    const listTemplatesBody = listTemplatesResponse.body as {
+      data: Array<{ id: string; title: string }>;
+      meta: { total: number };
+    };
+
+    expect(listTemplatesBody.data).toHaveLength(1);
+    expect(listTemplatesBody.data[0]).toMatchObject({
+      id: template.id,
+      title: 'Main Flow Template',
+    });
+    expect(listTemplatesBody.meta.total).toBe(1);
+
+    await request(integration.app.getHttpServer())
+      .get(`/api/v1/admin/templates/${template.id}`)
+      .set('Cookie', cookie)
+      .expect(200)
+      .expect((response) => {
+        const body = response.body as { id: string; title: string };
+
+        expect(body).toMatchObject({
+          id: template.id,
+          title: 'Main Flow Template',
+        });
+      });
+
     const updateTemplateResponse = await request(integration.app.getHttpServer())
       .put(`/api/v1/admin/templates/${template.id}`)
       .set('Cookie', cookie)

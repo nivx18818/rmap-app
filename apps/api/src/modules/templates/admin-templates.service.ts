@@ -20,9 +20,15 @@ import {
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
 import type { CreateTemplateNodeDto, UpdateTemplateNodeDto } from './dto/admin-template-node.dto';
+import type { ListAdminTemplatesQueryDto } from './dto/admin-template-query.dto';
 import type { CreateTemplateDto, UpdateTemplateDto } from './dto/admin-template.dto';
-import type { TemplateNodeResponse } from './types/admin-template-response.types';
+import type {
+  AdminTemplatesListResponse,
+  TemplateNodeResponse,
+} from './types/admin-template-response.types';
 
+const DEFAULT_PAGE = 1;
+const DEFAULT_PER_PAGE = 20;
 const LEAF_NODE_TYPES: NodeType[] = [NodeType.REQUIRED, NodeType.OPTIONAL];
 
 const TEMPLATE_ROADMAP_SELECT = {
@@ -82,6 +88,33 @@ type TemplateSummary = {
 export class AdminTemplatesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async listTemplates(query: ListAdminTemplatesQueryDto): Promise<AdminTemplatesListResponse> {
+    const page = query.page ?? DEFAULT_PAGE;
+    const perPage = query.perPage ?? DEFAULT_PER_PAGE;
+    const where = this.buildTemplateWhere(query);
+
+    const [templates, total] = await this.prisma.$transaction([
+      this.prisma.roadmap.findMany({
+        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+        select: TEMPLATE_ROADMAP_SELECT,
+        skip: (page - 1) * perPage,
+        take: perPage,
+        where,
+      }),
+      this.prisma.roadmap.count({ where }),
+    ]);
+
+    return {
+      data: templates.map((template) => this.formatRoadmap(template)),
+      meta: {
+        page,
+        perPage,
+        total,
+        totalPages: Math.ceil(total / perPage),
+      },
+    };
+  }
+
   async createTemplate(dto: CreateTemplateDto): Promise<RoadmapResponseDto> {
     const roadmap = await this.prisma.roadmap.create({
       data: {
@@ -101,6 +134,10 @@ export class AdminTemplatesService {
     return this.formatRoadmap(roadmap);
   }
 
+  async getTemplate(templateId: string): Promise<RoadmapResponseDto> {
+    return this.formatRoadmap(await this.findTemplateOrThrow(templateId));
+  }
+
   async updateTemplate(templateId: string, dto: UpdateTemplateDto): Promise<RoadmapResponseDto> {
     await this.findTemplateOrThrow(templateId);
 
@@ -108,6 +145,7 @@ export class AdminTemplatesService {
       data: {
         ...(this.hasOwn(dto, 'description') ? { description: dto.description } : {}),
         ...(this.hasOwn(dto, 'estimatedWeeks') ? { estimatedWeeks: dto.estimatedWeeks } : {}),
+        ...(this.hasOwn(dto, 'roleCategory') ? { roleCategory: dto.roleCategory } : {}),
         ...(this.hasOwn(dto, 'title') ? { title: dto.title } : {}),
       },
       select: TEMPLATE_ROADMAP_SELECT,
@@ -255,6 +293,26 @@ export class AdminTemplatesService {
     if (result.count === 0) {
       throw new RoadmapNodeNotFoundException(nodeId);
     }
+  }
+
+  private buildTemplateWhere(query: ListAdminTemplatesQueryDto): Prisma.RoadmapWhereInput {
+    const where: Prisma.RoadmapWhereInput = {
+      isTemplate: true,
+    };
+    const searchQuery = query.q?.trim();
+
+    if (query.roleCategory) {
+      where.roleCategory = query.roleCategory;
+    }
+
+    if (searchQuery) {
+      where.title = {
+        contains: searchQuery,
+        mode: 'insensitive',
+      };
+    }
+
+    return where;
   }
 
   private async findTemplateOrThrow(templateId: string): Promise<SelectedTemplate> {

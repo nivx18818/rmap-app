@@ -23,6 +23,8 @@ describe('AdminTemplatesController', () => {
     createTemplate: jest.fn(),
     deleteNode: jest.fn(),
     deleteTemplate: jest.fn(),
+    getTemplate: jest.fn(),
+    listTemplates: jest.fn(),
     updateNode: jest.fn(),
     updateTemplate: jest.fn(),
   };
@@ -65,6 +67,34 @@ describe('AdminTemplatesController', () => {
     const result = await controller.create(dto);
 
     expect(mockAdminTemplatesService.createTemplate).toHaveBeenCalledWith(dto);
+    expect(result).toEqual(response);
+  });
+
+  it('delegates template listing with query dto', async () => {
+    const query = {
+      page: 1,
+      perPage: 20,
+      q: 'backend',
+      roleCategory: RoleCategory.WEB_DEVELOPMENT,
+    };
+    const response = { data: [], meta: { page: 1, perPage: 20, total: 0, totalPages: 0 } };
+
+    mockAdminTemplatesService.listTemplates.mockResolvedValue(response);
+
+    const result = await controller.list(query);
+
+    expect(mockAdminTemplatesService.listTemplates).toHaveBeenCalledWith(query);
+    expect(result).toEqual(response);
+  });
+
+  it('delegates template reads with path params', async () => {
+    const response = { id: templateId, title: 'Backend Template' };
+
+    mockAdminTemplatesService.getTemplate.mockResolvedValue(response);
+
+    const result = await controller.get({ templateId });
+
+    expect(mockAdminTemplatesService.getTemplate).toHaveBeenCalledWith(templateId);
     expect(result).toEqual(response);
   });
 
@@ -150,6 +180,8 @@ describe('AdminTemplatesController access', () => {
     createTemplate: jest.fn().mockResolvedValue(response),
     deleteNode: jest.fn(),
     deleteTemplate: jest.fn(),
+    getTemplate: jest.fn(),
+    listTemplates: jest.fn(),
     updateNode: jest.fn(),
     updateTemplate: jest.fn(),
   };

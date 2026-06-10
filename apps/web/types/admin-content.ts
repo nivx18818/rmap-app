@@ -17,6 +17,7 @@ export type RoleCategory =
   | 'WEB_DEVELOPMENT';
 
 export type ResourceType = 'ARTICLE' | 'COURSE' | 'DOCS' | 'YOUTUBE';
+export type TemplateNodeType = 'GROUP' | 'MILESTONE' | 'OPTIONAL' | 'REQUIRED';
 
 export interface AdminSkill {
   createdAt: string;
@@ -76,6 +77,33 @@ export interface AdminTemplatePayload {
   estimatedWeeks?: null | number;
   roleCategory: RoleCategory;
   title: string;
+}
+
+export interface AdminTemplateNode {
+  createdAt: string;
+  description: null | string;
+  estimatedHours: null | number;
+  id: string;
+  name: string;
+  nodeType: TemplateNodeType;
+  parentId: null | string;
+  posX: number;
+  posY: number;
+  roadmapId: string;
+  skillId: null | string;
+}
+
+export interface AdminTemplateNodesResponse {
+  nodes: AdminTemplateNode[];
+}
+
+export interface AdminTemplateNodePayload {
+  description?: null | string;
+  estimatedHours?: null | number;
+  name: string;
+  nodeType: TemplateNodeType;
+  parentId?: null | string;
+  skillId?: null | string;
 }
 
 export interface AdminSkillsQuery {

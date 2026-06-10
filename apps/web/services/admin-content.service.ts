@@ -9,6 +9,9 @@ import type {
   AdminSkillsListResponse,
   AdminSkillsQuery,
   AdminTemplate,
+  AdminTemplateNode,
+  AdminTemplateNodePayload,
+  AdminTemplateNodesResponse,
   AdminTemplatePayload,
   AdminTemplatesListResponse,
   AdminTemplatesQuery,
@@ -37,6 +40,13 @@ export const adminContentService = {
     );
     return response.data;
   },
+  createTemplateNode: async (templateId: string, payload: AdminTemplateNodePayload) => {
+    const response = await axiosInstance.post<AdminTemplateNode>(
+      ENDPOINTS.admin.templates.nodes(templateId),
+      payload,
+    );
+    return response.data;
+  },
   deleteResource: async (skillId: string, resourceId: number) => {
     await axiosInstance.delete<void>(ENDPOINTS.admin.skills.resourceById(skillId, resourceId));
   },
@@ -45,6 +55,9 @@ export const adminContentService = {
   },
   deleteTemplate: async (templateId: string) => {
     await axiosInstance.delete<void>(ENDPOINTS.admin.templates.byId(templateId));
+  },
+  deleteTemplateNode: async (templateId: string, nodeId: string) => {
+    await axiosInstance.delete<void>(ENDPOINTS.admin.templates.nodeById(templateId, nodeId));
   },
   getTemplate: async (templateId: string) => {
     const response = await axiosInstance.get<AdminTemplate>(
@@ -73,6 +86,12 @@ export const adminContentService = {
     );
     return response.data;
   },
+  listTemplateNodes: async (templateId: string) => {
+    const response = await axiosInstance.get<AdminTemplateNodesResponse>(
+      ENDPOINTS.admin.templates.nodes(templateId),
+    );
+    return response.data;
+  },
   updateResource: async (
     skillId: string,
     resourceId: number,
@@ -94,6 +113,17 @@ export const adminContentService = {
   updateTemplate: async (templateId: string, payload: AdminTemplatePayload) => {
     const response = await axiosInstance.put<AdminTemplate>(
       ENDPOINTS.admin.templates.byId(templateId),
+      payload,
+    );
+    return response.data;
+  },
+  updateTemplateNode: async (
+    templateId: string,
+    nodeId: string,
+    payload: AdminTemplateNodePayload,
+  ) => {
+    const response = await axiosInstance.put<AdminTemplateNode>(
+      ENDPOINTS.admin.templates.nodeById(templateId, nodeId),
       payload,
     );
     return response.data;

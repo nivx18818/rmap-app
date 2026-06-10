@@ -38,6 +38,46 @@ export interface AdminSkillsListResponse {
   };
 }
 
+export interface AdminTemplate {
+  deadlineDate: null | string;
+  description: null | string;
+  estimatedWeeks: null | number;
+  generatedAt: string;
+  goalName: null | string;
+  hoursPerDay: null | number;
+  id: string;
+  isTemplate: boolean;
+  roleCategory: RoleCategory;
+  startedAt: null | string;
+  title: string;
+  updatedAt: string;
+  userId: null | string;
+}
+
+export interface AdminTemplatesListResponse {
+  data: AdminTemplate[];
+  meta: {
+    page: number;
+    perPage: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface AdminTemplatesQuery {
+  page?: number;
+  perPage?: number;
+  q?: string;
+  roleCategory?: RoleCategory;
+}
+
+export interface AdminTemplatePayload {
+  description: string;
+  estimatedWeeks?: null | number;
+  roleCategory: RoleCategory;
+  title: string;
+}
+
 export interface AdminSkillsQuery {
   page?: number;
   perPage?: number;

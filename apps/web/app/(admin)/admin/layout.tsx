@@ -10,6 +10,8 @@ import { redirect } from 'next/navigation';
 
 import { authServerData } from '@/server-fetcher/auth-server';
 
+import { AdminNavigation } from './_components/admin-navigation';
+
 export const metadata: Metadata = {
   title: 'Admin Console - RMap',
   description: 'Manage RMap content catalogs and roadmap templates.',
@@ -58,20 +60,10 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
         <div className="grid flex-1 gap-4 py-4 lg:grid-cols-[240px_minmax(0,1fr)]">
           <aside className="border-border/70 bg-card/85 h-fit rounded-3xl border p-3 shadow-sm backdrop-blur-md">
-            <nav className="flex flex-col gap-1" aria-label="Admin navigation">
-              <Button
-                variant="secondary"
-                className="justify-start rounded-2xl"
-                render={<Link href={'/admin/skills' as Route<string>}>Skills and resources</Link>}
-              />
-              <Button variant="ghost" className="justify-start rounded-2xl" disabled>
-                Templates
-                <span className="text-muted-foreground ml-auto text-xs">Phase 2</span>
-              </Button>
-            </nav>
+            <AdminNavigation />
             <Separator className="my-3" />
             <p className="text-muted-foreground px-2 text-xs leading-5">
-              Template graph editing is intentionally excluded from Phase 1.
+              Template graph editing is intentionally excluded from Phase 2.
             </p>
           </aside>
 

@@ -8,6 +8,10 @@ import type {
   AdminSkillResourcesResponse,
   AdminSkillsListResponse,
   AdminSkillsQuery,
+  AdminTemplate,
+  AdminTemplatePayload,
+  AdminTemplatesListResponse,
+  AdminTemplatesQuery,
   ApiErrorResponse,
 } from '@/types/admin-content';
 
@@ -26,11 +30,27 @@ export const adminContentService = {
     const response = await axiosInstance.post<AdminSkill>(ENDPOINTS.admin.skills.list, payload);
     return response.data;
   },
+  createTemplate: async (payload: AdminTemplatePayload) => {
+    const response = await axiosInstance.post<AdminTemplate>(
+      ENDPOINTS.admin.templates.list,
+      payload,
+    );
+    return response.data;
+  },
   deleteResource: async (skillId: string, resourceId: number) => {
     await axiosInstance.delete<void>(ENDPOINTS.admin.skills.resourceById(skillId, resourceId));
   },
   deleteSkill: async (skillId: string) => {
     await axiosInstance.delete<void>(ENDPOINTS.admin.skills.byId(skillId));
+  },
+  deleteTemplate: async (templateId: string) => {
+    await axiosInstance.delete<void>(ENDPOINTS.admin.templates.byId(templateId));
+  },
+  getTemplate: async (templateId: string) => {
+    const response = await axiosInstance.get<AdminTemplate>(
+      ENDPOINTS.admin.templates.byId(templateId),
+    );
+    return response.data;
   },
   listResources: async (skillId: string) => {
     const response = await axiosInstance.get<AdminSkillResourcesResponse>(
@@ -42,6 +62,15 @@ export const adminContentService = {
     const response = await axiosInstance.get<AdminSkillsListResponse>(ENDPOINTS.admin.skills.list, {
       params: query,
     });
+    return response.data;
+  },
+  listTemplates: async (query: AdminTemplatesQuery) => {
+    const response = await axiosInstance.get<AdminTemplatesListResponse>(
+      ENDPOINTS.admin.templates.list,
+      {
+        params: query,
+      },
+    );
     return response.data;
   },
   updateResource: async (
@@ -58,6 +87,13 @@ export const adminContentService = {
   updateSkill: async (skillId: string, payload: Partial<AdminSkillPayload>) => {
     const response = await axiosInstance.put<AdminSkill>(
       ENDPOINTS.admin.skills.byId(skillId),
+      payload,
+    );
+    return response.data;
+  },
+  updateTemplate: async (templateId: string, payload: AdminTemplatePayload) => {
+    const response = await axiosInstance.put<AdminTemplate>(
+      ENDPOINTS.admin.templates.byId(templateId),
       payload,
     );
     return response.data;

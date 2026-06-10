@@ -9,6 +9,10 @@ export const ENDPOINTS = {
         `/admin/skills/${skillId}/resources/${resourceId}`,
       resources: (skillId: string) => `/admin/skills/${skillId}/resources`,
     },
+    templates: {
+      byId: (templateId: string) => `/admin/templates/${templateId}`,
+      list: '/admin/templates',
+    },
   },
   auth: {
     changePassword: '/auth/password',

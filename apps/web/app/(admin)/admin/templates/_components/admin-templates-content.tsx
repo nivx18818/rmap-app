@@ -1,5 +1,6 @@
 'use client';
 
+import type { Route } from 'next';
 import type { ComponentProps } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -44,6 +45,7 @@ import {
 } from '@repo/design-system/components/ui/table';
 import { toast } from '@repo/design-system/lib/toast';
 import { cn } from '@repo/design-system/lib/utils';
+import Link from 'next/link';
 import { useDeferredValue, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -60,8 +62,6 @@ import {
   ROLE_CATEGORY_VALUES,
   type AdminTemplateFormValues,
 } from '@/validations/admin-content.schema';
-
-import { AdminTemplateNodesPanel } from './admin-template-nodes-panel';
 
 const PER_PAGE = 10;
 const EMPTY_TEMPLATES: AdminTemplate[] = [];
@@ -105,7 +105,6 @@ export function AdminTemplatesContent() {
 
   const templates = templatesResponse?.data ?? EMPTY_TEMPLATES;
   const templatesMeta = templatesResponse?.meta;
-  const selectedTemplate = templates.find((template) => template.id === selectedTemplateId) ?? null;
 
   useEffect(() => {
     let isCurrent = true;
@@ -212,7 +211,8 @@ export function AdminTemplatesContent() {
                 Roadmap templates
               </h1>
               <p className="text-muted-foreground text-sm sm:text-base">
-                Manage template metadata and grouped node lists for the public roadmap catalog.
+                Manage template metadata for the public roadmap catalog. Open a template to edit its
+                grouped node list.
               </p>
             </div>
           </div>
@@ -226,160 +226,159 @@ export function AdminTemplatesContent() {
         </div>
       </section>
 
-      <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1.15fr)_minmax(420px,0.85fr)]">
-        <Card className="bg-card/90 backdrop-blur-md">
-          <CardHeader>
-            <CardTitle>Template catalog</CardTitle>
-            <CardDescription>
-              Empty templates are included so metadata can be prepared before node editing.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
-              <Field>
-                <FieldLabel className="sr-only" htmlFor="template-search">
-                  Search templates
-                </FieldLabel>
-                <Input
-                  id="template-search"
-                  placeholder="Search templates..."
-                  value={searchTerm}
-                  onChange={(event) => handleSearchChange(event.target.value)}
-                />
-              </Field>
-              <Field>
-                <FieldLabel className="sr-only" htmlFor="template-role-filter">
-                  Filter by role category
-                </FieldLabel>
-                <NativeSelect
-                  id="template-role-filter"
-                  value={roleFilter}
-                  onChange={(event) => handleRoleFilterChange(event.target.value as RoleFilter)}
-                >
-                  <option value="">All role categories</option>
-                  {ROLE_CATEGORY_VALUES.map((category) => (
-                    <option key={category} value={category}>
-                      {formatEnumLabel(category)}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </Field>
-            </div>
-
-            {templatesError ? (
-              <InlineNotice
-                title="Templates unavailable"
-                tone="error"
-                description={templatesError}
+      <Card className="bg-card/90 backdrop-blur-md">
+        <CardHeader>
+          <CardTitle>Template catalog</CardTitle>
+          <CardDescription>
+            Empty templates are included so metadata can be prepared before node editing.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
+            <Field>
+              <FieldLabel className="sr-only" htmlFor="template-search">
+                Search templates
+              </FieldLabel>
+              <Input
+                id="template-search"
+                placeholder="Search templates..."
+                value={searchTerm}
+                onChange={(event) => handleSearchChange(event.target.value)}
               />
-            ) : null}
+            </Field>
+            <Field>
+              <FieldLabel className="sr-only" htmlFor="template-role-filter">
+                Filter by role category
+              </FieldLabel>
+              <NativeSelect
+                id="template-role-filter"
+                value={roleFilter}
+                onChange={(event) => handleRoleFilterChange(event.target.value as RoleFilter)}
+              >
+                <option value="">All role categories</option>
+                {ROLE_CATEGORY_VALUES.map((category) => (
+                  <option key={category} value={category}>
+                    {formatEnumLabel(category)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+          </div>
 
-            <div className="overflow-hidden rounded-2xl border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Template</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Weeks</TableHead>
-                    <TableHead>Updated</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoadingTemplates ? (
-                    <TablePlaceholder rows={5} />
-                  ) : templates.length > 0 ? (
-                    templates.map((template) => (
-                      <TableRow
-                        key={template.id}
-                        className="cursor-pointer"
-                        data-state={template.id === selectedTemplateId ? 'selected' : undefined}
-                        onClick={() => setSelectedTemplateId(template.id)}
-                      >
-                        <TableCell className="min-w-72 whitespace-normal">
-                          <div className="flex flex-col gap-1">
-                            <span className="font-medium">{template.title}</span>
-                            <span className="text-muted-foreground line-clamp-2 text-xs">
-                              {template.description || 'No description yet.'}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">
-                            {formatEnumLabel(template.roleCategory)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{formatWeeks(template.estimatedWeeks)}</TableCell>
-                        <TableCell>{formatDate(template.updatedAt)}</TableCell>
-                        <TableCell>
-                          <div
-                            className="flex justify-end gap-2"
-                            onClick={(event) => event.stopPropagation()}
+          {templatesError ? (
+            <InlineNotice title="Templates unavailable" tone="error" description={templatesError} />
+          ) : null}
+
+          <div className="overflow-hidden rounded-2xl border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Template</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Weeks</TableHead>
+                  <TableHead>Updated</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoadingTemplates ? (
+                  <TablePlaceholder rows={5} />
+                ) : templates.length > 0 ? (
+                  templates.map((template) => (
+                    <TableRow
+                      key={template.id}
+                      className="cursor-pointer"
+                      data-state={template.id === selectedTemplateId ? 'selected' : undefined}
+                      onClick={() => setSelectedTemplateId(template.id)}
+                    >
+                      <TableCell className="min-w-72 whitespace-normal">
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium">{template.title}</span>
+                          <span className="text-muted-foreground line-clamp-2 text-xs">
+                            {template.description || 'No description yet.'}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{formatEnumLabel(template.roleCategory)}</Badge>
+                      </TableCell>
+                      <TableCell>{formatWeeks(template.estimatedWeeks)}</TableCell>
+                      <TableCell>{formatDate(template.updatedAt)}</TableCell>
+                      <TableCell>
+                        <div
+                          className="flex flex-wrap justify-end gap-2"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            render={
+                              <Link href={`/admin/templates/${template.id}` as Route<string>}>
+                                Manage nodes
+                              </Link>
+                            }
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setTemplateDrawer({ mode: 'edit', template })}
                           >
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setTemplateDrawer({ mode: 'edit', template })}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => setTemplateToDelete(template)}
-                            >
-                              Delete
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell className="text-muted-foreground h-32 text-center" colSpan={5}>
-                        No templates match the current filters.
+                            Edit
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setTemplateToDelete(template)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell className="text-muted-foreground h-32 text-center" colSpan={5}>
+                      No templates match the current filters.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-muted-foreground text-sm">
-                {templatesMeta
-                  ? `${templatesMeta.total} templates, page ${templatesMeta.page} of ${Math.max(templatesMeta.totalPages, 1)}`
-                  : 'Loading templates...'}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isLoadingTemplates || page <= 1}
-                  onClick={() => setPage((current) => Math.max(1, current - 1))}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={
-                    isLoadingTemplates ||
-                    !templatesMeta ||
-                    templatesMeta.totalPages === 0 ||
-                    page >= templatesMeta.totalPages
-                  }
-                  onClick={() => setPage((current) => current + 1)}
-                >
-                  Next
-                </Button>
-              </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-muted-foreground text-sm">
+              {templatesMeta
+                ? `${templatesMeta.total} templates, page ${templatesMeta.page} of ${Math.max(templatesMeta.totalPages, 1)}`
+                : 'Loading templates...'}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isLoadingTemplates || page <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={
+                  isLoadingTemplates ||
+                  !templatesMeta ||
+                  templatesMeta.totalPages === 0 ||
+                  page >= templatesMeta.totalPages
+                }
+                onClick={() => setPage((current) => current + 1)}
+              >
+                Next
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-
-        <AdminTemplateNodesPanel selectedTemplate={selectedTemplate} />
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <TemplateFormDrawer
         drawer={templateDrawer}

@@ -3,6 +3,8 @@
 import type { ComponentProps } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { ArrowDown01Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -94,6 +96,7 @@ export function AdminTemplateNodesPanel({ selectedTemplate }: AdminTemplateNodes
   const [nodeDrawer, setNodeDrawer] = useState<NodeDrawerState | null>(null);
   const [nodeToDelete, setNodeToDelete] = useState<AdminTemplateNode | null>(null);
   const [isDeletingNode, setIsDeletingNode] = useState(false);
+  const [openSectionIds, setOpenSectionIds] = useState<Set<string>>(new Set());
 
   const sections = useMemo(() => buildNodeSections(nodes), [nodes]);
   const orphanNodes = useMemo(() => getOrphanNodes(nodes), [nodes]);
@@ -132,6 +135,10 @@ export function AdminTemplateNodesPanel({ selectedTemplate }: AdminTemplateNodes
       isCurrent = false;
     };
   }, [nodesRefreshKey, selectedTemplate]);
+
+  useEffect(() => {
+    setOpenSectionIds(new Set());
+  }, [selectedTemplate?.id]);
 
   useEffect(() => {
     if (!selectedTemplate) {
@@ -175,6 +182,20 @@ export function AdminTemplateNodesPanel({ selectedTemplate }: AdminTemplateNodes
     setNodesRefreshKey((current) => current + 1);
   };
 
+  const toggleSection = (sectionId: string) => {
+    setOpenSectionIds((currentSectionIds) => {
+      const nextSectionIds = new Set(currentSectionIds);
+
+      if (nextSectionIds.has(sectionId)) {
+        nextSectionIds.delete(sectionId);
+      } else {
+        nextSectionIds.add(sectionId);
+      }
+
+      return nextSectionIds;
+    });
+  };
+
   const handleSubmitNode = async (payload: AdminTemplateNodePayload, node?: AdminTemplateNode) => {
     if (!selectedTemplate) return;
 
@@ -182,7 +203,20 @@ export function AdminTemplateNodesPanel({ selectedTemplate }: AdminTemplateNodes
       await adminContentService.updateTemplateNode(selectedTemplate.id, node.id, payload);
       toast.success('Template node updated');
     } else {
-      await adminContentService.createTemplateNode(selectedTemplate.id, payload);
+      const createdNode = await adminContentService.createTemplateNode(
+        selectedTemplate.id,
+        payload,
+      );
+
+      if (createdNode.nodeType === 'GROUP' || createdNode.parentId) {
+        setOpenSectionIds((currentSectionIds) => {
+          const nextSectionIds = new Set(currentSectionIds);
+          nextSectionIds.add(createdNode.parentId ?? createdNode.id);
+
+          return nextSectionIds;
+        });
+      }
+
       toast.success('Template node created');
     }
 
@@ -211,7 +245,7 @@ export function AdminTemplateNodesPanel({ selectedTemplate }: AdminTemplateNodes
   return (
     <Card className="bg-card/90 backdrop-blur-md">
       <CardHeader>
-        <CardTitle>Template nodes</CardTitle>
+        <CardTitle>Node editor</CardTitle>
         <CardDescription>
           {selectedTemplate
             ? `Grouped editor for ${selectedTemplate.title}.`
@@ -280,6 +314,9 @@ export function AdminTemplateNodesPanel({ selectedTemplate }: AdminTemplateNodes
             sections.map((section) => (
               <NodeSectionCard
                 key={section.node.id}
+                isOpen={
+                  section.node.nodeType === 'MILESTONE' || openSectionIds.has(section.node.id)
+                }
                 section={section}
                 skills={skills}
                 onAddChild={() =>
@@ -293,6 +330,7 @@ export function AdminTemplateNodesPanel({ selectedTemplate }: AdminTemplateNodes
                 }
                 onDeleteNode={setNodeToDelete}
                 onEditNode={(node) => setNodeDrawer({ mode: 'edit', node })}
+                onToggleSection={() => toggleSection(section.node.id)}
               />
             ))
           ) : selectedTemplate ? (
@@ -341,74 +379,114 @@ export function AdminTemplateNodesPanel({ selectedTemplate }: AdminTemplateNodes
 }
 
 function NodeSectionCard({
+  isOpen,
   onAddChild,
   onDeleteNode,
   onEditNode,
+  onToggleSection,
   section,
   skills,
 }: {
+  isOpen: boolean;
   onAddChild: () => void;
   onDeleteNode: (node: AdminTemplateNode) => void;
   onEditNode: (node: AdminTemplateNode) => void;
+  onToggleSection: () => void;
   section: TemplateNodeSection;
   skills: AdminSkill[];
 }) {
   const isMilestone = section.node.nodeType === 'MILESTONE';
+  const lessonLabel = `${section.children.length} lesson${section.children.length === 1 ? '' : 's'}`;
+  const summaryContent = (
+    <>
+      <div
+        className={cn(
+          'flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold shadow-sm',
+          isMilestone ? 'text-primary-foreground bg-yellow-500' : 'bg-primary/10 text-primary',
+        )}
+      >
+        {isMilestone ? 'M' : 'G'}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="text-foreground text-sm font-semibold whitespace-normal">
+            {section.node.name}
+          </span>
+          <Badge variant={isMilestone ? 'default' : 'secondary'}>
+            {formatEnumLabel(section.node.nodeType)}
+          </Badge>
+          <Badge variant="outline">{lessonLabel}</Badge>
+        </div>
+        {section.node.description ? (
+          <p className="text-muted-foreground line-clamp-2 text-sm">{section.node.description}</p>
+        ) : null}
+      </div>
+    </>
+  );
 
   return (
     <section
       className={cn(
         'rounded-lg border',
-        isMilestone ? 'border-primary/30 bg-primary/5' : 'border-border bg-background/75',
+        isMilestone
+          ? 'border-yellow-300 bg-yellow-50/90 shadow-sm'
+          : 'border-primary/20 bg-background/90 shadow-sm',
       )}
     >
-      <div className="flex flex-col gap-3 p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-semibold">{section.node.name}</h3>
-              <Badge variant={isMilestone ? 'default' : 'secondary'}>
-                {formatEnumLabel(section.node.nodeType)}
-              </Badge>
-              <Badge variant="outline">{section.children.length} lessons</Badge>
-            </div>
-            {section.node.description ? (
-              <p className="text-muted-foreground mt-2 text-sm">{section.node.description}</p>
-            ) : null}
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <Button size="sm" variant="outline" onClick={onAddChild}>
-              Add lesson
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => onEditNode(section.node)}>
-              Edit
-            </Button>
-            <Button size="sm" variant="destructive" onClick={() => onDeleteNode(section.node)}>
-              Delete
-            </Button>
-          </div>
-        </div>
+      <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+        {isMilestone ? (
+          <div className="flex min-w-0 flex-1 items-center gap-3">{summaryContent}</div>
+        ) : (
+          <button
+            className="focus-visible:border-ring focus-visible:ring-ring/50 flex min-w-0 flex-1 items-center gap-3 rounded-md text-left outline-none focus-visible:ring-3"
+            type="button"
+            aria-expanded={isOpen}
+            onClick={onToggleSection}
+          >
+            {summaryContent}
+            <HugeiconsIcon
+              className={cn('shrink-0 transition-transform', isOpen && 'rotate-180')}
+              data-icon="inline-end"
+              icon={ArrowDown01Icon}
+            />
+          </button>
+        )}
 
-        <Separator />
-
-        <div className="flex flex-col gap-2">
-          {section.children.length > 0 ? (
-            section.children.map((node) => (
-              <LeafNodeRow
-                key={node.id}
-                node={node}
-                skills={skills}
-                onDelete={() => onDeleteNode(node)}
-                onEdit={() => onEditNode(node)}
-              />
-            ))
-          ) : (
-            <p className="text-muted-foreground px-1 py-3 text-sm">
-              No required or optional skills in this section.
-            </p>
-          )}
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={onAddChild}>
+            Add lesson
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => onEditNode(section.node)}>
+            Edit
+          </Button>
+          <Button size="sm" variant="destructive" onClick={() => onDeleteNode(section.node)}>
+            Delete
+          </Button>
         </div>
       </div>
+
+      {isOpen ? (
+        <>
+          <Separator />
+          <div className="flex flex-col gap-2 p-3">
+            {section.children.length > 0 ? (
+              section.children.map((node) => (
+                <LeafNodeRow
+                  key={node.id}
+                  node={node}
+                  skills={skills}
+                  onDelete={() => onDeleteNode(node)}
+                  onEdit={() => onEditNode(node)}
+                />
+              ))
+            ) : (
+              <p className="text-muted-foreground px-1 py-3 text-sm">
+                No required or optional skills in this section.
+              </p>
+            )}
+          </div>
+        </>
+      ) : null}
     </section>
   );
 }
@@ -427,7 +505,7 @@ function LeafNodeRow({
   const skillName = skills.find((skill) => skill.id === node.skillId)?.name;
 
   return (
-    <article className="border-border bg-card/80 rounded-md border p-3">
+    <article className="border-border/80 bg-background rounded-md border px-3 py-3 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -436,10 +514,12 @@ function LeafNodeRow({
               {formatEnumLabel(node.nodeType)}
             </Badge>
           </div>
-          <p className="text-muted-foreground mt-1 text-xs">
-            {skillName ?? node.skillId ?? 'No skill linked'}
-            {node.estimatedHours === null ? '' : ` - ${node.estimatedHours}h`}
-          </p>
+          <div className="text-muted-foreground mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+            <span>{skillName ?? node.skillId ?? 'No skill linked'}</span>
+            <span>
+              {node.estimatedHours === null ? 'Hours not set' : `${node.estimatedHours} hours`}
+            </span>
+          </div>
         </div>
         <div className="flex shrink-0 gap-2">
           <Button size="sm" variant="outline" onClick={onEdit}>

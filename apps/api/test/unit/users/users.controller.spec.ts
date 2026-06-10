@@ -2,7 +2,7 @@
 import type { TestingModule } from '@nestjs/testing';
 
 import { Test } from '@nestjs/testing';
-import { OAuthProvider } from '@repo/db/prisma/client';
+import { OAuthProvider, UserRole } from '@repo/db/prisma/client';
 
 import { UsersController } from '@/modules/users/users.controller';
 import { UsersService } from '@/modules/users/users.service';
@@ -58,6 +58,20 @@ describe('UsersController', () => {
         role: 'user',
         createdAt: new Date('2025-04-24T07:00:00Z'),
       });
+    });
+
+    it('should serialize an admin role as lowercase admin', () => {
+      const mockUser = {
+        id: '1',
+        email: 'admin@example.com',
+        fullName: 'Admin User',
+        role: UserRole.ADMIN,
+        createdAt: new Date('2025-04-24T07:00:00Z'),
+      };
+
+      const result = controller.getMe(mockUser);
+
+      expect(result.role).toBe('admin');
     });
   });
 

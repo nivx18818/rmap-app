@@ -1,10 +1,12 @@
+export type AuthRole = 'ADMIN' | 'USER';
+
 export interface AuthUser {
   avatarUrl: string;
   createdAt?: string;
   email: string;
   fullName: string;
   id: string;
-  role?: string;
+  role?: AuthRole;
 }
 
 export interface AuthApiUser {
@@ -13,7 +15,7 @@ export interface AuthApiUser {
   email: string;
   fullName: string;
   id: string;
-  role?: string;
+  role?: null | string;
 }
 
 export type OAuthProvider = 'GITHUB' | 'GOOGLE';

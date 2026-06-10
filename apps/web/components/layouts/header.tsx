@@ -7,6 +7,7 @@ import {
   Logout02Icon,
   MapsIcon,
   Menu07Icon,
+  SecurityIcon,
   UserCircleIcon,
 } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -38,6 +39,7 @@ export function Header() {
   const { isAuthenticated, isLoading, signOut, user } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const isAdmin = user?.role === 'ADMIN';
   const userFirstName = user?.fullName?.trim().split(/\s+/)[0];
   const userDisplayName = userFirstName || 'My Profile';
   const userMenuAriaLabel = userFirstName
@@ -84,6 +86,12 @@ export function Header() {
 
   const userMenuContent = (
     <DropdownMenuContent className="w-44" align="end">
+      {isAdmin && (
+        <DropdownMenuItem render={<Link href={'/admin' as Route<string>} />}>
+          <HugeiconsIcon className="size-4" icon={SecurityIcon} />
+          Admin
+        </DropdownMenuItem>
+      )}
       <DropdownMenuItem render={<Link href={'/dashboard' as Route<string>} />}>
         <HugeiconsIcon className="size-4" icon={DashboardBrowsingIcon} />
         Dashboard
@@ -286,6 +294,15 @@ export function Header() {
                       <HugeiconsIcon className="size-4" icon={MapsIcon} />
                       Dashboard
                     </DropdownMenuItem>
+                    {isAdmin && (
+                      <DropdownMenuItem
+                        render={<Link href={'/admin' as Route<string>} />}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <HugeiconsIcon className="size-4" icon={SecurityIcon} />
+                        Admin
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem
                       render={<Link href={'/profile' as Route<string>} />}
                       onClick={() => setIsMobileMenuOpen(false)}

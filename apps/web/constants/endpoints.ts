@@ -1,6 +1,15 @@
 export const API_BASE_PATH = process.env.NEXT_PUBLIC_API_BASE_PATH ?? '/api/v1';
 
 export const ENDPOINTS = {
+  admin: {
+    skills: {
+      byId: (skillId: string) => `/admin/skills/${skillId}`,
+      list: '/admin/skills',
+      resourceById: (skillId: string, resourceId: number) =>
+        `/admin/skills/${skillId}/resources/${resourceId}`,
+      resources: (skillId: string) => `/admin/skills/${skillId}/resources`,
+    },
+  },
   auth: {
     changePassword: '/auth/password',
     forgotPassword: '/auth/password/forgot',

@@ -1,6 +1,8 @@
 import { ResourceType, RoleCategory, UserRole } from '@repo/db/prisma/client';
 import request from 'supertest';
 
+import { ErrorCode } from '@/common/constants/error-codes';
+
 import { getCookieHeader } from './utils/cookies';
 import { seedUser, uniqueEmail } from './utils/database';
 import { setupIntegrationTest } from './utils/integration-test-context';
@@ -195,7 +197,7 @@ describe('Admin skill resource management (integration)', () => {
     });
   });
 
-  it('allows additional primary resources and returns 404 for missing references', async () => {
+  it('rejects third primary resources and returns 404 for missing references', async () => {
     const admin = await seedUser(integration.prisma, {
       email: uniqueEmail('resource-error-admin'),
       role: UserRole.ADMIN,
@@ -253,12 +255,11 @@ describe('Admin skill resource management (integration)', () => {
         title: 'Third primary',
         url: 'https://example.test/third',
       })
-      .expect(201);
+      .expect(409);
 
     expect(thirdPrimaryResponse.body).toMatchObject({
-      isPrimary: true,
-      resourceType: ResourceType.COURSE,
-      title: 'Third primary',
+      code: ErrorCode.SKILL_PRIMARY_RESOURCES_LIMIT,
+      message: 'Skill already has 2 primary resources',
     });
 
     await request(integration.app.getHttpServer())

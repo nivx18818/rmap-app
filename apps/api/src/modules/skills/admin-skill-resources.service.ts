@@ -3,6 +3,7 @@ import { type Prisma, type Resource } from '@repo/db/prisma/client';
 
 import {
   ResourceNotFoundException,
+  SkillPrimaryResourcesLimitException,
   SkillNotFoundException,
 } from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
@@ -57,6 +58,9 @@ export class AdminSkillResourcesService {
       await this.findSkillOrThrow(skillId, tx);
 
       const isPrimary = dto.isPrimary ?? false;
+      if (isPrimary) {
+        await this.ensurePrimaryResourceLimit(skillId, tx);
+      }
 
       return tx.resource.create({
         data: {
@@ -81,7 +85,10 @@ export class AdminSkillResourcesService {
   ): Promise<SkillResourceResponse> {
     const resource = await this.prisma.$transaction(async (tx) => {
       await this.findSkillOrThrow(skillId, tx);
-      await this.findResourceOrThrow(skillId, resourceId, tx);
+      const existingResource = await this.findResourceOrThrow(skillId, resourceId, tx);
+      if (dto.isPrimary === true && !existingResource.isPrimary) {
+        await this.ensurePrimaryResourceLimit(skillId, tx, resourceId);
+      }
 
       return tx.resource.update({
         data: {
@@ -97,6 +104,24 @@ export class AdminSkillResourcesService {
     });
 
     return this.formatResource(resource);
+  }
+
+  private async ensurePrimaryResourceLimit(
+    skillId: string,
+    prisma: Pick<PrismaService, 'resource'>,
+    excludedResourceId?: number,
+  ): Promise<void> {
+    const primaryResourceCount = await prisma.resource.count({
+      where: {
+        ...(excludedResourceId ? { id: { not: excludedResourceId } } : {}),
+        isPrimary: true,
+        skillId,
+      },
+    });
+
+    if (primaryResourceCount >= 2) {
+      throw new SkillPrimaryResourcesLimitException();
+    }
   }
 
   async deleteResource(skillId: string, resourceId: number): Promise<void> {

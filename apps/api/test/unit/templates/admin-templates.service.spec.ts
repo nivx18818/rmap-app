@@ -14,6 +14,7 @@ import {
   TemplateNodeInvalidValueException,
 } from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
+import { DagreLayoutService } from '@/modules/roadmaps/services/dagre-layout.service';
 import { AdminTemplatesService } from '@/modules/templates/admin-templates.service';
 
 type AsyncMock<TResult = unknown, TArgs extends unknown[] = unknown[]> = jest.Mock<
@@ -67,10 +68,13 @@ interface AdminTemplatesPrismaMock {
     update: AsyncMock<TemplateRoadmapRecord>;
   };
   roadmapNode: {
+    count: AsyncMock<number>;
     create: AsyncMock<TemplateNodeRecord>;
     deleteMany: AsyncMock<{ count: number }>;
+    findMany: AsyncMock<TemplateNodeRecord[]>;
     findFirst: AsyncMock<{ id: string; nodeType?: NodeType } | TemplateNodeRecord | null>;
     update: AsyncMock<TemplateNodeRecord>;
+    updateMany: AsyncMock<{ count: number }>;
   };
   skill: {
     findUnique: AsyncMock<{ id: string; roleCategory: RoleCategory | null } | null>;
@@ -172,13 +176,16 @@ const createPrismaMock = (txMock: TxMock): AdminTemplatesPrismaMock => ({
     update: jest.fn<Promise<TemplateRoadmapRecord>, unknown[]>(),
   },
   roadmapNode: {
+    count: jest.fn<Promise<number>, unknown[]>().mockResolvedValue(0),
     create: jest.fn<Promise<TemplateNodeRecord>, unknown[]>(),
     deleteMany: jest.fn<Promise<{ count: number }>, unknown[]>(),
+    findMany: jest.fn<Promise<TemplateNodeRecord[]>, unknown[]>().mockResolvedValue([]),
     findFirst: jest.fn<
       Promise<{ id: string; nodeType?: NodeType } | TemplateNodeRecord | null>,
       unknown[]
     >(),
     update: jest.fn<Promise<TemplateNodeRecord>, unknown[]>(),
+    updateMany: jest.fn<Promise<{ count: number }>, unknown[]>().mockResolvedValue({ count: 1 }),
   },
   skill: {
     findUnique: jest.fn<
@@ -192,14 +199,27 @@ describe('AdminTemplatesService', () => {
   let service: AdminTemplatesService;
   let prisma: AdminTemplatesPrismaMock;
   let txMock: TxMock;
+  let dagreLayout: jest.Mocked<Pick<DagreLayoutService, 'computeLayout'>>;
 
   beforeEach(async () => {
     txMock = makeTxMock();
     const prismaMock = createPrismaMock(txMock);
+    dagreLayout = {
+      computeLayout: jest.fn(
+        (nodes: Parameters<DagreLayoutService['computeLayout']>[0]) =>
+          new Map(
+            nodes.map((node, index) => [node.tempId, { posX: index * 100, posY: index * 50 }]),
+          ),
+      ),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AdminTemplatesService,
+        {
+          provide: DagreLayoutService,
+          useValue: dagreLayout,
+        },
         {
           provide: PrismaService,
           useValue: prismaMock,
@@ -372,6 +392,35 @@ describe('AdminTemplatesService', () => {
       prisma.roadmap.findFirst.mockResolvedValue(makeTemplate());
     });
 
+    it('lists nodes for a template in persisted layout order', async () => {
+      const group = makeNode({
+        estimatedHours: null,
+        id: parentId,
+        name: 'Foundations',
+        nodeType: NodeType.GROUP,
+        parentId: null,
+        skillId: null,
+      });
+      const leaf = makeNode();
+
+      prisma.roadmapNode.findMany.mockResolvedValue([group, leaf]);
+
+      const result = await service.listNodes(templateId);
+
+      expect(prisma.roadmapNode.findMany).toHaveBeenCalledWith({
+        orderBy: [{ posY: 'asc' }, { posX: 'asc' }, { id: 'asc' }],
+        select: expectAnyObject(),
+        where: {
+          roadmap: { isTemplate: true },
+          roadmapId: templateId,
+        },
+      });
+      expect(result.nodes).toEqual([
+        expect.objectContaining({ id: parentId, nodeType: NodeType.GROUP }),
+        expect.objectContaining({ id: nodeId, nodeType: NodeType.REQUIRED }),
+      ]);
+    });
+
     it('creates a group node without parent, skill, description, or hours', async () => {
       const group = makeNode({
         estimatedHours: null,
@@ -383,12 +432,12 @@ describe('AdminTemplatesService', () => {
       });
 
       prisma.roadmapNode.create.mockResolvedValue(group);
+      prisma.roadmapNode.findMany.mockResolvedValue([group]);
+      prisma.roadmapNode.findFirst.mockResolvedValue(group);
 
       const result = await service.createNode(templateId, {
         name: 'Foundations',
         nodeType: NodeType.GROUP,
-        posX: 0,
-        posY: 0,
       });
 
       expect(prisma.roadmapNode.create).toHaveBeenCalledWith({
@@ -405,14 +454,42 @@ describe('AdminTemplatesService', () => {
         },
         select: expectAnyObject(),
       });
+      expect(dagreLayout.computeLayout).toHaveBeenCalledWith([
+        expect.objectContaining({
+          nodeType: NodeType.GROUP,
+          realId: parentId,
+          tempId: parentId,
+        }),
+      ]);
+      expect(prisma.roadmapNode.updateMany).toHaveBeenCalledWith({
+        data: {
+          posX: 0,
+          posY: 0,
+        },
+        where: {
+          id: parentId,
+          roadmapId: templateId,
+        },
+      });
       expect(prisma.skill.findUnique).not.toHaveBeenCalled();
       expect(result.nodeType).toBe(NodeType.GROUP);
     });
 
-    it('creates a leaf node when parent is a same-template group and skill exists', async () => {
+    it('creates a leaf node when parent is a same-template section and skill exists', async () => {
+      const group = makeNode({
+        estimatedHours: null,
+        id: parentId,
+        name: 'Foundations',
+        nodeType: NodeType.MILESTONE,
+        parentId: null,
+        skillId: null,
+      });
       const node = makeNode();
 
-      prisma.roadmapNode.findFirst.mockResolvedValue({ id: parentId });
+      prisma.roadmapNode.findFirst
+        .mockResolvedValueOnce({ id: parentId })
+        .mockResolvedValueOnce(node);
+      prisma.roadmapNode.findMany.mockResolvedValue([group, node]);
       prisma.skill.findUnique.mockResolvedValue({
         id: skillId,
         roleCategory: RoleCategory.WEB_DEVELOPMENT,
@@ -424,8 +501,6 @@ describe('AdminTemplatesService', () => {
         name: 'HTTP APIs',
         nodeType: NodeType.REQUIRED,
         parentId,
-        posX: 100,
-        posY: 200,
         skillId,
       });
 
@@ -433,7 +508,7 @@ describe('AdminTemplatesService', () => {
         select: { id: true },
         where: {
           id: parentId,
-          nodeType: NodeType.GROUP,
+          nodeType: { in: [NodeType.GROUP, NodeType.MILESTONE] },
           roadmap: { isTemplate: true },
           roadmapId: templateId,
         },
@@ -447,41 +522,44 @@ describe('AdminTemplatesService', () => {
 
     it('updates nodes after merging existing state with the dto', async () => {
       const existing = makeNode();
-      const updated = makeNode({ posX: 120 });
+      const updated = makeNode({ estimatedHours: 7 });
+      const relaid = makeNode({ estimatedHours: 7, posX: 0, posY: 0 });
 
       prisma.roadmapNode.findFirst
         .mockResolvedValueOnce(existing)
-        .mockResolvedValueOnce({ id: parentId });
+        .mockResolvedValueOnce({ id: parentId })
+        .mockResolvedValueOnce(relaid);
+      prisma.roadmapNode.findMany.mockResolvedValue([updated]);
       prisma.skill.findUnique.mockResolvedValue({
         id: skillId,
         roleCategory: RoleCategory.WEB_DEVELOPMENT,
       });
       prisma.roadmapNode.update.mockResolvedValue(updated);
 
-      const result = await service.updateNode(templateId, nodeId, { posX: 120 });
+      const result = await service.updateNode(templateId, nodeId, { estimatedHours: 7 });
 
       expect(prisma.roadmapNode.update).toHaveBeenCalledWith({
-        data: { posX: 120 },
+        data: { estimatedHours: 7 },
         select: expectAnyObject(),
         where: { id: nodeId },
       });
-      expect(result.posX).toBe(120);
+      expect(dagreLayout.computeLayout).toHaveBeenCalledTimes(1);
+      expect(result.estimatedHours).toBe(7);
+      expect(result.posX).toBe(0);
     });
 
     it('throws RoadmapNodeNotFoundException when updating a missing node', async () => {
       prisma.roadmapNode.findFirst.mockResolvedValue(null);
 
-      await expect(service.updateNode(templateId, nodeId, { posX: 100 })).rejects.toThrow(
-        RoadmapNodeNotFoundException,
-      );
+      await expect(
+        service.updateNode(templateId, nodeId, { name: 'Missing Node' }),
+      ).rejects.toThrow(RoadmapNodeNotFoundException);
     });
 
     it('rejects invalid group and milestone node shapes', async () => {
       const groupPromise = service.createNode(templateId, {
         name: 'Bad Group',
         nodeType: NodeType.GROUP,
-        posX: 0,
-        posY: 0,
         skillId,
       });
 
@@ -493,8 +571,6 @@ describe('AdminTemplatesService', () => {
           estimatedHours: 1,
           name: 'Bad Milestone',
           nodeType: NodeType.MILESTONE,
-          posX: 0,
-          posY: 0,
         }),
       ).rejects.toThrow(TemplateNodeInvalidShapeException);
     });
@@ -503,8 +579,6 @@ describe('AdminTemplatesService', () => {
       const missingParentPromise = service.createNode(templateId, {
         name: 'No Parent',
         nodeType: NodeType.REQUIRED,
-        posX: 0,
-        posY: 0,
         skillId,
       });
 
@@ -516,13 +590,11 @@ describe('AdminTemplatesService', () => {
           name: 'No Skill',
           nodeType: NodeType.OPTIONAL,
           parentId,
-          posX: 0,
-          posY: 0,
         }),
       ).rejects.toThrow(TemplateNodeInvalidReferenceException);
     });
 
-    it('rejects invalid, cross-template, and non-group parents', async () => {
+    it('rejects invalid, cross-template, and non-section parents', async () => {
       prisma.roadmapNode.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -530,8 +602,6 @@ describe('AdminTemplatesService', () => {
           name: 'Bad Parent',
           nodeType: NodeType.REQUIRED,
           parentId: otherTemplateId,
-          posX: 0,
-          posY: 0,
           skillId,
         }),
       ).rejects.toThrow(TemplateNodeInvalidReferenceException);
@@ -546,8 +616,6 @@ describe('AdminTemplatesService', () => {
           name: 'Unknown Skill',
           nodeType: NodeType.REQUIRED,
           parentId,
-          posX: 0,
-          posY: 0,
           skillId,
         }),
       ).rejects.toThrow(SkillNotFoundException);
@@ -565,19 +633,24 @@ describe('AdminTemplatesService', () => {
           name: 'Wrong Skill',
           nodeType: NodeType.REQUIRED,
           parentId,
-          posX: 0,
-          posY: 0,
           skillId,
         }),
       ).rejects.toThrow(TemplateNodeInvalidReferenceException);
     });
 
-    it('rejects bad layout values at the service layer', async () => {
+    it('rejects bad estimated hour values at the service layer', async () => {
+      prisma.roadmapNode.findFirst.mockResolvedValue({ id: parentId });
+      prisma.skill.findUnique.mockResolvedValue({
+        id: skillId,
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+      });
+
       const promise = service.createNode(templateId, {
+        estimatedHours: Number.NaN,
         name: 'Bad Layout',
-        nodeType: NodeType.GROUP,
-        posX: Number.NaN,
-        posY: 0,
+        nodeType: NodeType.REQUIRED,
+        parentId,
+        skillId,
       });
 
       await expect(promise).rejects.toThrow(TemplateNodeInvalidValueException);
@@ -610,16 +683,16 @@ describe('AdminTemplatesService', () => {
       expect(txMock.roadmapNode.deleteMany).toHaveBeenNthCalledWith(2, {
         where: {
           id: parentId,
-          nodeType: NodeType.GROUP,
+          nodeType: { in: [NodeType.GROUP, NodeType.MILESTONE] },
           roadmapId: templateId,
         },
       });
     });
 
-    it('deletes non-group nodes without deleting siblings', async () => {
+    it('deletes leaf nodes without deleting siblings', async () => {
       prisma.roadmapNode.findFirst.mockResolvedValue({
         id: nodeId,
-        nodeType: NodeType.MILESTONE,
+        nodeType: NodeType.REQUIRED,
       });
       prisma.roadmapNode.deleteMany.mockResolvedValue({ count: 1 });
 

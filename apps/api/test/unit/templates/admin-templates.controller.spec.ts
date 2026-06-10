@@ -24,6 +24,7 @@ describe('AdminTemplatesController', () => {
     deleteNode: jest.fn(),
     deleteTemplate: jest.fn(),
     getTemplate: jest.fn(),
+    listNodes: jest.fn(),
     listTemplates: jest.fn(),
     updateNode: jest.fn(),
     updateTemplate: jest.fn(),
@@ -124,8 +125,6 @@ describe('AdminTemplatesController', () => {
       name: 'HTTP APIs',
       nodeType: NodeType.REQUIRED,
       parentId: nodeId,
-      posX: 100,
-      posY: 200,
       skillId: '6f9619ff-8b86-d011-b42d-00cf4fc964ff',
     };
     const response = { id: nodeId };
@@ -138,9 +137,20 @@ describe('AdminTemplatesController', () => {
     expect(result).toEqual(response);
   });
 
+  it('delegates node listing with path params', async () => {
+    const response = { nodes: [{ id: nodeId }] };
+
+    mockAdminTemplatesService.listNodes.mockResolvedValue(response);
+
+    const result = await controller.listNodes({ templateId });
+
+    expect(mockAdminTemplatesService.listNodes).toHaveBeenCalledWith(templateId);
+    expect(result).toEqual(response);
+  });
+
   it('delegates node updates with path params and body dto', async () => {
-    const dto = { posX: 120 };
-    const response = { id: nodeId, posX: 120 };
+    const dto = { name: 'Updated HTTP APIs' };
+    const response = { id: nodeId, name: dto.name };
 
     mockAdminTemplatesService.updateNode.mockResolvedValue(response);
 
@@ -181,6 +191,7 @@ describe('AdminTemplatesController access', () => {
     deleteNode: jest.fn(),
     deleteTemplate: jest.fn(),
     getTemplate: jest.fn(),
+    listNodes: jest.fn(),
     listTemplates: jest.fn(),
     updateNode: jest.fn(),
     updateTemplate: jest.fn(),

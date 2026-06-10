@@ -19,6 +19,7 @@ import { Roles } from '@/common/decorators/roles.decorator';
 import type {
   AdminTemplatesListResponse,
   TemplateNodeResponse,
+  TemplateNodesListResponse,
 } from './types/admin-template-response.types';
 
 import { AdminTemplatesService } from './admin-templates.service';
@@ -60,6 +61,11 @@ export class AdminTemplatesController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param() params: TemplateIdParamDto): Promise<void> {
     await this.adminTemplatesService.deleteTemplate(params.templateId);
+  }
+
+  @Get(':templateId/nodes')
+  async listNodes(@Param() params: TemplateIdParamDto): Promise<TemplateNodesListResponse> {
+    return this.adminTemplatesService.listNodes(params.templateId);
   }
 
   @Post(':templateId/nodes')

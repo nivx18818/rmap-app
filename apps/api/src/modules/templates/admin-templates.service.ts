@@ -8,6 +8,7 @@ import {
 } from '@repo/db/prisma/client';
 
 import type { RoadmapResponseDto } from '@/modules/roadmaps/dto/roadmap-response.dto';
+import type { FlatNode } from '@/modules/roadmaps/types/ai-roadmap.types';
 
 import {
   RoadmapNodeNotFoundException,
@@ -18,6 +19,7 @@ import {
   TemplateNodeInvalidValueException,
 } from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
+import { DagreLayoutService } from '@/modules/roadmaps/services/dagre-layout.service';
 
 import type { CreateTemplateNodeDto, UpdateTemplateNodeDto } from './dto/admin-template-node.dto';
 import type { ListAdminTemplatesQueryDto } from './dto/admin-template-query.dto';
@@ -25,11 +27,13 @@ import type { CreateTemplateDto, UpdateTemplateDto } from './dto/admin-template.
 import type {
   AdminTemplatesListResponse,
   TemplateNodeResponse,
+  TemplateNodesListResponse,
 } from './types/admin-template-response.types';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PER_PAGE = 20;
 const LEAF_NODE_TYPES: NodeType[] = [NodeType.REQUIRED, NodeType.OPTIONAL];
+const AXIS_NODE_TYPES: NodeType[] = [NodeType.GROUP, NodeType.MILESTONE];
 
 const TEMPLATE_ROADMAP_SELECT = {
   deadlineDate: true,
@@ -74,8 +78,6 @@ type NodeState = {
   name: string;
   nodeType: NodeType;
   parentId: null | string;
-  posX: DecimalLike | number;
-  posY: DecimalLike | number;
   skillId: null | string;
 };
 
@@ -86,7 +88,10 @@ type TemplateSummary = {
 
 @Injectable()
 export class AdminTemplatesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly dagreLayout: DagreLayoutService,
+  ) {}
 
   async listTemplates(query: ListAdminTemplatesQueryDto): Promise<AdminTemplatesListResponse> {
     const page = query.page ?? DEFAULT_PAGE;
@@ -168,6 +173,23 @@ export class AdminTemplatesService {
     }
   }
 
+  async listNodes(templateId: string): Promise<TemplateNodesListResponse> {
+    await this.findTemplateOrThrow(templateId);
+
+    const nodes = await this.prisma.roadmapNode.findMany({
+      orderBy: [{ posY: 'asc' }, { posX: 'asc' }, { id: 'asc' }],
+      select: TEMPLATE_NODE_SELECT,
+      where: {
+        roadmapId: templateId,
+        roadmap: { isTemplate: true },
+      },
+    });
+
+    return {
+      nodes: nodes.map((node) => this.formatNode(node)),
+    };
+  }
+
   async createNode(templateId: string, dto: CreateTemplateNodeDto): Promise<TemplateNodeResponse> {
     const template = await this.findTemplateOrThrow(templateId);
     const state = {
@@ -176,8 +198,6 @@ export class AdminTemplatesService {
       name: dto.name,
       nodeType: dto.nodeType,
       parentId: dto.parentId ?? null,
-      posX: dto.posX,
-      posY: dto.posY,
       skillId: dto.skillId ?? null,
     } satisfies NodeState;
 
@@ -190,15 +210,17 @@ export class AdminTemplatesService {
         name: state.name,
         nodeType: state.nodeType,
         parentId: state.parentId,
-        posX: state.posX,
-        posY: state.posY,
+        posX: 0,
+        posY: 0,
         roadmapId: templateId,
         skillId: state.skillId,
       },
       select: TEMPLATE_NODE_SELECT,
     });
 
-    return this.formatNode(node);
+    await this.recalculateTemplateLayout(templateId);
+
+    return this.formatNode(await this.findNodeOrThrow(templateId, node.id));
   }
 
   async updateNode(
@@ -218,12 +240,10 @@ export class AdminTemplatesService {
       name: this.hasOwn(dto, 'name') ? dto.name! : existingNode.name,
       nodeType: this.hasOwn(dto, 'nodeType') ? dto.nodeType! : existingNode.nodeType,
       parentId: this.hasOwn(dto, 'parentId') ? (dto.parentId ?? null) : existingNode.parentId,
-      posX: this.hasOwn(dto, 'posX') ? dto.posX! : existingNode.posX,
-      posY: this.hasOwn(dto, 'posY') ? dto.posY! : existingNode.posY,
       skillId: this.hasOwn(dto, 'skillId') ? (dto.skillId ?? null) : existingNode.skillId,
     } satisfies NodeState;
 
-    await this.validateNodeState(template, state);
+    await this.validateNodeState(template, state, nodeId);
 
     const node = await this.prisma.roadmapNode.update({
       data: {
@@ -232,15 +252,15 @@ export class AdminTemplatesService {
         ...(this.hasOwn(dto, 'name') ? { name: state.name } : {}),
         ...(this.hasOwn(dto, 'nodeType') ? { nodeType: state.nodeType } : {}),
         ...(this.hasOwn(dto, 'parentId') ? { parentId: state.parentId } : {}),
-        ...(this.hasOwn(dto, 'posX') ? { posX: state.posX } : {}),
-        ...(this.hasOwn(dto, 'posY') ? { posY: state.posY } : {}),
         ...(this.hasOwn(dto, 'skillId') ? { skillId: state.skillId } : {}),
       },
       select: TEMPLATE_NODE_SELECT,
       where: { id: nodeId },
     });
 
-    return this.formatNode(node);
+    await this.recalculateTemplateLayout(templateId);
+
+    return this.formatNode(await this.findNodeOrThrow(templateId, node.id));
   }
 
   async deleteNode(templateId: string, nodeId: string): Promise<void> {
@@ -262,7 +282,7 @@ export class AdminTemplatesService {
       throw new RoadmapNodeNotFoundException(nodeId);
     }
 
-    if (node.nodeType === NodeType.GROUP) {
+    if (AXIS_NODE_TYPES.includes(node.nodeType)) {
       await this.prisma.$transaction(async (tx) => {
         await tx.roadmapNode.deleteMany({
           where: {
@@ -275,11 +295,12 @@ export class AdminTemplatesService {
         await tx.roadmapNode.deleteMany({
           where: {
             id: nodeId,
-            nodeType: NodeType.GROUP,
+            nodeType: { in: AXIS_NODE_TYPES },
             roadmapId: templateId,
           },
         });
       });
+      await this.recalculateTemplateLayout(templateId);
       return;
     }
 
@@ -293,6 +314,8 @@ export class AdminTemplatesService {
     if (result.count === 0) {
       throw new RoadmapNodeNotFoundException(nodeId);
     }
+
+    await this.recalculateTemplateLayout(templateId);
   }
 
   private buildTemplateWhere(query: ListAdminTemplatesQueryDto): Prisma.RoadmapWhereInput {
@@ -348,10 +371,11 @@ export class AdminTemplatesService {
     return node;
   }
 
-  private async validateNodeState(template: TemplateSummary, state: NodeState): Promise<void> {
-    this.assertFiniteNumber('posX', state.posX);
-    this.assertFiniteNumber('posY', state.posY);
-
+  private async validateNodeState(
+    template: TemplateSummary,
+    state: NodeState,
+    currentNodeId?: string,
+  ): Promise<void> {
     if (state.estimatedHours !== null) {
       this.assertFiniteNumber('estimatedHours', state.estimatedHours);
       if (this.toNumber(state.estimatedHours) < 0) {
@@ -380,18 +404,22 @@ export class AdminTemplatesService {
     }
 
     if (!state.parentId) {
-      throw new TemplateNodeInvalidReferenceException('Leaf nodes require a parent group');
+      throw new TemplateNodeInvalidReferenceException('Leaf nodes require a parent section');
     }
 
     if (!state.skillId) {
       throw new TemplateNodeInvalidReferenceException('Leaf nodes require a skill');
     }
 
+    if (state.parentId === currentNodeId) {
+      throw new TemplateNodeInvalidReferenceException('Leaf nodes cannot be their own parent');
+    }
+
     const parent = await this.prisma.roadmapNode.findFirst({
       select: { id: true },
       where: {
         id: state.parentId,
-        nodeType: NodeType.GROUP,
+        nodeType: { in: AXIS_NODE_TYPES },
         roadmapId: template.id,
         roadmap: { isTemplate: true },
       },
@@ -399,8 +427,23 @@ export class AdminTemplatesService {
 
     if (!parent) {
       throw new TemplateNodeInvalidReferenceException(
-        'Leaf node parent must be a group in the same template',
+        'Leaf node parent must be a group or milestone in the same template',
       );
+    }
+
+    if (currentNodeId && LEAF_NODE_TYPES.includes(state.nodeType)) {
+      const childrenCount = await this.prisma.roadmapNode.count({
+        where: {
+          parentId: currentNodeId,
+          roadmapId: template.id,
+        },
+      });
+
+      if (childrenCount > 0) {
+        throw new TemplateNodeInvalidShapeException(
+          'Section nodes with children cannot be converted to leaf nodes',
+        );
+      }
     }
 
     const skill = await this.prisma.skill.findUnique({
@@ -420,6 +463,51 @@ export class AdminTemplatesService {
         'Skill role category does not match the template',
       );
     }
+  }
+
+  private async recalculateTemplateLayout(templateId: string): Promise<void> {
+    const nodes = await this.prisma.roadmapNode.findMany({
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: TEMPLATE_NODE_SELECT,
+      where: {
+        roadmapId: templateId,
+        roadmap: { isTemplate: true },
+      },
+    });
+
+    if (nodes.length === 0) {
+      return;
+    }
+
+    const flatNodes = nodes.map<FlatNode>((node) => ({
+      description: node.description,
+      estimatedHours: this.formatDecimal(node.estimatedHours),
+      name: node.name,
+      nodeType: node.nodeType,
+      realId: node.id,
+      realParentId: node.parentId,
+      skillId: node.skillId,
+      tempId: node.id,
+      tempParentId: node.parentId,
+    }));
+    const layout = this.dagreLayout.computeLayout(flatNodes);
+
+    await this.prisma.$transaction(
+      nodes.map((node) => {
+        const position = layout.get(node.id) ?? { posX: 0, posY: 0 };
+
+        return this.prisma.roadmapNode.updateMany({
+          data: {
+            posX: position.posX,
+            posY: position.posY,
+          },
+          where: {
+            id: node.id,
+            roadmapId: templateId,
+          },
+        });
+      }),
+    );
   }
 
   private assertNullFields(state: NodeState, fields: Array<keyof NodeState>): void {

@@ -8,25 +8,45 @@ import type { Dashboard } from '../_types/dashboard.types';
 
 const DASHBOARD_ERROR_MESSAGE = 'Unable to load your dashboard.';
 
+interface RefreshDashboardOptions {
+  silent?: boolean;
+}
+
 export function useDashboard() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const refreshDashboard = useCallback(async () => {
-    setIsLoading(true);
-    setErrorMessage(null);
+  const refreshDashboard = useCallback(async (options: RefreshDashboardOptions = {}) => {
+    const isSilent = options.silent ?? false;
+
+    if (!isSilent) {
+      setIsLoading(true);
+      setErrorMessage(null);
+    }
 
     try {
       const response = await dashboardService.getDashboard();
       setDashboard(response);
+      setErrorMessage(null);
     } catch {
-      setDashboard(null);
-      setErrorMessage(DASHBOARD_ERROR_MESSAGE);
+      if (!isSilent) {
+        setDashboard(null);
+        setErrorMessage(DASHBOARD_ERROR_MESSAGE);
+      }
     } finally {
-      setIsLoading(false);
+      if (!isSilent) {
+        setIsLoading(false);
+      }
     }
   }, []);
+
+  const updateDashboard = useCallback(
+    (updater: (dashboard: Dashboard | null) => Dashboard | null) => {
+      setDashboard(updater);
+    },
+    [],
+  );
 
   useEffect(() => {
     void refreshDashboard();
@@ -37,5 +57,6 @@ export function useDashboard() {
     errorMessage,
     isLoading,
     refreshDashboard,
+    updateDashboard,
   };
 }

@@ -33,6 +33,10 @@ function getDefaultFocusRoadmap(roadmaps: DashboardRoadmap[]): DashboardRoadmap 
   );
 }
 
+function getActiveRoadmap(roadmaps: DashboardRoadmap[]): DashboardRoadmap | null {
+  return roadmaps.find((roadmap) => roadmap.startedAt !== null) ?? null;
+}
+
 function DashboardSkeleton() {
   return (
     <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
@@ -59,7 +63,7 @@ function DashboardSkeleton() {
 }
 
 export function DashboardContent() {
-  const { dashboard, errorMessage, isLoading, refreshDashboard } = useDashboard();
+  const { dashboard, errorMessage, isLoading, refreshDashboard, updateDashboard } = useDashboard();
   const [selectedRoadmapId, setSelectedRoadmapId] = useState<null | string>(null);
   const roadmaps = dashboard?.roadmaps ?? EMPTY_ACTIVE_ROADMAPS;
   const defaultFocusRoadmap = useMemo(() => getDefaultFocusRoadmap(roadmaps), [roadmaps]);
@@ -68,6 +72,27 @@ export function DashboardContent() {
   const hasAnyRoadmap = dashboard ? dashboard.roadmaps.length > 0 : false;
 
   const handleRemoveRoadmap = async (roadmap: DashboardRoadmap): Promise<boolean> => {
+    const previousDashboard = dashboard;
+    const previousSelectedRoadmapId = selectedRoadmap?.roadmapId ?? selectedRoadmapId;
+
+    updateDashboard((currentDashboard) => {
+      if (!currentDashboard) return currentDashboard;
+
+      const remainingRoadmaps = currentDashboard.roadmaps.filter(
+        (dashboardRoadmap) => dashboardRoadmap.roadmapId !== roadmap.roadmapId,
+      );
+
+      return {
+        ...currentDashboard,
+        activeRoadmap: getActiveRoadmap(remainingRoadmaps),
+        roadmaps: remainingRoadmaps,
+      };
+    });
+
+    if (selectedRoadmap?.roadmapId === roadmap.roadmapId) {
+      setSelectedRoadmapId(null);
+    }
+
     try {
       if (roadmap.isTemplate) {
         await roadmapService.deleteTemplateProgress(roadmap.roadmapId);
@@ -77,13 +102,12 @@ export function DashboardContent() {
         toast.success('Roadmap deleted successfully');
       }
 
-      if (selectedRoadmapId === roadmap.roadmapId) {
-        setSelectedRoadmapId(null);
-      }
-
-      await refreshDashboard();
+      void refreshDashboard({ silent: true });
       return true;
     } catch (error) {
+      updateDashboard(() => previousDashboard);
+      setSelectedRoadmapId(previousSelectedRoadmapId);
+
       if (roadmap.isTemplate && isAxiosError(error) && error.response?.status === 409) {
         toast.error('Learning progress cannot be deleted while a milestone submission is running.');
       } else {
@@ -138,7 +162,7 @@ export function DashboardContent() {
                 <h1 className="text-heading text-2xl">Dashboard failed to load</h1>
                 <p className="text-muted-foreground text-sm">{errorMessage}</p>
               </div>
-              <Button type="button" onClick={refreshDashboard}>
+              <Button type="button" onClick={() => void refreshDashboard()}>
                 <HugeiconsIcon data-icon="inline-start" icon={Refresh01Icon} />
                 Try again
               </Button>

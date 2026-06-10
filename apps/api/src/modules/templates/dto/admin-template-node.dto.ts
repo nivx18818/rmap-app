@@ -51,14 +51,6 @@ export class CreateTemplateNodeDto {
   @IsNumber({ allowInfinity: false, allowNaN: false })
   @Min(0)
   estimatedHours?: null | number;
-
-  @Type(() => Number)
-  @IsNumber({ allowInfinity: false, allowNaN: false })
-  posX!: number;
-
-  @Type(() => Number)
-  @IsNumber({ allowInfinity: false, allowNaN: false })
-  posY!: number;
 }
 
 export class UpdateTemplateNodeDto {
@@ -94,14 +86,4 @@ export class UpdateTemplateNodeDto {
   @IsNumber({ allowInfinity: false, allowNaN: false })
   @Min(0)
   estimatedHours?: null | number;
-
-  @ValidateIf(isDefined)
-  @Type(() => Number)
-  @IsNumber({ allowInfinity: false, allowNaN: false })
-  posX?: number;
-
-  @ValidateIf(isDefined)
-  @Type(() => Number)
-  @IsNumber({ allowInfinity: false, allowNaN: false })
-  posY?: number;
 }

@@ -81,11 +81,12 @@ describe('Admin template management (integration)', () => {
       .send({
         name: 'Template Group',
         nodeType: 'group',
-        posX: 0,
-        posY: 0,
       })
       .expect(201);
-    const group = groupResponse.body as { id: string };
+    const group = groupResponse.body as { id: string; posX: number; posY: number };
+
+    expect(group.posX).toEqual(expect.any(Number));
+    expect(group.posY).toEqual(expect.any(Number));
 
     const skill = await integration.prisma.skill.create({
       data: {
@@ -104,12 +105,38 @@ describe('Admin template management (integration)', () => {
         name: 'Template Required Skill',
         nodeType: 'required',
         parentId: group.id,
-        posX: 100,
-        posY: 100,
         skillId: skill.id,
       })
       .expect(201);
-    const leaf = leafResponse.body as { id: string };
+    const leaf = leafResponse.body as { id: string; posX: number; posY: number };
+
+    expect(leaf.posX).toEqual(expect.any(Number));
+    expect(leaf.posY).toEqual(expect.any(Number));
+
+    const listNodesResponse = await request(integration.app.getHttpServer())
+      .get(`/api/v1/admin/templates/${template.id}/nodes`)
+      .set('Cookie', cookie)
+      .expect(200);
+    const listNodesBody = listNodesResponse.body as {
+      nodes: Array<{ id: string; parentId: null | string; posX: number; posY: number }>;
+    };
+
+    expect(listNodesBody.nodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: group.id,
+          parentId: null,
+          posX: expect.any(Number) as number,
+          posY: expect.any(Number) as number,
+        }),
+        expect.objectContaining({
+          id: leaf.id,
+          parentId: group.id,
+          posX: expect.any(Number) as number,
+          posY: expect.any(Number) as number,
+        }),
+      ]),
+    );
 
     const updateNodeResponse = await request(integration.app.getHttpServer())
       .put(`/api/v1/admin/templates/${template.id}/nodes/${leaf.id}`)
@@ -117,7 +144,6 @@ describe('Admin template management (integration)', () => {
       .send({
         estimatedHours: 7,
         name: 'Updated Required Skill',
-        posX: 150,
       })
       .expect(200);
 
@@ -125,13 +151,24 @@ describe('Admin template management (integration)', () => {
       estimatedHours: 7,
       id: leaf.id,
       name: 'Updated Required Skill',
-      posX: 150,
+      posX: expect.any(Number) as number,
+      posY: expect.any(Number) as number,
     });
 
     await request(integration.app.getHttpServer())
       .delete(`/api/v1/admin/templates/${template.id}/nodes/${group.id}`)
       .set('Cookie', cookie)
       .expect(204);
+
+    await request(integration.app.getHttpServer())
+      .get(`/api/v1/admin/templates/${template.id}/nodes`)
+      .set('Cookie', cookie)
+      .expect(200)
+      .expect((response) => {
+        const body = response.body as { nodes: unknown[] };
+
+        expect(body.nodes).toHaveLength(0);
+      });
 
     await request(integration.app.getHttpServer())
       .delete(`/api/v1/admin/templates/${template.id}`)

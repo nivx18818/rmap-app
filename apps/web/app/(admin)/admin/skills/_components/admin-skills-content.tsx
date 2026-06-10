@@ -296,9 +296,6 @@ export function AdminSkillsContent() {
       <section className="border-border/70 bg-card/90 rounded-3xl border p-5 shadow-sm backdrop-blur-md">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div className="flex max-w-3xl flex-col gap-2">
-            <Badge variant="outline" className="w-fit">
-              Phase 1
-            </Badge>
             <div className="flex flex-col gap-1">
               <h1 className="font-heading text-foreground text-3xl leading-tight sm:text-4xl">
                 Skills and resources

@@ -4,7 +4,6 @@ import type { ReactNode } from 'react';
 
 import { Badge } from '@repo/design-system/components/ui/badge';
 import { Button } from '@repo/design-system/components/ui/button';
-import { Separator } from '@repo/design-system/components/ui/separator';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
@@ -61,10 +60,6 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         <div className="grid flex-1 gap-4 py-4 lg:grid-cols-[240px_minmax(0,1fr)]">
           <aside className="border-border/70 bg-card/85 h-fit rounded-3xl border p-3 shadow-sm backdrop-blur-md">
             <AdminNavigation />
-            <Separator className="my-3" />
-            <p className="text-muted-foreground px-2 text-xs leading-5">
-              Visual template graph editing remains intentionally deferred.
-            </p>
           </aside>
 
           <main className="min-w-0">{children}</main>

@@ -20,6 +20,8 @@ export const ROLE_CATEGORY_VALUES = [
 ] as const;
 
 export const RESOURCE_TYPE_VALUES = ['YOUTUBE', 'DOCS', 'COURSE', 'ARTICLE'] as const;
+export const TEMPLATE_NODE_TYPE_VALUES = ['GROUP', 'MILESTONE', 'REQUIRED', 'OPTIONAL'] as const;
+export const TEMPLATE_LEAF_NODE_TYPE_VALUES = ['REQUIRED', 'OPTIONAL'] as const;
 
 export const adminSkillFormSchema = z.object({
   defaultEstimatedHours: z
@@ -59,6 +61,45 @@ export const adminTemplateFormSchema = z.object({
   title: z.string().trim().min(1, 'Template title is required').max(200),
 });
 
+export const adminTemplateNodeFormSchema = z
+  .object({
+    description: z.string().max(2000, 'Description must be 2000 characters or less'),
+    estimatedHours: z
+      .string()
+      .trim()
+      .refine(
+        (value) => value === '' || /^\d+(\.\d{1,2})?$/.test(value),
+        'Use a positive number with up to 2 decimals',
+      )
+      .refine((value) => value === '' || Number(value) <= 9999.99, 'Must be 9999.99 or less'),
+    name: z.string().trim().min(1, 'Node name is required').max(200),
+    nodeType: z.enum(TEMPLATE_NODE_TYPE_VALUES),
+    parentId: z.string(),
+    skillId: z.string(),
+  })
+  .superRefine((values, context) => {
+    const isLeafNode = TEMPLATE_LEAF_NODE_TYPE_VALUES.includes(
+      values.nodeType as (typeof TEMPLATE_LEAF_NODE_TYPE_VALUES)[number],
+    );
+
+    if (isLeafNode && !values.parentId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Choose a parent section',
+        path: ['parentId'],
+      });
+    }
+
+    if (isLeafNode && !values.skillId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Choose a skill',
+        path: ['skillId'],
+      });
+    }
+  });
+
 export type AdminResourceFormValues = z.infer<typeof adminResourceFormSchema>;
 export type AdminSkillFormValues = z.infer<typeof adminSkillFormSchema>;
 export type AdminTemplateFormValues = z.infer<typeof adminTemplateFormSchema>;
+export type AdminTemplateNodeFormValues = z.infer<typeof adminTemplateNodeFormSchema>;

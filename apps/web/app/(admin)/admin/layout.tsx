@@ -63,7 +63,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             <AdminNavigation />
             <Separator className="my-3" />
             <p className="text-muted-foreground px-2 text-xs leading-5">
-              Template graph editing is intentionally excluded from Phase 2.
+              Visual template graph editing remains intentionally deferred.
             </p>
           </aside>
 

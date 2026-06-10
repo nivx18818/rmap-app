@@ -12,6 +12,9 @@ export const ENDPOINTS = {
     templates: {
       byId: (templateId: string) => `/admin/templates/${templateId}`,
       list: '/admin/templates',
+      nodeById: (templateId: string, nodeId: string) =>
+        `/admin/templates/${templateId}/nodes/${nodeId}`,
+      nodes: (templateId: string) => `/admin/templates/${templateId}/nodes`,
     },
   },
   auth: {

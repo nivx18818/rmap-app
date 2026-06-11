@@ -13,6 +13,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { RoadmapsModule } from './modules/roadmaps/roadmaps.module';
 import { SkillsModule } from './modules/skills/skills.module';
+import { SyncModule } from './modules/sync/sync.module';
 import { TemplatesModule } from './modules/templates/templates.module';
 import { UsersModule } from './modules/users/users.module';
 
@@ -28,6 +29,7 @@ import { UsersModule } from './modules/users/users.module';
     OnboardingModule,
     RoadmapsModule,
     SkillsModule,
+    SyncModule,
     TemplatesModule,
     DashboardModule,
   ],

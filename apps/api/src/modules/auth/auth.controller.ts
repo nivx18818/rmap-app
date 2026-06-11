@@ -121,6 +121,23 @@ export class AuthController {
     return { message: 'Login successful' };
   }
 
+  @Post('google/mobile/link')
+  @HttpCode(HttpStatus.OK)
+  async linkGoogleMobile(@CurrentUser() user: RequestUser, @Body() mobileOAuthDto: MobileOAuthDto) {
+    await this.authService.linkGoogleMobile(user.id, mobileOAuthDto.idToken);
+    return { message: 'Account linked successfully' };
+  }
+
+  @Post('github/mobile/link')
+  @HttpCode(HttpStatus.OK)
+  async linkGithubMobile(
+    @CurrentUser() user: RequestUser,
+    @Body() githubMobileOAuthDto: GithubMobileOAuthDto,
+  ) {
+    await this.authService.linkGithubMobile(user.id, githubMobileOAuthDto.code);
+    return { message: 'Account linked successfully' };
+  }
+
   @Public()
   @Post('password/forgot')
   @HttpCode(HttpStatus.ACCEPTED)

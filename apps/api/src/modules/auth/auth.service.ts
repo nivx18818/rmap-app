@@ -126,11 +126,10 @@ export class AuthService {
     });
   }
 
-  async loginWithGoogleMobile(idToken: string): Promise<[string, string]> {
+  async verifyGoogleIdToken(idToken: string): Promise<OAuthProfile> {
     const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
     const client = new OAuth2Client(clientId);
 
-    let oauthProfile: OAuthProfile;
     try {
       const ticket = await client.verifyIdToken({
         idToken,
@@ -142,7 +141,7 @@ export class AuthService {
         throw new InvalidCredentialsException();
       }
 
-      oauthProfile = {
+      return {
         email: payload.email ?? '',
         emailVerified: payload.email_verified === true,
         avatarUrl: payload.picture ?? '',
@@ -154,11 +153,9 @@ export class AuthService {
       console.error('Verify Token Error:', error);
       throw new InvalidCredentialsException();
     }
-
-    return await this.loginWithOAuth(oauthProfile);
   }
 
-  async loginWithGithubMobile(code: string): Promise<[string, string]> {
+  async verifyGithubCode(code: string): Promise<OAuthProfile> {
     const clientId = this.configService.get<string>('GITHUB_MOBILE_CLIENT_ID');
     const clientSecret = this.configService.get<string>('GITHUB_MOBILE_CLIENT_SECRET');
 
@@ -232,7 +229,7 @@ export class AuthService {
         throw new InvalidCredentialsException();
       }
 
-      const oauthProfile: OAuthProfile = {
+      return {
         email,
         emailVerified,
         avatarUrl: profile.avatar_url ?? profile.photos?.[0]?.value ?? '',
@@ -240,12 +237,38 @@ export class AuthService {
         provider: OAuthProvider.GITHUB,
         providerAccountId: profile.id.toString(),
       };
-
-      return await this.loginWithOAuth(oauthProfile);
     } catch (error) {
       console.error('GitHub Mobile Login Error:', error);
       throw new InvalidCredentialsException();
     }
+  }
+
+  async loginWithGoogleMobile(idToken: string): Promise<[string, string]> {
+    const oauthProfile = await this.verifyGoogleIdToken(idToken);
+    return await this.loginWithOAuth(oauthProfile);
+  }
+
+  async loginWithGithubMobile(code: string): Promise<[string, string]> {
+    const oauthProfile = await this.verifyGithubCode(code);
+    return await this.loginWithOAuth(oauthProfile);
+  }
+
+  async linkGoogleMobile(userId: string, idToken: string): Promise<void> {
+    const oauthProfile = await this.verifyGoogleIdToken(idToken);
+    await this.userService.linkOAuthAccount(userId, {
+      provider: oauthProfile.provider,
+      providerAccountId: oauthProfile.providerAccountId,
+      providerEmail: oauthProfile.email,
+    });
+  }
+
+  async linkGithubMobile(userId: string, code: string): Promise<void> {
+    const oauthProfile = await this.verifyGithubCode(code);
+    await this.userService.linkOAuthAccount(userId, {
+      provider: oauthProfile.provider,
+      providerAccountId: oauthProfile.providerAccountId,
+      providerEmail: oauthProfile.email,
+    });
   }
 
   async linkOAuthAccountFromAccessToken(

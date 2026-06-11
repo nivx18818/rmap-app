@@ -91,7 +91,10 @@ describe('TemplatesService', () => {
 
       expect(prisma.roadmap.groupBy).toHaveBeenCalledWith({
         by: ['roleCategory'],
-        where: { isTemplate: true },
+        where: {
+          isTemplate: true,
+          nodes: { some: {} },
+        },
         _count: { _all: true },
       });
       expect(result.total).toBe(Object.values(RoleCategory).length);
@@ -261,7 +264,10 @@ describe('TemplatesService', () => {
       const result = await service.listTrendings();
 
       expect(prisma.roadmap.findMany).toHaveBeenCalledWith({
-        where: { isTemplate: true },
+        where: {
+          isTemplate: true,
+          nodes: { some: {} },
+        },
         select: {
           estimatedWeeks: true,
           id: true,
@@ -536,16 +542,17 @@ describe('TemplatesService', () => {
           }),
         }),
       );
-      expect(result).toEqual({
-        roleCategories: [
-          {
-            category: RoleCategory.AI_AND_MACHINE_LEARNING,
-            label: 'Ai And Machine Learning',
-          },
-          { category: RoleCategory.WEB_DEVELOPMENT, label: 'Web Development' },
-        ],
-        total: 2,
-        relevantRoadmaps: [
+      expect(result.roleCategories).toEqual([
+        {
+          category: RoleCategory.AI_AND_MACHINE_LEARNING,
+          label: 'Ai And Machine Learning',
+        },
+        { category: RoleCategory.WEB_DEVELOPMENT, label: 'Web Development' },
+      ]);
+      expect(result.total).toBe(2);
+      expect(result.relevantRoadmaps).toHaveLength(2);
+      expect(result.relevantRoadmaps).toEqual(
+        expect.arrayContaining([
           {
             roadmapId: 'ai-template',
             title: 'AI Engineering Path',
@@ -570,8 +577,8 @@ describe('TemplatesService', () => {
             nodesTotal: 2,
             requiredNodesTotal: 2,
           },
-        ],
-      });
+        ]),
+      );
     });
 
     it('should return empty recommendations when the user has no active roadmap categories', async () => {

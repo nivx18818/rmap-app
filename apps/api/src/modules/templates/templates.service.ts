@@ -165,7 +165,10 @@ export class TemplatesService {
   async listCategories(): Promise<TemplateCategoriesResponseDto> {
     const groupedTemplates = await this.prisma.roadmap.groupBy({
       by: ['roleCategory'],
-      where: { isTemplate: true },
+      where: {
+        isTemplate: true,
+        nodes: { some: {} },
+      },
       _count: { _all: true },
     });
     const countByCategory = new Map(
@@ -221,7 +224,10 @@ export class TemplatesService {
 
   async listTrendings(): Promise<TemplateTrendingsResponseDto> {
     const templates = await this.prisma.roadmap.findMany({
-      where: { isTemplate: true },
+      where: {
+        isTemplate: true,
+        nodes: { some: {} },
+      },
       select: {
         estimatedWeeks: true,
         id: true,
@@ -265,13 +271,15 @@ export class TemplatesService {
       activeTemplateIds,
     );
 
+    const recommendedRoadmaps = this.shuffle(relevantRoadmaps).slice(0, 5);
+
     return {
       roleCategories: roleCategories.map((category) => ({
         category,
         label: this.formatRoleCategory(category),
       })),
-      total: relevantRoadmaps.length,
-      relevantRoadmaps: relevantRoadmaps.map((roadmap) =>
+      total: recommendedRoadmaps.length,
+      relevantRoadmaps: recommendedRoadmaps.map((roadmap) =>
         this.formatRecommendedTemplateRoadmap(roadmap),
       ),
     };
@@ -392,6 +400,7 @@ export class TemplatesService {
         ...(excludedTemplateIds.length > 0 ? { id: { notIn: excludedTemplateIds } } : {}),
         isTemplate: true,
         roleCategory: { in: roleCategories },
+        nodes: { some: {} },
         NOT: {
           nodes: {
             some: {

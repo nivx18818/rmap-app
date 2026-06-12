@@ -45,6 +45,7 @@ import { useForm } from 'react-hook-form';
 
 import type {
   AdminSkill,
+  AdminBulkOperationResponse,
   AdminSkillPayload,
   AdminSkillResource,
   AdminSkillResourcePayload,
@@ -103,6 +104,8 @@ export function AdminSkillsContent() {
   const [perPage, setPerPage] = useState(DEFAULT_PER_PAGE);
   const [skillsResponse, setSkillsResponse] = useState<AdminSkillsListResponse | null>(null);
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
+  const [selectedBulkSkillIds, setSelectedBulkSkillIds] = useState<Set<string>>(new Set());
+  const [bulkRoleCategory, setBulkRoleCategory] = useState<RoleCategory>('WEB_DEVELOPMENT');
   const [resources, setResources] = useState<AdminSkillResource[]>([]);
   const [isLoadingSkills, setIsLoadingSkills] = useState(true);
   const [isLoadingResources, setIsLoadingResources] = useState(false);
@@ -113,6 +116,8 @@ export function AdminSkillsContent() {
   const [skillDrawer, setSkillDrawer] = useState<SkillDrawerState | null>(null);
   const [resourceDrawer, setResourceDrawer] = useState<ResourceDrawerState | null>(null);
   const [skillToDelete, setSkillToDelete] = useState<AdminSkill | null>(null);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isBulkApplying, setIsBulkApplying] = useState(false);
   const [resourceToDelete, setResourceToDelete] = useState<AdminSkillResource | null>(null);
   const [isDeletingSkill, setIsDeletingSkill] = useState(false);
   const [isDeletingResource, setIsDeletingResource] = useState(false);
@@ -124,6 +129,9 @@ export function AdminSkillsContent() {
   const primaryResourceCount = resources.filter((resource) => resource.isPrimary).length;
   const isSearchDeferred = deferredSearchTerm !== searchTerm.trim();
   const isUpdatingSkills = (isLoadingSkills || isSearchDeferred) && skillsResponse !== null;
+  const selectedBulkIds = Array.from(selectedBulkSkillIds);
+  const isCurrentPageSelected =
+    skills.length > 0 && skills.every((skill) => selectedBulkSkillIds.has(skill.id));
 
   useEffect(() => {
     let isCurrent = true;
@@ -224,6 +232,85 @@ export function AdminSkillsContent() {
   const handlePageSizeChange = (value: number) => {
     setPerPage(value);
     setPage(1);
+  };
+
+  const handleToggleCurrentPage = (checked: boolean) => {
+    setSelectedBulkSkillIds((current) => {
+      const next = new Set(current);
+
+      for (const skill of skills) {
+        if (checked) {
+          next.add(skill.id);
+        } else {
+          next.delete(skill.id);
+        }
+      }
+
+      return next;
+    });
+  };
+
+  const handleToggleSkillSelection = (skillId: string, checked: boolean) => {
+    setSelectedBulkSkillIds((current) => {
+      const next = new Set(current);
+
+      if (checked) {
+        next.add(skillId);
+      } else {
+        next.delete(skillId);
+      }
+
+      return next;
+    });
+  };
+
+  const handleBulkCategoryUpdate = async () => {
+    if (selectedBulkIds.length === 0) return;
+
+    setIsBulkApplying(true);
+
+    try {
+      const result = await adminContentService.bulkUpdateSkillCategory(
+        selectedBulkIds,
+        bulkRoleCategory,
+      );
+      reportBulkResult('Skill category update', result);
+      refreshSkills();
+    } catch (error) {
+      toast.error('Bulk category update failed', {
+        description: getApiErrorMessage(error, 'Unable to update selected skills.'),
+      });
+    } finally {
+      setIsBulkApplying(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedBulkIds.length === 0) return;
+
+    setIsBulkApplying(true);
+
+    try {
+      const result = await adminContentService.bulkDeleteSkills(selectedBulkIds);
+      reportBulkResult('Skill bulk delete', result);
+      setSelectedBulkSkillIds((current) => {
+        const next = new Set(current);
+
+        for (const skillId of result.succeeded) {
+          next.delete(skillId);
+        }
+
+        return next;
+      });
+      setIsBulkDeleteOpen(false);
+      refreshSkills();
+    } catch (error) {
+      toast.error('Bulk deletion failed', {
+        description: getApiErrorMessage(error, 'Unable to delete selected skills.'),
+      });
+    } finally {
+      setIsBulkApplying(false);
+    }
   };
 
   const handleSubmitSkill = async (payload: AdminSkillPayload, skill?: AdminSkill) => {
@@ -367,10 +454,62 @@ export function AdminSkillsContent() {
               />
             ) : null}
 
+            {selectedBulkIds.length > 0 ? (
+              <div className="border-border/80 bg-muted/30 flex flex-col gap-3 rounded-2xl border p-3 lg:flex-row lg:items-end lg:justify-between">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-medium">{selectedBulkIds.length} skills selected</p>
+                  <p className="text-muted-foreground text-xs">
+                    Batch delete or assign a role category to selected skills.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <Field className="min-w-56">
+                    <FieldLabel className="text-xs" htmlFor="bulk-skill-category">
+                      Category
+                    </FieldLabel>
+                    <NativeSelect
+                      id="bulk-skill-category"
+                      disabled={isBulkApplying}
+                      value={bulkRoleCategory}
+                      onChange={(event) => setBulkRoleCategory(event.target.value as RoleCategory)}
+                    >
+                      {ROLE_CATEGORY_VALUES.map((category) => (
+                        <option key={category} value={category}>
+                          {formatEnumLabel(category)}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </Field>
+                  <Button
+                    variant="outline"
+                    disabled={isBulkApplying}
+                    onClick={() => void handleBulkCategoryUpdate()}
+                  >
+                    Apply category
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    disabled={isBulkApplying}
+                    onClick={() => setIsBulkDeleteOpen(true)}
+                  >
+                    Delete selected
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
             <div className="overflow-hidden rounded-2xl border">
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        disabled={skills.length === 0 || isLoadingSkills}
+                        aria-label="Select all skills on this page"
+                        checked={isCurrentPageSelected}
+                        onCheckedChange={(checked) => handleToggleCurrentPage(checked === true)}
+                      />
+                    </TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Hours</TableHead>
@@ -380,7 +519,7 @@ export function AdminSkillsContent() {
                 </TableHeader>
                 <TableBody>
                   {isLoadingSkills && !skillsResponse ? (
-                    <TablePlaceholder rows={5} />
+                    <TablePlaceholder rows={5} colSpan={6} />
                   ) : skills.length > 0 ? (
                     skills.map((skill) => (
                       <TableRow
@@ -389,6 +528,15 @@ export function AdminSkillsContent() {
                         data-state={skill.id === selectedSkillId ? 'selected' : undefined}
                         onClick={() => setSelectedSkillId(skill.id)}
                       >
+                        <TableCell onClick={(event) => event.stopPropagation()}>
+                          <Checkbox
+                            aria-label={`Select ${skill.name}`}
+                            checked={selectedBulkSkillIds.has(skill.id)}
+                            onCheckedChange={(checked) =>
+                              handleToggleSkillSelection(skill.id, checked === true)
+                            }
+                          />
+                        </TableCell>
                         <TableCell className="min-w-64 whitespace-normal">
                           <div className="flex flex-col gap-1">
                             <span className="font-medium">{skill.name}</span>
@@ -429,7 +577,7 @@ export function AdminSkillsContent() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell className="text-muted-foreground h-32 text-center" colSpan={5}>
+                      <TableCell className="text-muted-foreground h-32 text-center" colSpan={6}>
                         No skills match the current filters.
                       </TableCell>
                     </TableRow>
@@ -562,6 +710,16 @@ export function AdminSkillsContent() {
         onOpenChange={(open) => {
           if (!open) setSkillToDelete(null);
         }}
+      />
+
+      <ConfirmDeleteDialog
+        title="Delete selected skills"
+        confirmLabel="Delete selected"
+        description={`Delete ${selectedBulkIds.length} selected skills? The API will report any skills blocked by roadmap or template references.`}
+        isDeleting={isBulkApplying}
+        onConfirm={handleBulkDelete}
+        open={isBulkDeleteOpen}
+        onOpenChange={(open) => setIsBulkDeleteOpen(open)}
       />
 
       <ConfirmDeleteDialog
@@ -960,4 +1118,19 @@ function formatHours(value: null | number): string {
   }
 
   return `${value}h`;
+}
+
+function reportBulkResult(action: string, result: AdminBulkOperationResponse): void {
+  const summary = `${result.succeeded.length} succeeded, ${result.failed.length} failed.`;
+
+  if (result.failed.length === 0) {
+    toast.success(action, { description: summary });
+    return;
+  }
+
+  const firstFailure = result.failed[0];
+
+  toast.warning(action, {
+    description: firstFailure ? `${summary} First failure: ${firstFailure.message}` : summary,
+  });
 }

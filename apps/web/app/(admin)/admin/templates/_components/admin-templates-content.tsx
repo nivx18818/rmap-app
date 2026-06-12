@@ -18,6 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@repo/design-system/components/ui/card';
+import { Checkbox } from '@repo/design-system/components/ui/checkbox';
 import {
   Drawer,
   DrawerClose,
@@ -44,6 +45,7 @@ import { useForm } from 'react-hook-form';
 
 import type {
   AdminTemplate,
+  AdminBulkOperationResponse,
   AdminTemplatePayload,
   AdminTemplatesListResponse,
   RoleCategory,
@@ -84,6 +86,8 @@ export function AdminTemplatesContent() {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(DEFAULT_PER_PAGE);
+  const [selectedBulkTemplateIds, setSelectedBulkTemplateIds] = useState<Set<string>>(new Set());
+  const [bulkRoleCategory, setBulkRoleCategory] = useState<RoleCategory>('WEB_DEVELOPMENT');
   const [templatesResponse, setTemplatesResponse] = useState<AdminTemplatesListResponse | null>(
     null,
   );
@@ -93,6 +97,8 @@ export function AdminTemplatesContent() {
   const [templatesRefreshKey, setTemplatesRefreshKey] = useState(0);
   const [templateDrawer, setTemplateDrawer] = useState<TemplateDrawerState | null>(null);
   const [templateToDelete, setTemplateToDelete] = useState<AdminTemplate | null>(null);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isBulkApplying, setIsBulkApplying] = useState(false);
   const [isDeletingTemplate, setIsDeletingTemplate] = useState(false);
   const deferredSearchTerm = useDeferredValue(searchTerm.trim());
 
@@ -101,6 +107,9 @@ export function AdminTemplatesContent() {
   const isSearchDeferred = deferredSearchTerm !== searchTerm.trim();
   const isUpdatingTemplates =
     (isLoadingTemplates || isSearchDeferred) && templatesResponse !== null;
+  const selectedBulkIds = Array.from(selectedBulkTemplateIds);
+  const isCurrentPageSelected =
+    templates.length > 0 && templates.every((template) => selectedBulkTemplateIds.has(template.id));
 
   useEffect(() => {
     let isCurrent = true;
@@ -163,6 +172,85 @@ export function AdminTemplatesContent() {
   const handlePageSizeChange = (value: number) => {
     setPerPage(value);
     setPage(1);
+  };
+
+  const handleToggleCurrentPage = (checked: boolean) => {
+    setSelectedBulkTemplateIds((current) => {
+      const next = new Set(current);
+
+      for (const template of templates) {
+        if (checked) {
+          next.add(template.id);
+        } else {
+          next.delete(template.id);
+        }
+      }
+
+      return next;
+    });
+  };
+
+  const handleToggleTemplateSelection = (templateId: string, checked: boolean) => {
+    setSelectedBulkTemplateIds((current) => {
+      const next = new Set(current);
+
+      if (checked) {
+        next.add(templateId);
+      } else {
+        next.delete(templateId);
+      }
+
+      return next;
+    });
+  };
+
+  const handleBulkCategoryUpdate = async () => {
+    if (selectedBulkIds.length === 0) return;
+
+    setIsBulkApplying(true);
+
+    try {
+      const result = await adminContentService.bulkUpdateTemplateCategory(
+        selectedBulkIds,
+        bulkRoleCategory,
+      );
+      reportBulkResult('Template category update', result);
+      refreshTemplates();
+    } catch (error) {
+      toast.error('Bulk category update failed', {
+        description: getApiErrorMessage(error, 'Unable to update selected templates.'),
+      });
+    } finally {
+      setIsBulkApplying(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedBulkIds.length === 0) return;
+
+    setIsBulkApplying(true);
+
+    try {
+      const result = await adminContentService.bulkDeleteTemplates(selectedBulkIds);
+      reportBulkResult('Template bulk delete', result);
+      setSelectedBulkTemplateIds((current) => {
+        const next = new Set(current);
+
+        for (const templateId of result.succeeded) {
+          next.delete(templateId);
+        }
+
+        return next;
+      });
+      setIsBulkDeleteOpen(false);
+      refreshTemplates();
+    } catch (error) {
+      toast.error('Bulk deletion failed', {
+        description: getApiErrorMessage(error, 'Unable to delete selected templates.'),
+      });
+    } finally {
+      setIsBulkApplying(false);
+    }
   };
 
   const handleSubmitTemplate = async (payload: AdminTemplatePayload, template?: AdminTemplate) => {
@@ -277,10 +365,62 @@ export function AdminTemplatesContent() {
             />
           ) : null}
 
+          {selectedBulkIds.length > 0 ? (
+            <div className="border-border/80 bg-muted/30 flex flex-col gap-3 rounded-2xl border p-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium">{selectedBulkIds.length} templates selected</p>
+                <p className="text-muted-foreground text-xs">
+                  Batch delete or assign a role category to selected templates.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <Field className="min-w-56">
+                  <FieldLabel className="text-xs" htmlFor="bulk-template-category">
+                    Category
+                  </FieldLabel>
+                  <NativeSelect
+                    id="bulk-template-category"
+                    disabled={isBulkApplying}
+                    value={bulkRoleCategory}
+                    onChange={(event) => setBulkRoleCategory(event.target.value as RoleCategory)}
+                  >
+                    {ROLE_CATEGORY_VALUES.map((category) => (
+                      <option key={category} value={category}>
+                        {formatEnumLabel(category)}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </Field>
+                <Button
+                  variant="outline"
+                  disabled={isBulkApplying}
+                  onClick={() => void handleBulkCategoryUpdate()}
+                >
+                  Apply category
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={isBulkApplying}
+                  onClick={() => setIsBulkDeleteOpen(true)}
+                >
+                  Delete selected
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="overflow-hidden rounded-2xl border">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      disabled={templates.length === 0 || isLoadingTemplates}
+                      aria-label="Select all templates on this page"
+                      checked={isCurrentPageSelected}
+                      onCheckedChange={(checked) => handleToggleCurrentPage(checked === true)}
+                    />
+                  </TableHead>
                   <TableHead>Template</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Weeks</TableHead>
@@ -290,7 +430,7 @@ export function AdminTemplatesContent() {
               </TableHeader>
               <TableBody>
                 {isLoadingTemplates && !templatesResponse ? (
-                  <TablePlaceholder rows={5} />
+                  <TablePlaceholder rows={5} colSpan={6} />
                 ) : templates.length > 0 ? (
                   templates.map((template) => (
                     <TableRow
@@ -299,6 +439,15 @@ export function AdminTemplatesContent() {
                       data-state={template.id === selectedTemplateId ? 'selected' : undefined}
                       onClick={() => setSelectedTemplateId(template.id)}
                     >
+                      <TableCell onClick={(event) => event.stopPropagation()}>
+                        <Checkbox
+                          aria-label={`Select ${template.title}`}
+                          checked={selectedBulkTemplateIds.has(template.id)}
+                          onCheckedChange={(checked) =>
+                            handleToggleTemplateSelection(template.id, checked === true)
+                          }
+                        />
+                      </TableCell>
                       <TableCell className="min-w-72 whitespace-normal">
                         <div className="flex flex-col gap-1">
                           <span className="font-medium">{template.title}</span>
@@ -346,7 +495,7 @@ export function AdminTemplatesContent() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell className="text-muted-foreground h-32 text-center" colSpan={5}>
+                    <TableCell className="text-muted-foreground h-32 text-center" colSpan={6}>
                       No templates match the current filters.
                     </TableCell>
                   </TableRow>
@@ -375,6 +524,16 @@ export function AdminTemplatesContent() {
           if (!open) setTemplateDrawer(null);
         }}
         onSubmit={handleSubmitTemplate}
+      />
+
+      <ConfirmDeleteDialog
+        title="Delete selected templates"
+        confirmLabel="Delete selected"
+        description={`Delete ${selectedBulkIds.length} selected templates? Template nodes are removed with each successful template deletion.`}
+        isDeleting={isBulkApplying}
+        onConfirm={handleBulkDelete}
+        open={isBulkDeleteOpen}
+        onOpenChange={(open) => setIsBulkDeleteOpen(open)}
       />
 
       <ConfirmDeleteDialog
@@ -558,4 +717,19 @@ function formatWeeks(value: null | number): string {
   }
 
   return `${value} week${value === 1 ? '' : 's'}`;
+}
+
+function reportBulkResult(action: string, result: AdminBulkOperationResponse): void {
+  const summary = `${result.succeeded.length} succeeded, ${result.failed.length} failed.`;
+
+  if (result.failed.length === 0) {
+    toast.success(action, { description: summary });
+    return;
+  }
+
+  const firstFailure = result.failed[0];
+
+  toast.warning(action, {
+    description: firstFailure ? `${summary} First failure: ${firstFailure.message}` : summary,
+  });
 }

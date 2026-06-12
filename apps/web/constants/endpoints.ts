@@ -4,6 +4,8 @@ export const ENDPOINTS = {
   admin: {
     dashboard: '/admin/dashboard',
     skills: {
+      bulkCategory: '/admin/skills/bulk/category',
+      bulkDelete: '/admin/skills/bulk-delete',
       byId: (skillId: string) => `/admin/skills/${skillId}`,
       list: '/admin/skills',
       resourceById: (skillId: string, resourceId: number) =>
@@ -11,6 +13,8 @@ export const ENDPOINTS = {
       resources: (skillId: string) => `/admin/skills/${skillId}/resources`,
     },
     templates: {
+      bulkCategory: '/admin/templates/bulk/category',
+      bulkDelete: '/admin/templates/bulk-delete',
       byId: (templateId: string) => `/admin/templates/${templateId}`,
       list: '/admin/templates',
       nodeById: (templateId: string, nodeId: string) =>

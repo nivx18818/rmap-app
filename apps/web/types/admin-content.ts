@@ -35,6 +35,15 @@ export interface AdminDashboardResponse {
   };
 }
 
+export interface AdminBulkOperationResponse {
+  failed: Array<{
+    code?: string;
+    id: string;
+    message: string;
+  }>;
+  succeeded: string[];
+}
+
 export interface AdminSkill {
   createdAt: string;
   defaultEstimatedHours: null | number;

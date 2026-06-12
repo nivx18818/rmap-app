@@ -2,6 +2,7 @@ import axios from 'axios';
 
 import type {
   AdminSkill,
+  AdminBulkOperationResponse,
   AdminSkillPayload,
   AdminSkillResource,
   AdminSkillResourcePayload,
@@ -17,6 +18,7 @@ import type {
   AdminTemplatesListResponse,
   AdminTemplatesQuery,
   ApiErrorResponse,
+  RoleCategory,
 } from '@/types/admin-content';
 
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -25,6 +27,34 @@ import { axiosInstance } from '@/lib/axios-instance';
 export const adminContentService = {
   getDashboard: async () => {
     const response = await axiosInstance.get<AdminDashboardResponse>(ENDPOINTS.admin.dashboard);
+    return response.data;
+  },
+  bulkDeleteSkills: async (ids: string[]) => {
+    const response = await axiosInstance.post<AdminBulkOperationResponse>(
+      ENDPOINTS.admin.skills.bulkDelete,
+      { ids },
+    );
+    return response.data;
+  },
+  bulkDeleteTemplates: async (ids: string[]) => {
+    const response = await axiosInstance.post<AdminBulkOperationResponse>(
+      ENDPOINTS.admin.templates.bulkDelete,
+      { ids },
+    );
+    return response.data;
+  },
+  bulkUpdateSkillCategory: async (ids: string[], roleCategory: RoleCategory) => {
+    const response = await axiosInstance.patch<AdminBulkOperationResponse>(
+      ENDPOINTS.admin.skills.bulkCategory,
+      { ids, roleCategory },
+    );
+    return response.data;
+  },
+  bulkUpdateTemplateCategory: async (ids: string[], roleCategory: RoleCategory) => {
+    const response = await axiosInstance.patch<AdminBulkOperationResponse>(
+      ENDPOINTS.admin.templates.bulkCategory,
+      { ids, roleCategory },
+    );
     return response.data;
   },
   createResource: async (skillId: string, payload: AdminSkillResourcePayload) => {

@@ -28,7 +28,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@repo/design-system/components/ui/drawer';
-import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/design-system/components/ui/field';
+import { Field, FieldError, FieldLabel, FieldSet } from '@repo/design-system/components/ui/field';
 import { Input } from '@repo/design-system/components/ui/input';
 import {
   Table,
@@ -59,6 +59,8 @@ import {
 } from '@/validations/admin-content.schema';
 
 import { AdminPagination } from '../../_components/admin-pagination';
+import { DraftRecoveryNotice } from '../../_components/draft-recovery-notice';
+import { useDrawerDraft } from '../../_components/use-drawer-draft';
 
 const DEFAULT_PER_PAGE = 10;
 const EMPTY_TEMPLATES: AdminTemplate[] = [];
@@ -436,7 +438,15 @@ export function AdminTemplatesContent() {
                     <TableRow
                       key={template.id}
                       className="cursor-pointer"
+                      role="button"
+                      tabIndex={0}
                       data-state={template.id === selectedTemplateId ? 'selected' : undefined}
+                      onKeyDown={(event) => {
+                        if (isActivationKey(event.key)) {
+                          event.preventDefault();
+                          setSelectedTemplateId(template.id);
+                        }
+                      }}
                       onClick={() => setSelectedTemplateId(template.id)}
                     >
                       <TableCell onClick={(event) => event.stopPropagation()}>
@@ -566,12 +576,21 @@ function TemplateFormDrawer({
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const template = drawer?.template;
+  const defaultValues = getTemplateFormDefaults(template);
   const form = useForm<AdminTemplateFormValues>({
-    defaultValues: getTemplateFormDefaults(template),
+    defaultValues,
     resolver: zodResolver(adminTemplateFormSchema),
   });
   const errors = form.formState.errors;
   const isOpen = !!drawer;
+  const draft = useDrawerDraft({
+    defaultValues,
+    form,
+    isOpen,
+    storageKey: `admin:template:${template?.id ?? 'create'}`,
+  });
+  const handleDiscardDraft = () => draft.discardDraft();
+  const handleRestoreDraft = () => draft.restoreDraft();
 
   useEffect(() => {
     if (isOpen) {
@@ -584,6 +603,7 @@ function TemplateFormDrawer({
 
     try {
       await onSubmit(toTemplatePayload(values), template);
+      draft.clearDraft();
       onOpenChange(false);
     } catch (error) {
       toast.error(template ? 'Template update failed' : 'Template creation failed', {
@@ -604,9 +624,12 @@ function TemplateFormDrawer({
             <DrawerDescription>
               Metadata controls how templates appear in the catalog and recommendations.
             </DrawerDescription>
+            {draft.hasDraft ? (
+              <DraftRecoveryNotice onDiscard={handleDiscardDraft} onRestore={handleRestoreDraft} />
+            ) : null}
           </DrawerHeader>
           <div className="scrollbar-thin flex-1 overflow-y-auto px-4">
-            <FieldGroup>
+            <FieldSet disabled={isSubmitting}>
               <Field data-invalid={!!errors.title}>
                 <FieldLabel htmlFor="template-title">Title</FieldLabel>
                 <Input
@@ -656,14 +679,14 @@ function TemplateFormDrawer({
                 />
                 <FieldError errors={[errors.description]} />
               </Field>
-            </FieldGroup>
+            </FieldSet>
           </div>
           <DrawerFooter>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : 'Save template'}
             </Button>
             <DrawerClose asChild>
-              <Button variant="outline" type="button">
+              <Button variant="outline" type="button" disabled={isSubmitting}>
                 Cancel
               </Button>
             </DrawerClose>
@@ -717,6 +740,10 @@ function formatWeeks(value: null | number): string {
   }
 
   return `${value} week${value === 1 ? '' : 's'}`;
+}
+
+function isActivationKey(key: string): boolean {
+  return key === 'Enter' || key === ' ';
 }
 
 function reportBulkResult(action: string, result: AdminBulkOperationResponse): void {

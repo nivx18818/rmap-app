@@ -27,7 +27,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@repo/design-system/components/ui/drawer';
-import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/design-system/components/ui/field';
+import { Field, FieldError, FieldLabel, FieldSet } from '@repo/design-system/components/ui/field';
 import { Input } from '@repo/design-system/components/ui/input';
 import { Separator } from '@repo/design-system/components/ui/separator';
 import { Skeleton } from '@repo/design-system/components/ui/skeleton';
@@ -65,6 +65,8 @@ import {
 } from '@/validations/admin-content.schema';
 
 import { AdminPagination } from '../../_components/admin-pagination';
+import { DraftRecoveryNotice } from '../../_components/draft-recovery-notice';
+import { useDrawerDraft } from '../../_components/use-drawer-draft';
 
 const DEFAULT_PER_PAGE = 10;
 const EMPTY_SKILLS: AdminSkill[] = [];
@@ -525,7 +527,15 @@ export function AdminSkillsContent() {
                       <TableRow
                         key={skill.id}
                         className="cursor-pointer"
+                        role="button"
+                        tabIndex={0}
                         data-state={skill.id === selectedSkillId ? 'selected' : undefined}
+                        onKeyDown={(event) => {
+                          if (isActivationKey(event.key)) {
+                            event.preventDefault();
+                            setSelectedSkillId(skill.id);
+                          }
+                        }}
                         onClick={() => setSelectedSkillId(skill.id)}
                       >
                         <TableCell onClick={(event) => event.stopPropagation()}>
@@ -750,12 +760,21 @@ function SkillFormDrawer({
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const skill = drawer?.skill;
+  const defaultValues = getSkillFormDefaults(skill);
   const form = useForm<AdminSkillFormValues>({
-    defaultValues: getSkillFormDefaults(skill),
+    defaultValues,
     resolver: zodResolver(adminSkillFormSchema),
   });
   const errors = form.formState.errors;
   const isOpen = !!drawer;
+  const draft = useDrawerDraft({
+    defaultValues,
+    form,
+    isOpen,
+    storageKey: `admin:skill:${skill?.id ?? 'create'}`,
+  });
+  const handleDiscardDraft = () => draft.discardDraft();
+  const handleRestoreDraft = () => draft.restoreDraft();
 
   useEffect(() => {
     if (isOpen) {
@@ -768,6 +787,7 @@ function SkillFormDrawer({
 
     try {
       await onSubmit(toSkillPayload(values), skill);
+      draft.clearDraft();
       onOpenChange(false);
     } catch (error) {
       toast.error(skill ? 'Skill update failed' : 'Skill creation failed', {
@@ -788,9 +808,12 @@ function SkillFormDrawer({
             <DrawerDescription>
               Skill records drive roadmap node metadata and resource ownership.
             </DrawerDescription>
+            {draft.hasDraft ? (
+              <DraftRecoveryNotice onDiscard={handleDiscardDraft} onRestore={handleRestoreDraft} />
+            ) : null}
           </DrawerHeader>
           <div className="scrollbar-thin flex-1 overflow-y-auto px-4">
-            <FieldGroup>
+            <FieldSet disabled={isSubmitting}>
               <Field data-invalid={!!errors.name}>
                 <FieldLabel htmlFor="skill-name">Name</FieldLabel>
                 <Input id="skill-name" aria-invalid={!!errors.name} {...form.register('name')} />
@@ -836,14 +859,14 @@ function SkillFormDrawer({
                 />
                 <FieldError errors={[errors.description]} />
               </Field>
-            </FieldGroup>
+            </FieldSet>
           </div>
           <DrawerFooter>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Saving...' : 'Save skill'}
             </Button>
             <DrawerClose asChild>
-              <Button variant="outline" type="button">
+              <Button variant="outline" type="button" disabled={isSubmitting}>
                 Cancel
               </Button>
             </DrawerClose>
@@ -867,14 +890,23 @@ function ResourceFormDrawer({
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const resource = drawer?.resource;
+  const defaultValues = getResourceFormDefaults(resource);
   const form = useForm<AdminResourceFormValues>({
-    defaultValues: getResourceFormDefaults(resource),
+    defaultValues,
     resolver: zodResolver(adminResourceFormSchema),
   });
   const errors = form.formState.errors;
   const isOpen = !!drawer;
   const isFree = form.watch('isFree');
   const isPrimary = form.watch('isPrimary');
+  const draft = useDrawerDraft({
+    defaultValues,
+    form,
+    isOpen,
+    storageKey: `admin:resource:${selectedSkill?.id ?? 'none'}:${resource?.id ?? 'create'}`,
+  });
+  const handleDiscardDraft = () => draft.discardDraft();
+  const handleRestoreDraft = () => draft.restoreDraft();
 
   useEffect(() => {
     if (isOpen) {
@@ -896,6 +928,7 @@ function ResourceFormDrawer({
         },
         resource,
       );
+      draft.clearDraft();
       onOpenChange(false);
     } catch (error) {
       toast.error(resource ? 'Resource update failed' : 'Resource creation failed', {
@@ -918,9 +951,12 @@ function ResourceFormDrawer({
                 ? `Resources will stay scoped to ${selectedSkill.name}.`
                 : 'Select a skill before creating resources.'}
             </DrawerDescription>
+            {draft.hasDraft ? (
+              <DraftRecoveryNotice onDiscard={handleDiscardDraft} onRestore={handleRestoreDraft} />
+            ) : null}
           </DrawerHeader>
           <div className="scrollbar-thin flex-1 overflow-y-auto px-4">
-            <FieldGroup>
+            <FieldSet disabled={isSubmitting}>
               <Field data-invalid={!!errors.title}>
                 <FieldLabel htmlFor="resource-title">Title</FieldLabel>
                 <Input
@@ -983,14 +1019,14 @@ function ResourceFormDrawer({
                   Primary resource
                 </FieldLabel>
               </Field>
-            </FieldGroup>
+            </FieldSet>
           </div>
           <DrawerFooter>
             <Button type="submit" disabled={isSubmitting || !selectedSkill}>
               {isSubmitting ? 'Saving...' : 'Save resource'}
             </Button>
             <DrawerClose asChild>
-              <Button variant="outline" type="button">
+              <Button variant="outline" type="button" disabled={isSubmitting}>
                 Cancel
               </Button>
             </DrawerClose>
@@ -1118,6 +1154,10 @@ function formatHours(value: null | number): string {
   }
 
   return `${value}h`;
+}
+
+function isActivationKey(key: string): boolean {
+  return key === 'Enter' || key === ' ';
 }
 
 function reportBulkResult(action: string, result: AdminBulkOperationResponse): void {

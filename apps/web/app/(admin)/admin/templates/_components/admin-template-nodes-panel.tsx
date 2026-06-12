@@ -27,7 +27,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@repo/design-system/components/ui/drawer';
-import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/design-system/components/ui/field';
+import { Field, FieldError, FieldLabel, FieldSet } from '@repo/design-system/components/ui/field';
 import { Input } from '@repo/design-system/components/ui/input';
 import { Separator } from '@repo/design-system/components/ui/separator';
 import { Skeleton } from '@repo/design-system/components/ui/skeleton';
@@ -50,6 +50,9 @@ import {
   TEMPLATE_NODE_TYPE_VALUES,
   type AdminTemplateNodeFormValues,
 } from '@/validations/admin-content.schema';
+
+import { DraftRecoveryNotice } from '../../_components/draft-recovery-notice';
+import { useDrawerDraft } from '../../_components/use-drawer-draft';
 
 const EMPTY_NODES: AdminTemplateNode[] = [];
 const EMPTY_SKILLS: AdminSkill[] = [];
@@ -578,8 +581,9 @@ function TemplateNodeFormDrawer({
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const node = drawer?.node;
+  const defaultValues = getNodeFormDefaults(drawer);
   const form = useForm<AdminTemplateNodeFormValues>({
-    defaultValues: getNodeFormDefaults(drawer),
+    defaultValues,
     resolver: zodResolver(adminTemplateNodeFormSchema),
   });
   const errors = form.formState.errors;
@@ -594,6 +598,14 @@ function TemplateNodeFormDrawer({
     [node?.id, nodes],
   );
   const skillOptions = useMemo(() => getSkillOptions(skills, node), [node, skills]);
+  const draft = useDrawerDraft({
+    defaultValues,
+    form,
+    isOpen,
+    storageKey: getNodeDraftKey(drawer, template?.id),
+  });
+  const handleDiscardDraft = () => draft.discardDraft();
+  const handleRestoreDraft = () => draft.restoreDraft();
 
   useEffect(() => {
     if (isOpen) {
@@ -606,6 +618,7 @@ function TemplateNodeFormDrawer({
 
     try {
       await onSubmit(toNodePayload(values), node);
+      draft.clearDraft();
       onOpenChange(false);
     } catch (error) {
       toast.error(node ? 'Template node update failed' : 'Template node creation failed', {
@@ -628,9 +641,12 @@ function TemplateNodeFormDrawer({
                 ? `Nodes will stay scoped to ${template.title}.`
                 : 'Select a template before editing nodes.'}
             </DrawerDescription>
+            {draft.hasDraft ? (
+              <DraftRecoveryNotice onDiscard={handleDiscardDraft} onRestore={handleRestoreDraft} />
+            ) : null}
           </DrawerHeader>
           <div className="scrollbar-thin flex-1 overflow-y-auto px-4">
-            <FieldGroup>
+            <FieldSet disabled={isSubmitting}>
               <Field data-invalid={!!errors.nodeType}>
                 <FieldLabel htmlFor="template-node-type">Node type</FieldLabel>
                 <NativeSelect
@@ -723,14 +739,14 @@ function TemplateNodeFormDrawer({
                   </Field>
                 </>
               ) : null}
-            </FieldGroup>
+            </FieldSet>
           </div>
           <DrawerFooter>
             <Button type="submit" disabled={isSubmitting || !template}>
               {isSubmitting ? 'Saving...' : 'Save node'}
             </Button>
             <DrawerClose asChild>
-              <Button variant="outline" type="button">
+              <Button variant="outline" type="button" disabled={isSubmitting}>
                 Cancel
               </Button>
             </DrawerClose>
@@ -830,6 +846,17 @@ function getNodeFormDefaults(drawer: NodeDrawerState | null): AdminTemplateNodeF
     parentId: drawer?.defaults?.parentId ?? '',
     skillId: drawer?.defaults?.skillId ?? '',
   };
+}
+
+function getNodeDraftKey(drawer: NodeDrawerState | null, templateId: string | undefined): string {
+  if (drawer?.mode === 'edit') {
+    return `admin:template-node:${templateId ?? 'none'}:${drawer.node.id}`;
+  }
+
+  const nodeType = drawer?.defaults?.nodeType ?? 'GROUP';
+  const parentId = drawer?.defaults?.parentId ?? 'root';
+
+  return `admin:template-node:${templateId ?? 'none'}:create:${nodeType}:${parentId}`;
 }
 
 function toNodePayload(values: AdminTemplateNodeFormValues): AdminTemplateNodePayload {

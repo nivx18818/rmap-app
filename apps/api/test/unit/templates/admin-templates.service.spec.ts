@@ -385,6 +385,61 @@ describe('AdminTemplatesService', () => {
 
       await expect(service.deleteTemplate(templateId)).rejects.toThrow(RoadmapNotFoundException);
     });
+
+    it('bulk deletes templates with per-item success and failure results', async () => {
+      const missingTemplateId = 'template-missing';
+
+      prisma.roadmap.deleteMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 0 });
+
+      const result = await service.bulkDeleteTemplates([templateId, missingTemplateId]);
+
+      expect(result).toEqual({
+        failed: [
+          {
+            code: String(ErrorCode.ROADMAP_NOT_FOUND),
+            id: missingTemplateId,
+            message: `Roadmap not found: ${missingTemplateId}`,
+          },
+        ],
+        succeeded: [templateId],
+      });
+    });
+
+    it('bulk updates template categories with per-item success and not-found failures', async () => {
+      const missingTemplateId = 'template-missing';
+      const template = makeTemplate();
+
+      prisma.roadmap.findFirst.mockResolvedValueOnce(template).mockResolvedValueOnce(null);
+      prisma.roadmap.update.mockResolvedValue({
+        ...template,
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+      });
+
+      const result = await service.bulkUpdateCategory(
+        [templateId, missingTemplateId],
+        RoleCategory.WEB_DEVELOPMENT,
+      );
+
+      expect(prisma.roadmap.update).toHaveBeenCalledWith({
+        data: {
+          roleCategory: RoleCategory.WEB_DEVELOPMENT,
+        },
+        select: expectAnyObject(),
+        where: { id: templateId },
+      });
+      expect(result).toEqual({
+        failed: [
+          {
+            code: String(ErrorCode.ROADMAP_NOT_FOUND),
+            id: missingTemplateId,
+            message: `Roadmap not found: ${missingTemplateId}`,
+          },
+        ],
+        succeeded: [templateId],
+      });
+    });
   });
 
   describe('nodes', () => {

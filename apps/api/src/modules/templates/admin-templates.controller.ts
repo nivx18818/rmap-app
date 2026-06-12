@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -16,6 +17,7 @@ import type { RoadmapResponseDto } from '@/modules/roadmaps/dto/roadmap-response
 
 import { Roles } from '@/common/decorators/roles.decorator';
 
+import type { AdminBulkOperationResponse as BulkOperationResponse } from './types/admin-bulk-response.types';
 import type {
   AdminTemplatesListResponse,
   TemplateNodeResponse,
@@ -23,6 +25,7 @@ import type {
 } from './types/admin-template-response.types';
 
 import { AdminTemplatesService } from './admin-templates.service';
+import { BulkTemplateCategoryDto, BulkTemplateIdsDto } from './dto/admin-template-bulk.dto';
 import { CreateTemplateNodeDto, UpdateTemplateNodeDto } from './dto/admin-template-node.dto';
 import { TemplateIdParamDto, TemplateNodeIdParamDto } from './dto/admin-template-params.dto';
 import { ListAdminTemplatesQueryDto } from './dto/admin-template-query.dto';
@@ -42,6 +45,16 @@ export class AdminTemplatesController {
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateTemplateDto): Promise<RoadmapResponseDto> {
     return this.adminTemplatesService.createTemplate(dto);
+  }
+
+  @Post('bulk-delete')
+  async bulkDelete(@Body() dto: BulkTemplateIdsDto): Promise<BulkOperationResponse> {
+    return this.adminTemplatesService.bulkDeleteTemplates(dto.ids);
+  }
+
+  @Patch('bulk/category')
+  async bulkUpdateCategory(@Body() dto: BulkTemplateCategoryDto): Promise<BulkOperationResponse> {
+    return this.adminTemplatesService.bulkUpdateCategory(dto.ids, dto.roleCategory);
   }
 
   @Get(':templateId')

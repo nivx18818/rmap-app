@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import {
   NodeType,
   type Prisma,
@@ -24,6 +24,7 @@ import { DagreLayoutService } from '@/modules/roadmaps/services/dagre-layout.ser
 import type { CreateTemplateNodeDto, UpdateTemplateNodeDto } from './dto/admin-template-node.dto';
 import type { ListAdminTemplatesQueryDto } from './dto/admin-template-query.dto';
 import type { CreateTemplateDto, UpdateTemplateDto } from './dto/admin-template.dto';
+import type { AdminBulkOperationResponse as BulkOperationResponse } from './types/admin-bulk-response.types';
 import type {
   AdminTemplatesListResponse,
   TemplateNodeResponse,
@@ -137,6 +138,19 @@ export class AdminTemplatesService {
     });
 
     return this.formatRoadmap(roadmap);
+  }
+
+  async bulkDeleteTemplates(templateIds: string[]): Promise<BulkOperationResponse> {
+    return this.runBulkOperation(templateIds, (templateId) => this.deleteTemplate(templateId));
+  }
+
+  async bulkUpdateCategory(
+    templateIds: string[],
+    roleCategory: RoleCategory,
+  ): Promise<BulkOperationResponse> {
+    return this.runBulkOperation(templateIds, async (templateId) => {
+      await this.updateTemplate(templateId, { roleCategory });
+    });
   }
 
   async getTemplate(templateId: string): Promise<RoadmapResponseDto> {
@@ -336,6 +350,53 @@ export class AdminTemplatesService {
     }
 
     return where;
+  }
+
+  private async runBulkOperation(
+    ids: string[],
+    operation: (id: string) => Promise<void>,
+  ): Promise<BulkOperationResponse> {
+    const result: BulkOperationResponse = {
+      failed: [],
+      succeeded: [],
+    };
+
+    for (const id of ids) {
+      try {
+        await operation(id);
+        result.succeeded.push(id);
+      } catch (error) {
+        result.failed.push(this.formatBulkFailure(id, error));
+      }
+    }
+
+    return result;
+  }
+
+  private formatBulkFailure(id: string, error: unknown): BulkOperationResponse['failed'][number] {
+    if (error instanceof HttpException) {
+      const response = error.getResponse();
+
+      if (typeof response === 'object' && response !== null) {
+        const errorResponse = response as { code?: number | string; message?: string };
+
+        return {
+          code: errorResponse.code === undefined ? undefined : String(errorResponse.code),
+          id,
+          message: errorResponse.message ?? error.message,
+        };
+      }
+
+      return {
+        id,
+        message: error.message,
+      };
+    }
+
+    return {
+      id,
+      message: 'Unexpected failure while processing this item.',
+    };
   }
 
   private async findTemplateOrThrow(templateId: string): Promise<SelectedTemplate> {

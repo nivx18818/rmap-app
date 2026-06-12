@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import { Prisma, type RoleCategory } from '@repo/db/prisma/client';
 
 import {
@@ -10,6 +10,7 @@ import { PrismaService } from '@/modules/prisma/prisma.service';
 
 import type { ListAdminSkillsQueryDto } from './dto/admin-skill-query.dto';
 import type { CreateSkillDto, UpdateSkillDto } from './dto/admin-skill.dto';
+import type { AdminBulkOperationResponse as BulkOperationResponse } from './types/admin-bulk-response.types';
 import type {
   AdminSkillsListResponse,
   SkillDetailResponse,
@@ -117,6 +118,19 @@ export class AdminSkillsService {
     }
   }
 
+  async bulkDeleteSkills(skillIds: string[]): Promise<BulkOperationResponse> {
+    return this.runBulkOperation(skillIds, (skillId) => this.deleteSkill(skillId));
+  }
+
+  async bulkUpdateCategory(
+    skillIds: string[],
+    roleCategory: RoleCategory,
+  ): Promise<BulkOperationResponse> {
+    return this.runBulkOperation(skillIds, async (skillId) => {
+      await this.updateSkill(skillId, { roleCategory });
+    });
+  }
+
   async getSkill(skillId: string): Promise<SkillDetailResponse> {
     const skill = await this.prisma.skill.findUnique({
       select: SKILL_DETAIL_SELECT,
@@ -200,6 +214,53 @@ export class AdminSkillsService {
     }
 
     return where;
+  }
+
+  private async runBulkOperation(
+    ids: string[],
+    operation: (id: string) => Promise<void>,
+  ): Promise<BulkOperationResponse> {
+    const result: BulkOperationResponse = {
+      failed: [],
+      succeeded: [],
+    };
+
+    for (const id of ids) {
+      try {
+        await operation(id);
+        result.succeeded.push(id);
+      } catch (error) {
+        result.failed.push(this.formatBulkFailure(id, error));
+      }
+    }
+
+    return result;
+  }
+
+  private formatBulkFailure(id: string, error: unknown): BulkOperationResponse['failed'][number] {
+    if (error instanceof HttpException) {
+      const response = error.getResponse();
+
+      if (typeof response === 'object' && response !== null) {
+        const errorResponse = response as { code?: number | string; message?: string };
+
+        return {
+          code: errorResponse.code === undefined ? undefined : String(errorResponse.code),
+          id,
+          message: errorResponse.message ?? error.message,
+        };
+      }
+
+      return {
+        id,
+        message: error.message,
+      };
+    }
+
+    return {
+      id,
+      message: 'Unexpected failure while processing this item.',
+    };
   }
 
   private async findSkillOrThrow(skillId: string): Promise<void> {

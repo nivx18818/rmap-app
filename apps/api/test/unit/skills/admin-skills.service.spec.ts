@@ -387,6 +387,62 @@ describe('AdminSkillsService', () => {
     expect(prisma.skill.delete).not.toHaveBeenCalled();
   });
 
+  it('bulk deletes skills with per-item success and failure results', async () => {
+    const referencedSkillId = 'skill-referenced';
+
+    prisma.skill.findUnique
+      .mockResolvedValueOnce({ id: skillId })
+      .mockResolvedValueOnce({ id: referencedSkillId });
+    prisma.roadmapNode.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'node-1' });
+    prisma.skill.delete.mockResolvedValue({ id: skillId });
+
+    const result = await service.bulkDeleteSkills([skillId, referencedSkillId]);
+
+    expect(result).toEqual({
+      failed: [
+        {
+          code: String(ErrorCode.SKILL_DELETE_REFERENCED),
+          id: referencedSkillId,
+          message: 'Skill cannot be deleted because it is referenced by roadmap or template nodes',
+        },
+      ],
+      succeeded: [skillId],
+    });
+  });
+
+  it('bulk updates skill categories with per-item success and not-found failures', async () => {
+    const missingSkillId = 'skill-missing';
+    const updatedSkill = makeSkill({ roleCategory: RoleCategory.WEB_DEVELOPMENT });
+
+    prisma.skill.findUnique.mockResolvedValueOnce({ id: skillId }).mockResolvedValueOnce(null);
+    prisma.skill.update.mockResolvedValue(updatedSkill);
+
+    const result = await service.bulkUpdateCategory(
+      [skillId, missingSkillId],
+      RoleCategory.WEB_DEVELOPMENT,
+    );
+
+    expect(prisma.skill.update).toHaveBeenCalledWith({
+      data: {
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+      },
+      select: expectAnyObject(),
+      where: { id: skillId },
+    });
+    expect(result).toEqual({
+      failed: [
+        {
+          code: String(ErrorCode.SKILL_NOT_FOUND),
+          id: missingSkillId,
+          message: `Skill not found: ${missingSkillId}`,
+        },
+      ],
+      succeeded: [skillId],
+    });
+  });
+
   it('throws SkillNotFoundException when deleting a missing skill', async () => {
     prisma.skill.findUnique.mockResolvedValue(null);
 

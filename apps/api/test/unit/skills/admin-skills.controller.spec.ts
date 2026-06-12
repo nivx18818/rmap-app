@@ -13,6 +13,8 @@ describe('AdminSkillsController', () => {
   const skillId = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
 
   const mockAdminSkillsService = {
+    bulkDeleteSkills: jest.fn(),
+    bulkUpdateCategory: jest.fn(),
     createSkill: jest.fn(),
     deleteSkill: jest.fn(),
     getSkill: jest.fn(),
@@ -75,6 +77,36 @@ describe('AdminSkillsController', () => {
     const result = await controller.create(dto);
 
     expect(mockAdminSkillsService.createSkill).toHaveBeenCalledWith(dto);
+    expect(result).toEqual(response);
+  });
+
+  it('delegates bulk skill deletion with body ids', async () => {
+    const dto = { ids: [skillId] };
+    const response = { failed: [], succeeded: [skillId] };
+
+    mockAdminSkillsService.bulkDeleteSkills.mockResolvedValue(response);
+
+    const result = await controller.bulkDelete(dto);
+
+    expect(mockAdminSkillsService.bulkDeleteSkills).toHaveBeenCalledWith(dto.ids);
+    expect(result).toEqual(response);
+  });
+
+  it('delegates bulk skill category updates with body ids and category', async () => {
+    const dto = {
+      ids: [skillId],
+      roleCategory: RoleCategory.WEB_DEVELOPMENT,
+    };
+    const response = { failed: [], succeeded: [skillId] };
+
+    mockAdminSkillsService.bulkUpdateCategory.mockResolvedValue(response);
+
+    const result = await controller.bulkUpdateCategory(dto);
+
+    expect(mockAdminSkillsService.bulkUpdateCategory).toHaveBeenCalledWith(
+      dto.ids,
+      dto.roleCategory,
+    );
     expect(result).toEqual(response);
   });
 

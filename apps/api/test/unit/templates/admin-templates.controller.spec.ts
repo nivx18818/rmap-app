@@ -19,6 +19,8 @@ describe('AdminTemplatesController', () => {
   const nodeId = '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d';
 
   const mockAdminTemplatesService = {
+    bulkDeleteTemplates: jest.fn(),
+    bulkUpdateCategory: jest.fn(),
     createNode: jest.fn(),
     createTemplate: jest.fn(),
     deleteNode: jest.fn(),
@@ -68,6 +70,36 @@ describe('AdminTemplatesController', () => {
     const result = await controller.create(dto);
 
     expect(mockAdminTemplatesService.createTemplate).toHaveBeenCalledWith(dto);
+    expect(result).toEqual(response);
+  });
+
+  it('delegates bulk template deletion with body ids', async () => {
+    const dto = { ids: [templateId] };
+    const response = { failed: [], succeeded: [templateId] };
+
+    mockAdminTemplatesService.bulkDeleteTemplates.mockResolvedValue(response);
+
+    const result = await controller.bulkDelete(dto);
+
+    expect(mockAdminTemplatesService.bulkDeleteTemplates).toHaveBeenCalledWith(dto.ids);
+    expect(result).toEqual(response);
+  });
+
+  it('delegates bulk template category updates with body ids and category', async () => {
+    const dto = {
+      ids: [templateId],
+      roleCategory: RoleCategory.WEB_DEVELOPMENT,
+    };
+    const response = { failed: [], succeeded: [templateId] };
+
+    mockAdminTemplatesService.bulkUpdateCategory.mockResolvedValue(response);
+
+    const result = await controller.bulkUpdateCategory(dto);
+
+    expect(mockAdminTemplatesService.bulkUpdateCategory).toHaveBeenCalledWith(
+      dto.ids,
+      dto.roleCategory,
+    );
     expect(result).toEqual(response);
   });
 

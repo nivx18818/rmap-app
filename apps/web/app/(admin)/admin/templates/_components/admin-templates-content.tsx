@@ -1,19 +1,14 @@
 'use client';
 
 import type { Route } from 'next';
-import type { ComponentProps } from 'react';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@repo/design-system/components/ui/alert-dialog';
+import { ConfirmDeleteDialog } from '@repo/design-system/components/common/confirm-delete-dialog';
+import { DrawerSubmitOverlay } from '@repo/design-system/components/common/drawer-submit-overlay';
+import { InlineNotice } from '@repo/design-system/components/common/inline-notice';
+import { NativeSelect } from '@repo/design-system/components/common/native-select';
+import { TablePlaceholder } from '@repo/design-system/components/common/table-placeholder';
+import { TextareaControl } from '@repo/design-system/components/common/textarea-control';
 import { Badge } from '@repo/design-system/components/ui/badge';
 import { Button } from '@repo/design-system/components/ui/button';
 import {
@@ -34,7 +29,6 @@ import {
 } from '@repo/design-system/components/ui/drawer';
 import { Field, FieldError, FieldGroup, FieldLabel } from '@repo/design-system/components/ui/field';
 import { Input } from '@repo/design-system/components/ui/input';
-import { Skeleton } from '@repo/design-system/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -44,7 +38,6 @@ import {
   TableRow,
 } from '@repo/design-system/components/ui/table';
 import { toast } from '@repo/design-system/lib/toast';
-import { cn } from '@repo/design-system/lib/utils';
 import Link from 'next/link';
 import { useDeferredValue, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -63,7 +56,9 @@ import {
   type AdminTemplateFormValues,
 } from '@/validations/admin-content.schema';
 
-const PER_PAGE = 10;
+import { AdminPagination } from '../../_components/admin-pagination';
+
+const DEFAULT_PER_PAGE = 10;
 const EMPTY_TEMPLATES: AdminTemplate[] = [];
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
@@ -71,9 +66,6 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   year: 'numeric',
 });
-
-const CONTROL_CLASS_NAME =
-  'border-border focus-visible:border-border bg-background text-foreground disabled:border-disabled disabled:bg-background disabled:text-disabled disabled:placeholder:text-disabled placeholder:text-muted-foreground/70 focus-visible:ring-ring min-h-10 w-full min-w-0 rounded-md border px-3 py-2.5 text-base shadow-[0_1px_2px_0_rgba(139,92,246,0.10)] transition-all outline-none focus-visible:shadow-none focus-visible:ring-2 disabled:cursor-not-allowed aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20';
 
 type RoleFilter = '' | RoleCategory;
 
@@ -91,6 +83,7 @@ export function AdminTemplatesContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('');
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(DEFAULT_PER_PAGE);
   const [templatesResponse, setTemplatesResponse] = useState<AdminTemplatesListResponse | null>(
     null,
   );
@@ -105,6 +98,9 @@ export function AdminTemplatesContent() {
 
   const templates = templatesResponse?.data ?? EMPTY_TEMPLATES;
   const templatesMeta = templatesResponse?.meta;
+  const isSearchDeferred = deferredSearchTerm !== searchTerm.trim();
+  const isUpdatingTemplates =
+    (isLoadingTemplates || isSearchDeferred) && templatesResponse !== null;
 
   useEffect(() => {
     let isCurrent = true;
@@ -115,7 +111,7 @@ export function AdminTemplatesContent() {
     void adminContentService
       .listTemplates({
         page,
-        perPage: PER_PAGE,
+        perPage,
         q: deferredSearchTerm || undefined,
         roleCategory: roleFilter || undefined,
       })
@@ -137,7 +133,7 @@ export function AdminTemplatesContent() {
     return () => {
       isCurrent = false;
     };
-  }, [deferredSearchTerm, page, roleFilter, templatesRefreshKey]);
+  }, [deferredSearchTerm, page, perPage, roleFilter, templatesRefreshKey]);
 
   useEffect(() => {
     if (templates.length === 0) {
@@ -161,6 +157,11 @@ export function AdminTemplatesContent() {
 
   const handleRoleFilterChange = (value: RoleFilter) => {
     setRoleFilter(value);
+    setPage(1);
+  };
+
+  const handlePageSizeChange = (value: number) => {
+    setPerPage(value);
     setPage(1);
   };
 
@@ -269,6 +270,13 @@ export function AdminTemplatesContent() {
             <InlineNotice title="Templates unavailable" tone="error" description={templatesError} />
           ) : null}
 
+          {isUpdatingTemplates ? (
+            <InlineNotice
+              title="Updating results"
+              description="Keeping the current template list visible while the latest filters load."
+            />
+          ) : null}
+
           <div className="overflow-hidden rounded-2xl border">
             <Table>
               <TableHeader>
@@ -281,7 +289,7 @@ export function AdminTemplatesContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoadingTemplates ? (
+                {isLoadingTemplates && !templatesResponse ? (
                   <TablePlaceholder rows={5} />
                 ) : templates.length > 0 ? (
                   templates.map((template) => (
@@ -347,36 +355,17 @@ export function AdminTemplatesContent() {
             </Table>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-muted-foreground text-sm">
-              {templatesMeta
-                ? `${templatesMeta.total} templates, page ${templatesMeta.page} of ${Math.max(templatesMeta.totalPages, 1)}`
-                : 'Loading templates...'}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isLoadingTemplates || page <= 1}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={
-                  isLoadingTemplates ||
-                  !templatesMeta ||
-                  templatesMeta.totalPages === 0 ||
-                  page >= templatesMeta.totalPages
-                }
-                onClick={() => setPage((current) => current + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          {templatesMeta ? (
+            <AdminPagination
+              isLoading={isLoadingTemplates}
+              page={page}
+              pageSize={perPage}
+              total={templatesMeta.total}
+              totalPages={templatesMeta.totalPages}
+              onPageChange={setPage}
+              onPageSizeChange={handlePageSizeChange}
+            />
+          ) : null}
         </CardContent>
       </Card>
 
@@ -449,7 +438,8 @@ function TemplateFormDrawer({
   return (
     <Drawer direction="right" open={isOpen} onOpenChange={onOpenChange}>
       <DrawerContent className="sm:max-w-xl">
-        <form className="flex min-h-0 flex-1 flex-col" noValidate onSubmit={handleSubmit}>
+        <form className="relative flex min-h-0 flex-1 flex-col" noValidate onSubmit={handleSubmit}>
+          <DrawerSubmitOverlay label="Saving template" isVisible={isSubmitting} />
           <DrawerHeader>
             <DrawerTitle>{template ? 'Edit template' : 'Create template'}</DrawerTitle>
             <DrawerDescription>
@@ -523,88 +513,6 @@ function TemplateFormDrawer({
       </DrawerContent>
     </Drawer>
   );
-}
-
-function ConfirmDeleteDialog({
-  confirmLabel,
-  description,
-  isDeleting,
-  onConfirm,
-  onOpenChange,
-  open,
-  title,
-}: {
-  confirmLabel: string;
-  description: string;
-  isDeleting: boolean;
-  onConfirm: () => Promise<void>;
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-  title: string;
-}) {
-  return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            type="button"
-            disabled={isDeleting}
-            onClick={() => {
-              void onConfirm();
-            }}
-          >
-            {isDeleting ? 'Deleting...' : confirmLabel}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
-function InlineNotice({
-  description,
-  title,
-  tone = 'default',
-}: {
-  description: string;
-  title: string;
-  tone?: 'default' | 'error';
-}) {
-  return (
-    <div
-      className={cn(
-        'rounded-2xl border p-4',
-        tone === 'error' ? 'border-destructive/30 bg-destructive/5' : 'border-border bg-muted/30',
-      )}
-    >
-      <p className="font-medium">{title}</p>
-      <p className="text-muted-foreground mt-1 text-sm">{description}</p>
-    </div>
-  );
-}
-
-function TablePlaceholder({ rows }: { rows: number }) {
-  return Array.from({ length: rows }).map((_, index) => (
-    <TableRow key={index}>
-      <TableCell className="h-16" colSpan={5}>
-        <Skeleton className="h-4 w-full max-w-180 rounded-full" />
-      </TableCell>
-    </TableRow>
-  ));
-}
-
-function NativeSelect({ className, ...props }: ComponentProps<'select'>) {
-  return <select className={cn(CONTROL_CLASS_NAME, className)} {...props} />;
-}
-
-function TextareaControl({ className, ...props }: ComponentProps<'textarea'>) {
-  return <textarea className={cn(CONTROL_CLASS_NAME, 'min-h-28 resize-y', className)} {...props} />;
 }
 
 function getTemplateFormDefaults(template?: AdminTemplate): AdminTemplateFormValues {

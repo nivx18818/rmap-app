@@ -2,6 +2,7 @@ export const API_BASE_PATH = process.env.NEXT_PUBLIC_API_BASE_PATH ?? '/api/v1';
 
 export const ENDPOINTS = {
   admin: {
+    dashboard: '/admin/dashboard',
     skills: {
       byId: (skillId: string) => `/admin/skills/${skillId}`,
       list: '/admin/skills',

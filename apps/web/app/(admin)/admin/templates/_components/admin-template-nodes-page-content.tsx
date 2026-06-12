@@ -4,10 +4,10 @@ import type { Route } from 'next';
 
 import { ArrowLeftIcon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
+import { InlineNotice } from '@repo/design-system/components/common/inline-notice';
 import { Badge } from '@repo/design-system/components/ui/badge';
 import { Button } from '@repo/design-system/components/ui/button';
 import { Skeleton } from '@repo/design-system/components/ui/skeleton';
-import { cn } from '@repo/design-system/lib/utils';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -125,28 +125,6 @@ function TemplateMetadataPlaceholder() {
         <Skeleton className="h-20 w-full rounded-2xl" />
         <Skeleton className="h-56 w-full rounded-2xl" />
       </div>
-    </div>
-  );
-}
-
-function InlineNotice({
-  description,
-  title,
-  tone = 'default',
-}: {
-  description: string;
-  title: string;
-  tone?: 'default' | 'error';
-}) {
-  return (
-    <div
-      className={cn(
-        'rounded-2xl border p-4',
-        tone === 'error' ? 'border-destructive/30 bg-destructive/5' : 'border-border bg-muted/30',
-      )}
-    >
-      <p className="font-medium">{title}</p>
-      <p className="text-muted-foreground mt-1 text-sm">{description}</p>
     </div>
   );
 }

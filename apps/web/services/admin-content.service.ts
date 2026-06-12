@@ -8,6 +8,7 @@ import type {
   AdminSkillResourcesResponse,
   AdminSkillsListResponse,
   AdminSkillsQuery,
+  AdminDashboardResponse,
   AdminTemplate,
   AdminTemplateNode,
   AdminTemplateNodePayload,
@@ -22,6 +23,10 @@ import { ENDPOINTS } from '@/constants/endpoints';
 import { axiosInstance } from '@/lib/axios-instance';
 
 export const adminContentService = {
+  getDashboard: async () => {
+    const response = await axiosInstance.get<AdminDashboardResponse>(ENDPOINTS.admin.dashboard);
+    return response.data;
+  },
   createResource: async (skillId: string, payload: AdminSkillResourcePayload) => {
     const response = await axiosInstance.post<AdminSkillResource>(
       ENDPOINTS.admin.skills.resources(skillId),

@@ -18,6 +18,22 @@ export type RoleCategory =
 
 export type ResourceType = 'ARTICLE' | 'COURSE' | 'DOCS' | 'YOUTUBE';
 export type TemplateNodeType = 'GROUP' | 'MILESTONE' | 'OPTIONAL' | 'REQUIRED';
+export type AdminActivityType = 'resource' | 'skill' | 'template' | 'template_node';
+
+export interface AdminDashboardResponse {
+  recentActivity: Array<{
+    id: string;
+    label: string;
+    timestamp: string;
+    type: AdminActivityType;
+  }>;
+  totals: {
+    resources: number;
+    skills: number;
+    templateNodes: number;
+    templates: number;
+  };
+}
 
 export interface AdminSkill {
   createdAt: string;

@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
+import { AdminDashboardContent } from './_components/admin-dashboard-content';
 
 export default function AdminIndexPage() {
-  redirect('/admin/skills');
+  return <AdminDashboardContent />;
 }

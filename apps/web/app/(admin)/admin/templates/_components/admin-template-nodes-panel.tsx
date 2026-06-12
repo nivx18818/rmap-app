@@ -1,20 +1,13 @@
 'use client';
 
-import type { ComponentProps } from 'react';
-
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowDown01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@repo/design-system/components/ui/alert-dialog';
+import { ConfirmDeleteDialog } from '@repo/design-system/components/common/confirm-delete-dialog';
+import { DrawerSubmitOverlay } from '@repo/design-system/components/common/drawer-submit-overlay';
+import { InlineNotice } from '@repo/design-system/components/common/inline-notice';
+import { NativeSelect } from '@repo/design-system/components/common/native-select';
+import { TextareaControl } from '@repo/design-system/components/common/textarea-control';
 import { Badge } from '@repo/design-system/components/ui/badge';
 import { Button } from '@repo/design-system/components/ui/button';
 import {
@@ -61,8 +54,6 @@ import {
 const EMPTY_NODES: AdminTemplateNode[] = [];
 const EMPTY_SKILLS: AdminSkill[] = [];
 const SKILL_OPTIONS_LIMIT = 100;
-const CONTROL_CLASS_NAME =
-  'border-border focus-visible:border-border bg-background text-foreground disabled:border-disabled disabled:bg-background disabled:text-disabled disabled:placeholder:text-disabled placeholder:text-muted-foreground/70 focus-visible:ring-ring min-h-10 w-full min-w-0 rounded-md border px-3 py-2.5 text-base shadow-[0_1px_2px_0_rgba(139,92,246,0.10)] transition-all outline-none focus-visible:shadow-none focus-visible:ring-2 disabled:cursor-not-allowed aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20';
 
 type NodeDrawerState =
   | {
@@ -628,7 +619,8 @@ function TemplateNodeFormDrawer({
   return (
     <Drawer direction="right" open={isOpen} onOpenChange={onOpenChange}>
       <DrawerContent className="sm:max-w-xl">
-        <form className="flex min-h-0 flex-1 flex-col" noValidate onSubmit={handleSubmit}>
+        <form className="relative flex min-h-0 flex-1 flex-col" noValidate onSubmit={handleSubmit}>
+          <DrawerSubmitOverlay label="Saving node" isVisible={isSubmitting} />
           <DrawerHeader>
             <DrawerTitle>{node ? 'Edit template node' : 'Create template node'}</DrawerTitle>
             <DrawerDescription>
@@ -749,70 +741,6 @@ function TemplateNodeFormDrawer({
   );
 }
 
-function ConfirmDeleteDialog({
-  confirmLabel,
-  description,
-  isDeleting,
-  onConfirm,
-  onOpenChange,
-  open,
-  title,
-}: {
-  confirmLabel: string;
-  description: string;
-  isDeleting: boolean;
-  onConfirm: () => Promise<void>;
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-  title: string;
-}) {
-  return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            type="button"
-            disabled={isDeleting}
-            onClick={() => {
-              void onConfirm();
-            }}
-          >
-            {isDeleting ? 'Deleting...' : confirmLabel}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
-function InlineNotice({
-  description,
-  title,
-  tone = 'default',
-}: {
-  description: string;
-  title: string;
-  tone?: 'default' | 'error';
-}) {
-  return (
-    <div
-      className={cn(
-        'rounded-2xl border p-4',
-        tone === 'error' ? 'border-destructive/30 bg-destructive/5' : 'border-border bg-muted/30',
-      )}
-    >
-      <p className="font-medium">{title}</p>
-      <p className="text-muted-foreground mt-1 text-sm">{description}</p>
-    </div>
-  );
-}
-
 function NodeListPlaceholder() {
   return Array.from({ length: 3 }).map((_, index) => (
     <div key={index} className="border-border rounded-lg border p-4">
@@ -824,14 +752,6 @@ function NodeListPlaceholder() {
       </div>
     </div>
   ));
-}
-
-function NativeSelect({ className, ...props }: ComponentProps<'select'>) {
-  return <select className={cn(CONTROL_CLASS_NAME, className)} {...props} />;
-}
-
-function TextareaControl({ className, ...props }: ComponentProps<'textarea'>) {
-  return <textarea className={cn(CONTROL_CLASS_NAME, 'min-h-28 resize-y', className)} {...props} />;
 }
 
 function buildNodeSections(nodes: AdminTemplateNode[]): TemplateNodeSection[] {

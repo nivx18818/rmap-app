@@ -1,18 +1,12 @@
 'use client';
 
-import type { ComponentProps } from 'react';
-
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@repo/design-system/components/ui/alert-dialog';
+import { ConfirmDeleteDialog } from '@repo/design-system/components/common/confirm-delete-dialog';
+import { DrawerSubmitOverlay } from '@repo/design-system/components/common/drawer-submit-overlay';
+import { InlineNotice } from '@repo/design-system/components/common/inline-notice';
+import { NativeSelect } from '@repo/design-system/components/common/native-select';
+import { TablePlaceholder } from '@repo/design-system/components/common/table-placeholder';
+import { TextareaControl } from '@repo/design-system/components/common/textarea-control';
 import { Badge } from '@repo/design-system/components/ui/badge';
 import { Button } from '@repo/design-system/components/ui/button';
 import {
@@ -46,7 +40,6 @@ import {
   TableRow,
 } from '@repo/design-system/components/ui/table';
 import { toast } from '@repo/design-system/lib/toast';
-import { cn } from '@repo/design-system/lib/utils';
 import { useDeferredValue, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -70,7 +63,9 @@ import {
   type AdminSkillFormValues,
 } from '@/validations/admin-content.schema';
 
-const PER_PAGE = 10;
+import { AdminPagination } from '../../_components/admin-pagination';
+
+const DEFAULT_PER_PAGE = 10;
 const EMPTY_SKILLS: AdminSkill[] = [];
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
@@ -78,9 +73,6 @@ const DATE_FORMATTER = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   year: 'numeric',
 });
-
-const CONTROL_CLASS_NAME =
-  'border-border focus-visible:border-border bg-background text-foreground disabled:border-disabled disabled:bg-background disabled:text-disabled disabled:placeholder:text-disabled placeholder:text-muted-foreground/70 focus-visible:ring-ring min-h-10 w-full min-w-0 rounded-md border px-3 py-2.5 text-base shadow-[0_1px_2px_0_rgba(139,92,246,0.10)] transition-all outline-none focus-visible:shadow-none focus-visible:ring-2 disabled:cursor-not-allowed aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/20';
 
 type RoleFilter = '' | RoleCategory;
 
@@ -108,6 +100,7 @@ export function AdminSkillsContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('');
   const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(DEFAULT_PER_PAGE);
   const [skillsResponse, setSkillsResponse] = useState<AdminSkillsListResponse | null>(null);
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [resources, setResources] = useState<AdminSkillResource[]>([]);
@@ -129,6 +122,8 @@ export function AdminSkillsContent() {
   const skillsMeta = skillsResponse?.meta;
   const selectedSkill = skills.find((skill) => skill.id === selectedSkillId) ?? null;
   const primaryResourceCount = resources.filter((resource) => resource.isPrimary).length;
+  const isSearchDeferred = deferredSearchTerm !== searchTerm.trim();
+  const isUpdatingSkills = (isLoadingSkills || isSearchDeferred) && skillsResponse !== null;
 
   useEffect(() => {
     let isCurrent = true;
@@ -139,7 +134,7 @@ export function AdminSkillsContent() {
     void adminContentService
       .listSkills({
         page,
-        perPage: PER_PAGE,
+        perPage,
         q: deferredSearchTerm || undefined,
         roleCategory: roleFilter || undefined,
       })
@@ -161,7 +156,7 @@ export function AdminSkillsContent() {
     return () => {
       isCurrent = false;
     };
-  }, [deferredSearchTerm, page, roleFilter, skillsRefreshKey]);
+  }, [deferredSearchTerm, page, perPage, roleFilter, skillsRefreshKey]);
 
   useEffect(() => {
     if (skills.length === 0) {
@@ -223,6 +218,11 @@ export function AdminSkillsContent() {
 
   const handleRoleFilterChange = (value: RoleFilter) => {
     setRoleFilter(value);
+    setPage(1);
+  };
+
+  const handlePageSizeChange = (value: number) => {
+    setPerPage(value);
     setPage(1);
   };
 
@@ -360,6 +360,13 @@ export function AdminSkillsContent() {
               <InlineNotice title="Skills unavailable" tone="error" description={skillsError} />
             ) : null}
 
+            {isUpdatingSkills ? (
+              <InlineNotice
+                title="Updating results"
+                description="Keeping the current skill list visible while the latest filters load."
+              />
+            ) : null}
+
             <div className="overflow-hidden rounded-2xl border">
               <Table>
                 <TableHeader>
@@ -372,7 +379,7 @@ export function AdminSkillsContent() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoadingSkills ? (
+                  {isLoadingSkills && !skillsResponse ? (
                     <TablePlaceholder rows={5} />
                   ) : skills.length > 0 ? (
                     skills.map((skill) => (
@@ -431,36 +438,17 @@ export function AdminSkillsContent() {
               </Table>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-muted-foreground text-sm">
-                {skillsMeta
-                  ? `${skillsMeta.total} skills, page ${skillsMeta.page} of ${Math.max(skillsMeta.totalPages, 1)}`
-                  : 'Loading skills...'}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isLoadingSkills || page <= 1}
-                  onClick={() => setPage((current) => Math.max(1, current - 1))}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={
-                    isLoadingSkills ||
-                    !skillsMeta ||
-                    skillsMeta.totalPages === 0 ||
-                    page >= skillsMeta.totalPages
-                  }
-                  onClick={() => setPage((current) => current + 1)}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
+            {skillsMeta ? (
+              <AdminPagination
+                isLoading={isLoadingSkills}
+                page={page}
+                pageSize={perPage}
+                total={skillsMeta.total}
+                totalPages={skillsMeta.totalPages}
+                onPageChange={setPage}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            ) : null}
           </CardContent>
         </Card>
 
@@ -635,7 +623,8 @@ function SkillFormDrawer({
   return (
     <Drawer direction="right" open={isOpen} onOpenChange={onOpenChange}>
       <DrawerContent className="sm:max-w-xl">
-        <form className="flex min-h-0 flex-1 flex-col" noValidate onSubmit={handleSubmit}>
+        <form className="relative flex min-h-0 flex-1 flex-col" noValidate onSubmit={handleSubmit}>
+          <DrawerSubmitOverlay label="Saving skill" isVisible={isSubmitting} />
           <DrawerHeader>
             <DrawerTitle>{skill ? 'Edit skill' : 'Create skill'}</DrawerTitle>
             <DrawerDescription>
@@ -762,7 +751,8 @@ function ResourceFormDrawer({
   return (
     <Drawer direction="right" open={isOpen} onOpenChange={onOpenChange}>
       <DrawerContent className="sm:max-w-xl">
-        <form className="flex min-h-0 flex-1 flex-col" noValidate onSubmit={handleSubmit}>
+        <form className="relative flex min-h-0 flex-1 flex-col" noValidate onSubmit={handleSubmit}>
+          <DrawerSubmitOverlay label="Saving resource" isVisible={isSubmitting} />
           <DrawerHeader>
             <DrawerTitle>{resource ? 'Edit resource' : 'Create resource'}</DrawerTitle>
             <DrawerDescription>
@@ -853,48 +843,6 @@ function ResourceFormDrawer({
   );
 }
 
-function ConfirmDeleteDialog({
-  confirmLabel,
-  description,
-  isDeleting,
-  onConfirm,
-  onOpenChange,
-  open,
-  title,
-}: {
-  confirmLabel: string;
-  description: string;
-  isDeleting: boolean;
-  onConfirm: () => Promise<void>;
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-  title: string;
-}) {
-  return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
-          <AlertDialogDescription>{description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            type="button"
-            disabled={isDeleting}
-            onClick={() => {
-              void onConfirm();
-            }}
-          >
-            {isDeleting ? 'Deleting...' : confirmLabel}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
 function ResourceCard({
   onDelete,
   onEdit,
@@ -942,38 +890,6 @@ function ResourceCard({
   );
 }
 
-function InlineNotice({
-  description,
-  title,
-  tone = 'default',
-}: {
-  description: string;
-  title: string;
-  tone?: 'default' | 'error';
-}) {
-  return (
-    <div
-      className={cn(
-        'rounded-2xl border p-4',
-        tone === 'error' ? 'border-destructive/30 bg-destructive/5' : 'border-border bg-muted/30',
-      )}
-    >
-      <p className="font-medium">{title}</p>
-      <p className="text-muted-foreground mt-1 text-sm">{description}</p>
-    </div>
-  );
-}
-
-function TablePlaceholder({ rows }: { rows: number }) {
-  return Array.from({ length: rows }).map((_, index) => (
-    <TableRow key={index}>
-      <TableCell className="h-16" colSpan={5}>
-        <Skeleton className="h-4 w-full max-w-180 rounded-full" />
-      </TableCell>
-    </TableRow>
-  ));
-}
-
 function ResourcePlaceholder() {
   return Array.from({ length: 3 }).map((_, index) => (
     <div key={index} className="border-border rounded-2xl border p-4">
@@ -988,14 +904,6 @@ function ResourcePlaceholder() {
       </div>
     </div>
   ));
-}
-
-function NativeSelect({ className, ...props }: ComponentProps<'select'>) {
-  return <select className={cn(CONTROL_CLASS_NAME, className)} {...props} />;
-}
-
-function TextareaControl({ className, ...props }: ComponentProps<'textarea'>) {
-  return <textarea className={cn(CONTROL_CLASS_NAME, 'min-h-28 resize-y', className)} {...props} />;
 }
 
 function getSkillFormDefaults(skill?: AdminSkill): AdminSkillFormValues {

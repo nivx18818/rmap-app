@@ -11,7 +11,7 @@ describe('RoadmapsController', () => {
 
   const mockRoadmapsService = {
     deleteByIdForOwner: jest.fn(),
-    deleteTemplateProgress: jest.fn(),
+    deleteRoadmapProgress: jest.fn(),
     generate: jest.fn(),
     getByIdForOwner: jest.fn(),
     getLatestMilestoneSubmission: jest.fn(),
@@ -213,8 +213,8 @@ describe('RoadmapsController', () => {
     });
   });
 
-  describe('deleteTemplateProgress', () => {
-    it('should delete template progress for the current user and return no body', async () => {
+  describe('deleteRoadmapProgress', () => {
+    it('should delete roadmap progress for the current user and return no body', async () => {
       const user = {
         id: 'user-1',
         email: 'test@example.com',
@@ -223,14 +223,11 @@ describe('RoadmapsController', () => {
         createdAt: new Date('2025-04-24T07:00:00Z'),
       };
 
-      mockRoadmapsService.deleteTemplateProgress.mockResolvedValue(undefined);
+      mockRoadmapsService.deleteRoadmapProgress.mockResolvedValue(undefined);
 
-      const result = await controller.deleteTemplateProgress(user, 'template-1');
+      const result = await controller.deleteRoadmapProgress(user, 'roadmap-1');
 
-      expect(mockRoadmapsService.deleteTemplateProgress).toHaveBeenCalledWith(
-        'user-1',
-        'template-1',
-      );
+      expect(mockRoadmapsService.deleteRoadmapProgress).toHaveBeenCalledWith('user-1', 'roadmap-1');
       expect(result).toBeUndefined();
     });
   });

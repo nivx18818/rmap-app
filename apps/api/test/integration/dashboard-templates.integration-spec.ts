@@ -257,7 +257,7 @@ describe('Learner dashboard and public templates (integration)', () => {
     expect(latestSubmissionResponse.body).toEqual({ submission: null });
   });
 
-  it('rejects progress deletion for a non-template roadmap', async () => {
+  it('deletes progress for an owned AI roadmap and rejects other users', async () => {
     const seeded = await seedRoadmapWorkflow(integration.prisma);
 
     await request(integration.app.getHttpServer())
@@ -270,6 +270,26 @@ describe('Learner dashboard and public templates (integration)', () => {
     await request(integration.app.getHttpServer())
       .delete(`/api/v1/roadmaps/${seeded.roadmapId}/progress`)
       .set('Cookie', cookie)
+      .expect(204);
+
+    const remainingOwnerProgress = await integration.prisma.userNodeProgress.count({
+      where: {
+        roadmapNode: { roadmapId: seeded.roadmapId },
+        userId: seeded.user.id,
+      },
+    });
+
+    expect(remainingOwnerProgress).toBe(0);
+
+    const otherUser = await seedUser(integration.prisma, {
+      email: uniqueEmail('ai-progress-other-user'),
+    });
+    const otherLoginResponse = await integration.loginAs(otherUser.email);
+    const otherCookie = getCookieHeader(otherLoginResponse, ['access_token']);
+
+    await request(integration.app.getHttpServer())
+      .delete(`/api/v1/roadmaps/${seeded.roadmapId}/progress`)
+      .set('Cookie', otherCookie)
       .expect(404);
   });
 

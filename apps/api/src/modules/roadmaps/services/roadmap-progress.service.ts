@@ -343,19 +343,16 @@ export class RoadmapProgressService {
     });
   }
 
-  async deleteTemplateProgress(userId: string, roadmapId: string): Promise<void> {
+  async deleteRoadmapProgress(userId: string, roadmapId: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       await acquireUserRoadmapLock(tx, userId, roadmapId);
 
-      const template = await tx.roadmap.findFirst({
-        where: {
-          id: roadmapId,
-          isTemplate: true,
-        },
+      const roadmap = await tx.roadmap.findFirst({
+        where: getRoadmapAccessWhere(userId, roadmapId),
         select: { id: true },
       });
 
-      if (!template) {
+      if (!roadmap) {
         throw new RoadmapNotFoundException(roadmapId);
       }
 

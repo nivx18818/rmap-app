@@ -119,8 +119,8 @@ export class RoadmapsService {
     return this.roadmapProgress.startLearning(userId, roadmapId);
   }
 
-  async deleteTemplateProgress(userId: string, roadmapId: string): Promise<void> {
-    return this.roadmapProgress.deleteTemplateProgress(userId, roadmapId);
+  async deleteRoadmapProgress(userId: string, roadmapId: string): Promise<void> {
+    return this.roadmapProgress.deleteRoadmapProgress(userId, roadmapId);
   }
 
   async deleteByIdForOwner(userId: string, roadmapId: string): Promise<void> {

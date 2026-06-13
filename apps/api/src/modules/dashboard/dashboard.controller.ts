@@ -1,10 +1,13 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+
+import { Public } from '@/common/decorators/public.decorator';
 
 import type { DashboardHomeResponse } from './types/dashboard-home-response.types';
 import type { DashboardResponse } from './types/dashboard-response.types';
 import type { DashboardSearchResponse } from './types/dashboard-search-response.types';
 
 import { CurrentUser, type RequestUser } from '../auth/decorators/current-user.decorator';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { DashboardService } from './dashboard.service';
 import { DashboardSearchQueryDto } from './dto/dashboard-search-query.dto';
 
@@ -40,10 +43,12 @@ export class DashboardController {
    * the user's AI roadmaps, and matching skills.
    */
   @Get('search')
+  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   async search(
-    @CurrentUser() user: RequestUser,
+    @CurrentUser() user: RequestUser | null,
     @Query() query: DashboardSearchQueryDto,
   ): Promise<DashboardSearchResponse> {
-    return this.dashboardService.search(user.id, query);
+    return this.dashboardService.search(user?.id, query);
   }
 }

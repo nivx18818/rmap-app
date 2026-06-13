@@ -12,6 +12,7 @@ import { GithubOAuthGuard } from './guards/github-oauth.guard';
 import { GoogleOAuthGuard } from './guards/google-oauth.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+import { OptionalJwtAuthGuard } from './guards/optional-jwt-auth.guard';
 import { PasswordResetDeliveryService } from './password-reset-delivery.service';
 import { PasswordResetTokenService } from './password-reset-token.service';
 import { RefreshTokenService } from './refresh-token.service';
@@ -41,6 +42,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     GoogleStrategy,
     GithubStrategy,
     JwtAuthGuard,
+    OptionalJwtAuthGuard,
     JwtRefreshGuard,
     GoogleOAuthGuard,
     GithubOAuthGuard,

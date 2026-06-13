@@ -230,7 +230,7 @@ export class DashboardService {
   }
 
   async search(
-    userId: string,
+    userId?: string,
     query: DashboardSearchQueryDto = {},
   ): Promise<DashboardSearchResponse> {
     const searchQuery = (query.query ?? '').trim();
@@ -397,10 +397,12 @@ export class DashboardService {
     } satisfies Prisma.RoadmapSelect;
   }
 
-  private getDashboardSearchRoadmapWhere(userId: string, query: string): Prisma.RoadmapWhereInput {
-    return {
-      AND: [
-        {
+  private getDashboardSearchRoadmapWhere(
+    userId: string | undefined,
+    query: string,
+  ): Prisma.RoadmapWhereInput {
+    const userFilter: Prisma.RoadmapWhereInput = userId
+      ? {
           OR: [
             { isTemplate: true },
             {
@@ -408,6 +410,16 @@ export class DashboardService {
               userId,
             },
           ],
+        }
+      : { isTemplate: true };
+
+    return {
+      AND: [
+        userFilter,
+        {
+          nodes: {
+            some: {},
+          },
         },
         {
           OR: [

@@ -819,6 +819,11 @@ describe('DashboardService', () => {
             ],
           },
           {
+            nodes: {
+              some: {},
+            },
+          },
+          {
             OR: [
               { title: { contains: 'react', mode: 'insensitive' } },
               { goalName: { contains: 'react', mode: 'insensitive' } },
@@ -911,6 +916,96 @@ describe('DashboardService', () => {
         skillPageSize: 10,
       },
     });
+  });
+
+  it('should search template roadmaps only (excluding user AI roadmaps) and skills when userId is undefined', async () => {
+    prisma.roadmap.findMany.mockResolvedValue([
+      {
+        id: 'template-roadmap',
+        title: 'React Fundamentals',
+        description: 'Learn React from scratch',
+        goalName: 'Frontend Developer',
+        isTemplate: true,
+        roleCategory: 'WEB_DEVELOPMENT',
+        estimatedWeeks: 12,
+      },
+    ]);
+    prisma.roadmap.count.mockResolvedValue(5);
+    prisma.skill.findMany.mockResolvedValue([
+      {
+        id: 'skill-1',
+        name: 'React Hooks',
+        description: 'Hooks and state',
+        roleCategory: 'FRAMEWORKS',
+        defaultEstimatedHours: 4,
+      },
+    ]);
+    prisma.skill.count.mockResolvedValue(8);
+
+    const result = await service.search(undefined, {
+      query: ' react ',
+      roadmapPage: 2,
+      skillPage: 2,
+    });
+
+    expect(prisma.roadmap.findMany).toHaveBeenCalledWith({
+      orderBy: [{ isTemplate: 'desc' }, { updatedAt: 'desc' }, { id: 'asc' }],
+      select: {
+        description: true,
+        estimatedWeeks: true,
+        goalName: true,
+        id: true,
+        isTemplate: true,
+        roleCategory: true,
+        title: true,
+      },
+      skip: 5,
+      take: 5,
+      where: {
+        AND: [
+          { isTemplate: true },
+          {
+            nodes: {
+              some: {},
+            },
+          },
+          {
+            OR: [
+              { title: { contains: 'react', mode: 'insensitive' } },
+              { goalName: { contains: 'react', mode: 'insensitive' } },
+              { description: { contains: 'react', mode: 'insensitive' } },
+            ],
+          },
+        ],
+      },
+    });
+    expect(prisma.roadmap.count).toHaveBeenCalledWith({
+      where: expectObjectContaining({
+        AND: expect.any(Array) as object[],
+      }),
+    });
+    expect(prisma.skill.findMany).toHaveBeenCalledWith({
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+      select: {
+        defaultEstimatedHours: true,
+        description: true,
+        id: true,
+        name: true,
+        roleCategory: true,
+      },
+      skip: 10,
+      take: 10,
+      where: {
+        name: {
+          contains: 'react',
+          mode: 'insensitive',
+        },
+      },
+    });
+    expect(result.roadmaps.data).toHaveLength(1);
+    expect(result.roadmaps.data[0]?.roadmapId).toBe('template-roadmap');
+    expect(result.skills.data).toHaveLength(1);
+    expect(result.meta.totalResults).toBe(13);
   });
 
   it('should return empty search payload without querying roadmaps or skills when query is blank', async () => {

@@ -141,4 +141,35 @@ describe('DashboardController', () => {
     expect(mockDashboardService.search).toHaveBeenCalledWith('user-1', query);
     expect(result).toEqual(response);
   });
+
+  it('should call search without user and return mobile home search response', async () => {
+    const query = {
+      query: 'react',
+      roadmapPage: 2,
+      skillPage: 3,
+    };
+    const response = {
+      query: 'react',
+      roadmaps: {
+        data: [],
+        meta: { page: 2, perPage: 5, total: 0, totalPages: 0 },
+      },
+      skills: {
+        data: [],
+        meta: { page: 3, perPage: 10, total: 0, totalPages: 0 },
+      },
+      meta: {
+        totalResults: 0,
+        roadmapPageSize: 5,
+        skillPageSize: 10,
+      },
+    };
+
+    mockDashboardService.search.mockResolvedValue(response);
+
+    const result = await controller.search(null, query);
+
+    expect(mockDashboardService.search).toHaveBeenCalledWith(undefined, query);
+    expect(result).toEqual(response);
+  });
 });

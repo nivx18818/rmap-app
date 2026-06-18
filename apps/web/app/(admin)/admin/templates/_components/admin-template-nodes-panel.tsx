@@ -1,5 +1,22 @@
 'use client';
 
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowDown01Icon } from '@hugeicons/core-free-icons';
 import { HugeiconsIcon } from '@hugeicons/react';
@@ -33,7 +50,7 @@ import { Separator } from '@repo/design-system/components/ui/separator';
 import { Skeleton } from '@repo/design-system/components/ui/skeleton';
 import { toast } from '@repo/design-system/lib/toast';
 import { cn } from '@repo/design-system/lib/utils';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type HTMLAttributes } from 'react';
 import { useForm } from 'react-hook-form';
 
 import type {
@@ -95,6 +112,12 @@ export function AdminTemplateNodesPanel({ selectedTemplate }: AdminTemplateNodes
   const sections = useMemo(() => buildNodeSections(nodes), [nodes]);
   const orphanNodes = useMemo(() => getOrphanNodes(nodes), [nodes]);
   const leafNodeCount = nodes.filter((node) => isLeafNodeType(node.nodeType)).length;
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
 
   useEffect(() => {
     if (!selectedTemplate) {
@@ -236,6 +259,75 @@ export function AdminTemplateNodesPanel({ selectedTemplate }: AdminTemplateNodes
     }
   };
 
+  const handleNodeDragEnd = async (event: DragEndEvent) => {
+    if (!selectedTemplate || event.active.id === event.over?.id) {
+      return;
+    }
+
+    const activeId = String(event.active.id);
+    const overId = event.over ? String(event.over.id) : null;
+    if (!overId) return;
+
+    const rootNodes = sections.map((section) => section.node);
+    if (rootNodes.some((node) => node.id === activeId)) {
+      await reorderNodeScope(null, rootNodes, activeId, overId);
+      return;
+    }
+
+    const childSection = sections.find(
+      (section) =>
+        section.children.some((node) => node.id === activeId) &&
+        section.children.some((node) => node.id === overId),
+    );
+
+    if (childSection) {
+      await reorderNodeScope(childSection.node.id, childSection.children, activeId, overId);
+    }
+  };
+
+  const reorderNodeScope = async (
+    parentId: null | string,
+    scopeNodes: AdminTemplateNode[],
+    activeId: string,
+    overId: string,
+  ) => {
+    if (!selectedTemplate) return;
+
+    const oldIndex = scopeNodes.findIndex((node) => node.id === activeId);
+    const newIndex = scopeNodes.findIndex((node) => node.id === overId);
+
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    const previousNodes = nodes;
+    const reorderedScope = arrayMove(scopeNodes, oldIndex, newIndex);
+    const positionByNodeId = new Map(
+      reorderedScope.map((node, index) => [node.id, { posX: index, posY: index }]),
+    );
+
+    setNodes((current) =>
+      current.map((node) => {
+        const position = positionByNodeId.get(node.id);
+        return position ? { ...node, ...position } : node;
+      }),
+    );
+
+    try {
+      const response = await adminContentService.reorderTemplateNodes(selectedTemplate.id, {
+        nodeIds: reorderedScope.map((node) => node.id),
+        parentId,
+      });
+      setNodes(response.nodes);
+      toast.success('Template nodes reordered');
+    } catch (error) {
+      setNodes(previousNodes);
+      toast.error('Template node reorder failed', {
+        description: getApiErrorMessage(error, 'Unable to save the node order.'),
+      });
+    }
+  };
+
   return (
     <Card className="bg-card/90 backdrop-blur-md">
       <CardHeader>
@@ -305,28 +397,41 @@ export function AdminTemplateNodesPanel({ selectedTemplate }: AdminTemplateNodes
           {isLoadingNodes ? (
             <NodeListPlaceholder />
           ) : sections.length > 0 ? (
-            sections.map((section) => (
-              <NodeSectionCard
-                key={section.node.id}
-                isOpen={
-                  section.node.nodeType === 'MILESTONE' || openSectionIds.has(section.node.id)
-                }
-                section={section}
-                skills={skills}
-                onAddChild={() =>
-                  setNodeDrawer({
-                    defaults: {
-                      nodeType: 'REQUIRED',
-                      parentId: section.node.id,
-                    },
-                    mode: 'create',
-                  })
-                }
-                onDeleteNode={setNodeToDelete}
-                onEditNode={(node) => setNodeDrawer({ mode: 'edit', node })}
-                onToggleSection={() => toggleSection(section.node.id)}
-              />
-            ))
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={(event) => void handleNodeDragEnd(event)}
+            >
+              <SortableContext
+                items={sections.map((section) => section.node.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="flex flex-col gap-3">
+                  {sections.map((section) => (
+                    <SortableNodeSectionCard
+                      key={section.node.id}
+                      isOpen={
+                        section.node.nodeType === 'MILESTONE' || openSectionIds.has(section.node.id)
+                      }
+                      section={section}
+                      skills={skills}
+                      onAddChild={() =>
+                        setNodeDrawer({
+                          defaults: {
+                            nodeType: 'REQUIRED',
+                            parentId: section.node.id,
+                          },
+                          mode: 'create',
+                        })
+                      }
+                      onDeleteNode={setNodeToDelete}
+                      onEditNode={(node) => setNodeDrawer({ mode: 'edit', node })}
+                      onToggleSection={() => toggleSection(section.node.id)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           ) : selectedTemplate ? (
             <InlineNotice
               title="No nodes yet"
@@ -372,7 +477,7 @@ export function AdminTemplateNodesPanel({ selectedTemplate }: AdminTemplateNodes
   );
 }
 
-function NodeSectionCard({
+function SortableNodeSectionCard({
   isOpen,
   onAddChild,
   onDeleteNode,
@@ -381,6 +486,50 @@ function NodeSectionCard({
   section,
   skills,
 }: {
+  isOpen: boolean;
+  onAddChild: () => void;
+  onDeleteNode: (node: AdminTemplateNode) => void;
+  onEditNode: (node: AdminTemplateNode) => void;
+  onToggleSection: () => void;
+  section: TemplateNodeSection;
+  skills: AdminSkill[];
+}) {
+  const { attributes, isDragging, listeners, setNodeRef, transform, transition } = useSortable({
+    id: section.node.id,
+  });
+  const style: CSSProperties = {
+    opacity: isDragging ? 0.75 : undefined,
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <NodeSectionCard
+        dragHandleProps={{ ...attributes, ...listeners } as HTMLAttributes<HTMLButtonElement>}
+        isOpen={isOpen}
+        section={section}
+        skills={skills}
+        onAddChild={onAddChild}
+        onDeleteNode={onDeleteNode}
+        onEditNode={onEditNode}
+        onToggleSection={onToggleSection}
+      />
+    </div>
+  );
+}
+
+function NodeSectionCard({
+  dragHandleProps,
+  isOpen,
+  onAddChild,
+  onDeleteNode,
+  onEditNode,
+  onToggleSection,
+  section,
+  skills,
+}: {
+  dragHandleProps?: HTMLAttributes<HTMLButtonElement>;
   isOpen: boolean;
   onAddChild: () => void;
   onDeleteNode: (node: AdminTemplateNode) => void;
@@ -447,6 +596,9 @@ function NodeSectionCard({
         )}
 
         <div className="flex shrink-0 flex-wrap gap-2">
+          <Button size="sm" variant="outline" type="button" {...dragHandleProps}>
+            Move
+          </Button>
           <Button size="sm" variant="outline" onClick={onAddChild}>
             Add lesson
           </Button>
@@ -464,15 +616,20 @@ function NodeSectionCard({
           <Separator />
           <div className="flex flex-col gap-2 p-3">
             {section.children.length > 0 ? (
-              section.children.map((node) => (
-                <LeafNodeRow
-                  key={node.id}
-                  node={node}
-                  skills={skills}
-                  onDelete={() => onDeleteNode(node)}
-                  onEdit={() => onEditNode(node)}
-                />
-              ))
+              <SortableContext
+                items={section.children.map((node) => node.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {section.children.map((node) => (
+                  <SortableLeafNodeRow
+                    key={node.id}
+                    node={node}
+                    skills={skills}
+                    onDelete={() => onDeleteNode(node)}
+                    onEdit={() => onEditNode(node)}
+                  />
+                ))}
+              </SortableContext>
             ) : (
               <p className="text-muted-foreground px-1 py-3 text-sm">
                 No required or optional skills in this section.
@@ -485,12 +642,47 @@ function NodeSectionCard({
   );
 }
 
-function LeafNodeRow({
+function SortableLeafNodeRow({
   node,
   onDelete,
   onEdit,
   skills,
 }: {
+  node: AdminTemplateNode;
+  onDelete: () => void;
+  onEdit: () => void;
+  skills: AdminSkill[];
+}) {
+  const { attributes, isDragging, listeners, setNodeRef, transform, transition } = useSortable({
+    id: node.id,
+  });
+  const style: CSSProperties = {
+    opacity: isDragging ? 0.75 : undefined,
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <LeafNodeRow
+        dragHandleProps={{ ...attributes, ...listeners } as HTMLAttributes<HTMLButtonElement>}
+        node={node}
+        skills={skills}
+        onDelete={onDelete}
+        onEdit={onEdit}
+      />
+    </div>
+  );
+}
+
+function LeafNodeRow({
+  dragHandleProps,
+  node,
+  onDelete,
+  onEdit,
+  skills,
+}: {
+  dragHandleProps?: HTMLAttributes<HTMLButtonElement>;
   node: AdminTemplateNode;
   onDelete: () => void;
   onEdit: () => void;
@@ -516,6 +708,9 @@ function LeafNodeRow({
           </div>
         </div>
         <div className="flex shrink-0 gap-2">
+          <Button size="sm" variant="outline" type="button" {...dragHandleProps}>
+            Move
+          </Button>
           <Button size="sm" variant="outline" onClick={onEdit}>
             Edit
           </Button>

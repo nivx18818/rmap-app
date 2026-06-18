@@ -10,6 +10,7 @@ export const ENDPOINTS = {
       list: '/admin/skills',
       resourceById: (skillId: string, resourceId: number) =>
         `/admin/skills/${skillId}/resources/${resourceId}`,
+      resourcesReorder: (skillId: string) => `/admin/skills/${skillId}/resources/reorder`,
       resources: (skillId: string) => `/admin/skills/${skillId}/resources`,
     },
     templates: {
@@ -19,6 +20,7 @@ export const ENDPOINTS = {
       list: '/admin/templates',
       nodeById: (templateId: string, nodeId: string) =>
         `/admin/templates/${templateId}/nodes/${nodeId}`,
+      nodesReorder: (templateId: string) => `/admin/templates/${templateId}/nodes/reorder`,
       nodes: (templateId: string) => `/admin/templates/${templateId}/nodes`,
     },
   },

@@ -12,6 +12,8 @@ import {
   TemplateNodeInvalidReferenceException,
   TemplateNodeInvalidShapeException,
   TemplateNodeInvalidValueException,
+  TemplateReorderInvalidException,
+  ValidationException,
 } from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 import { DagreLayoutService } from '@/modules/roadmaps/services/dagre-layout.service';
@@ -53,7 +55,10 @@ interface TemplateNodeRecord {
 
 interface TxMock {
   roadmapNode: {
+    count: AsyncMock<number>;
     deleteMany: AsyncMock<{ count: number }>;
+    findMany: AsyncMock<Array<{ id: string; parentId: string | null }>>;
+    updateMany: AsyncMock<{ count: number }>;
   };
 }
 
@@ -154,7 +159,10 @@ const makeNode = (overrides: Partial<TemplateNodeRecord> = {}): TemplateNodeReco
 
 const makeTxMock = (): TxMock => ({
   roadmapNode: {
+    count: jest.fn<Promise<number>, unknown[]>(),
     deleteMany: jest.fn<Promise<{ count: number }>, unknown[]>().mockResolvedValue({ count: 1 }),
+    findMany: jest.fn<Promise<Array<{ id: string; parentId: string | null }>>, unknown[]>(),
+    updateMany: jest.fn<Promise<{ count: number }>, unknown[]>(),
   },
 });
 
@@ -440,6 +448,41 @@ describe('AdminTemplatesService', () => {
         succeeded: [templateId],
       });
     });
+
+    it('bulk operation reports generic message for unexpected non-http errors', async () => {
+      // Simulate an unexpected non-HttpException error (e.g. a database driver crash)
+      // to verify the final fallback branch of formatBulkFailure.
+      prisma.roadmap.deleteMany.mockRejectedValue(new Error('DB connection lost'));
+
+      const result = await service.bulkDeleteTemplates([templateId]);
+
+      expect(result.failed).toEqual([
+        {
+          id: templateId,
+          message: 'Unexpected failure while processing this item.',
+        },
+      ]);
+      expect(result.succeeded).toEqual([]);
+    });
+
+    it('bulk operation uses typed errorCode for AppException subclasses', async () => {
+      // ValidationException is a concrete AppException subclass — its errorCode must be
+      // resolved via the typed path, not by casting the response body.
+      const appEx = new ValidationException();
+
+      prisma.roadmap.deleteMany.mockRejectedValue(appEx);
+
+      const result = await service.bulkDeleteTemplates([templateId]);
+
+      expect(result.failed).toEqual([
+        {
+          code: String(ErrorCode.VALIDATION_ERROR),
+          id: templateId,
+          message: expect.stringContaining('Validation'),
+        },
+      ]);
+      expect(result.succeeded).toEqual([]);
+    });
   });
 
   describe('nodes', () => {
@@ -474,6 +517,74 @@ describe('AdminTemplatesService', () => {
         expect.objectContaining({ id: parentId, nodeType: NodeType.GROUP }),
         expect.objectContaining({ id: nodeId, nodeType: NodeType.REQUIRED }),
       ]);
+    });
+
+    it('reorders root nodes after validating the complete parent scope', async () => {
+      const firstNode = makeNode({
+        estimatedHours: null,
+        id: parentId,
+        name: 'Foundations',
+        nodeType: NodeType.GROUP,
+        parentId: null,
+        posX: 0,
+        posY: 0,
+        skillId: null,
+      });
+      const secondNode = makeNode({
+        estimatedHours: null,
+        id: otherTemplateId,
+        name: 'Milestone 1',
+        nodeType: NodeType.MILESTONE,
+        parentId: null,
+        posX: 1,
+        posY: 1,
+        skillId: null,
+      });
+
+      txMock.roadmapNode.findMany.mockResolvedValue([
+        { id: secondNode.id, parentId: null },
+        { id: firstNode.id, parentId: null },
+      ]);
+      txMock.roadmapNode.count.mockResolvedValue(2);
+      txMock.roadmapNode.updateMany.mockResolvedValue({ count: 1 });
+      prisma.roadmapNode.findMany.mockResolvedValue([secondNode, firstNode]);
+
+      const result = await service.reorderNodes(templateId, null, [secondNode.id, firstNode.id]);
+
+      expect(txMock.roadmapNode.findMany).toHaveBeenCalledWith({
+        select: { id: true, parentId: true },
+        where: {
+          id: { in: [secondNode.id, firstNode.id] },
+          roadmap: { isTemplate: true },
+          roadmapId: templateId,
+        },
+      });
+      expect(txMock.roadmapNode.count).toHaveBeenCalledWith({
+        where: {
+          parentId: null,
+          roadmap: { isTemplate: true },
+          roadmapId: templateId,
+        },
+      });
+      expect(txMock.roadmapNode.updateMany).toHaveBeenNthCalledWith(1, {
+        data: { posX: 0, posY: 0 },
+        where: { id: secondNode.id, roadmapId: templateId },
+      });
+      expect(txMock.roadmapNode.updateMany).toHaveBeenNthCalledWith(2, {
+        data: { posX: 1, posY: 1 },
+        where: { id: firstNode.id, roadmapId: templateId },
+      });
+      expect(result.nodes).toHaveLength(2);
+    });
+
+    it('rejects reorder requests when nodes are outside the requested parent scope', async () => {
+      const promise = service.reorderNodes(templateId, parentId, [nodeId]);
+
+      txMock.roadmapNode.findMany.mockResolvedValue([{ id: nodeId, parentId: null }]);
+
+      await expect(promise).rejects.toBeInstanceOf(TemplateReorderInvalidException);
+      await expectExceptionCode(promise, ErrorCode.TEMPLATE_REORDER_INVALID);
+      expect(txMock.roadmapNode.updateMany).not.toHaveBeenCalled();
     });
 
     it('creates a group node without parent, skill, description, or hours', async () => {

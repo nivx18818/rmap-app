@@ -28,6 +28,7 @@ describe('AdminTemplatesController', () => {
     getTemplate: jest.fn(),
     listNodes: jest.fn(),
     listTemplates: jest.fn(),
+    reorderNodes: jest.fn(),
     updateNode: jest.fn(),
     updateTemplate: jest.fn(),
   };
@@ -177,6 +178,25 @@ describe('AdminTemplatesController', () => {
     const result = await controller.listNodes({ templateId });
 
     expect(mockAdminTemplatesService.listNodes).toHaveBeenCalledWith(templateId);
+    expect(result).toEqual(response);
+  });
+
+  it('delegates node reordering with path params and body dto', async () => {
+    const dto = {
+      nodeIds: [nodeId],
+      parentId: null,
+    };
+    const response = { nodes: [{ id: nodeId }] };
+
+    mockAdminTemplatesService.reorderNodes.mockResolvedValue(response);
+
+    const result = await controller.reorderNodes({ templateId }, dto);
+
+    expect(mockAdminTemplatesService.reorderNodes).toHaveBeenCalledWith(
+      templateId,
+      dto.parentId,
+      dto.nodeIds,
+    );
     expect(result).toEqual(response);
   });
 

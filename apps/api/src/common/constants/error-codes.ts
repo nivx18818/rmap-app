@@ -25,6 +25,8 @@ export enum ErrorCode {
   MILESTONE_SUBMISSION_INVALID_STATE = 40017,
   ROADMAP_NODE_PROGRESS_INVALID_UPDATE = 40018,
   UNSUPPORTED_OAUTH_PROVIDER = 40019,
+  TEMPLATE_REORDER_INVALID = 40020,
+  SKILL_RESOURCE_REORDER_INVALID = 40021,
   // 401 - Unauthorized
   UNAUTHORIZED = 40100,
   INVALID_ACCESS_TOKEN = 40101,
@@ -103,6 +105,8 @@ export const ErrorMessages: Record<ErrorCode, string> = {
   [ErrorCode.MILESTONE_SUBMISSION_INVALID_STATE]: 'Milestone submission state is invalid',
   [ErrorCode.ROADMAP_NODE_PROGRESS_INVALID_UPDATE]: 'Roadmap node progress update is invalid',
   [ErrorCode.UNSUPPORTED_OAUTH_PROVIDER]: 'Unsupported OAuth provider',
+  [ErrorCode.TEMPLATE_REORDER_INVALID]: 'Template node reorder request is invalid',
+  [ErrorCode.SKILL_RESOURCE_REORDER_INVALID]: 'Skill resource reorder request is invalid',
   // 401 - Unauthorized
   [ErrorCode.UNAUTHORIZED]: 'Authentication required',
   [ErrorCode.INVALID_ACCESS_TOKEN]: 'Invalid authentication token',

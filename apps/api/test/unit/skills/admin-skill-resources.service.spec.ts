@@ -5,6 +5,7 @@ import { Test } from '@nestjs/testing';
 import { ResourceType } from '@repo/db/prisma/client';
 
 import { ErrorCode } from '@/common/constants/error-codes';
+import { SkillResourceReorderInvalidException } from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 import { AdminSkillResourcesService } from '@/modules/skills/admin-skill-resources.service';
 
@@ -20,6 +21,7 @@ interface ResourceRecord {
   isPrimary: boolean;
   resourceType: ResourceType;
   skillId: string;
+  sortOrder: number;
   title: string;
   updatedAt: Date;
   url: string;
@@ -29,8 +31,9 @@ interface TxMock {
   resource: {
     count: AsyncMock<number>;
     create: AsyncMock<ResourceRecord>;
+    findMany: AsyncMock<Array<{ id: number }>>;
     findFirst: AsyncMock<ResourceRecord | null>;
-    update: AsyncMock<ResourceRecord>;
+    update: AsyncMock<ResourceRecord | { id: number }>;
   };
   skill: {
     findUnique: AsyncMock<{ id: string } | null>;
@@ -74,6 +77,7 @@ const makeResource = (overrides: Partial<ResourceRecord> = {}): ResourceRecord =
   isPrimary: false,
   resourceType: ResourceType.DOCS,
   skillId,
+  sortOrder: 0,
   title: 'Official docs',
   updatedAt: new Date('2026-01-02T00:00:00.000Z'),
   url: 'https://example.test/docs',
@@ -86,8 +90,9 @@ const makeTxMock = (): TxMock => ({
   resource: {
     count: jest.fn<Promise<number>, unknown[]>(),
     create: jest.fn<Promise<ResourceRecord>, unknown[]>(),
+    findMany: jest.fn<Promise<Array<{ id: number }>>, unknown[]>(),
     findFirst: jest.fn<Promise<ResourceRecord | null>, unknown[]>(),
-    update: jest.fn<Promise<ResourceRecord>, unknown[]>(),
+    update: jest.fn<Promise<ResourceRecord | { id: number }>, unknown[]>(),
   },
   skill: {
     findUnique: jest.fn<Promise<{ id: string } | null>, unknown[]>(),
@@ -136,9 +141,9 @@ describe('AdminSkillResourcesService', () => {
     jest.clearAllMocks();
   });
 
-  it('lists resources ordered by primary resources first, then creation order', async () => {
-    const primary = makeResource({ id: 2, isPrimary: true, title: 'Primary docs' });
-    const secondary = makeResource({ id: 1, isPrimary: false, title: 'Article' });
+  it('lists resources ordered by sort order, then existing ordering fallback', async () => {
+    const primary = makeResource({ id: 2, isPrimary: true, sortOrder: 0, title: 'Primary docs' });
+    const secondary = makeResource({ id: 1, isPrimary: false, sortOrder: 1, title: 'Article' });
 
     prisma.skill.findUnique.mockResolvedValue({ id: skillId });
     prisma.resource.findMany.mockResolvedValue([primary, secondary]);
@@ -146,7 +151,7 @@ describe('AdminSkillResourcesService', () => {
     const result = await service.listResources(skillId);
 
     expect(prisma.resource.findMany).toHaveBeenCalledWith({
-      orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+      orderBy: [{ sortOrder: 'asc' }, { isPrimary: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
       select: expectAnyObject(),
       where: { skillId },
     });
@@ -156,11 +161,13 @@ describe('AdminSkillResourcesService', () => {
           createdAt: '2026-01-01T00:00:00.000Z',
           id: 2,
           isPrimary: true,
+          sortOrder: 0,
           title: 'Primary docs',
         }),
         expect.objectContaining({
           id: 1,
           isPrimary: false,
+          sortOrder: 1,
           title: 'Article',
           updatedAt: '2026-01-02T00:00:00.000Z',
         }),
@@ -173,6 +180,7 @@ describe('AdminSkillResourcesService', () => {
     const resource = makeResource({ isFree: true, isPrimary: false });
 
     txMock.skill.findUnique.mockResolvedValue({ id: skillId });
+    txMock.resource.count.mockResolvedValue(2);
     txMock.resource.create.mockResolvedValue(resource);
 
     const result = await service.createResource(skillId, {
@@ -187,6 +195,7 @@ describe('AdminSkillResourcesService', () => {
         isPrimary: false,
         resourceType: ResourceType.DOCS,
         skillId,
+        sortOrder: 2,
         title: 'Official docs',
         url: 'https://example.test/docs',
       },
@@ -226,6 +235,7 @@ describe('AdminSkillResourcesService', () => {
         isPrimary: true,
         resourceType: ResourceType.DOCS,
         skillId,
+        sortOrder: 1,
         title: 'Official docs',
         url: 'https://example.test/docs',
       },
@@ -337,6 +347,53 @@ describe('AdminSkillResourcesService', () => {
     await expectExceptionCode(
       service.updateResource(skillId, resourceId, { title: 'Updated docs' }),
       ErrorCode.RESOURCE_NOT_FOUND,
+    );
+
+    expect(txMock.resource.update).not.toHaveBeenCalled();
+  });
+
+  it('reorders resources after validating they belong to the skill', async () => {
+    txMock.skill.findUnique.mockResolvedValue({ id: skillId });
+    txMock.resource.findMany.mockResolvedValue([{ id: 2 }, { id: 1 }]);
+    txMock.resource.update.mockResolvedValue({ id: 2 });
+    prisma.skill.findUnique.mockResolvedValue({ id: skillId });
+    prisma.resource.findMany.mockResolvedValue([
+      makeResource({ id: 2, sortOrder: 0 }),
+      makeResource({ id: 1, sortOrder: 1 }),
+    ]);
+
+    const result = await service.reorderResources(skillId, [2, 1]);
+
+    expect(txMock.resource.findMany).toHaveBeenCalledWith({
+      select: { id: true },
+      where: {
+        id: { in: [2, 1] },
+        skillId,
+      },
+    });
+    expect(txMock.resource.update).toHaveBeenNthCalledWith(1, {
+      data: { sortOrder: 0 },
+      select: { id: true },
+      where: { id: 2 },
+    });
+    expect(txMock.resource.update).toHaveBeenNthCalledWith(2, {
+      data: { sortOrder: 1 },
+      select: { id: true },
+      where: { id: 1 },
+    });
+    expect(result.resources).toHaveLength(2);
+  });
+
+  it('rejects resource reorder requests with resources outside the selected skill', async () => {
+    txMock.skill.findUnique.mockResolvedValue({ id: skillId });
+    txMock.resource.findMany.mockResolvedValue([{ id: resourceId }]);
+
+    await expect(service.reorderResources(skillId, [resourceId, 99])).rejects.toBeInstanceOf(
+      SkillResourceReorderInvalidException,
+    );
+    await expectExceptionCode(
+      service.reorderResources(skillId, [resourceId, 99]),
+      ErrorCode.SKILL_RESOURCE_REORDER_INVALID,
     );
 
     expect(txMock.resource.update).not.toHaveBeenCalled();

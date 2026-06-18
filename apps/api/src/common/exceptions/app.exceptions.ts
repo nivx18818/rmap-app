@@ -169,6 +169,24 @@ export class TemplateNodeInvalidValueException extends BadRequestException {
   }
 }
 
+export class TemplateReorderInvalidException extends BadRequestException {
+  constructor(message?: string) {
+    super({
+      code: ErrorCode.TEMPLATE_REORDER_INVALID,
+      message: message || getErrorMessage(ErrorCode.TEMPLATE_REORDER_INVALID),
+    });
+  }
+}
+
+export class SkillResourceReorderInvalidException extends BadRequestException {
+  constructor(message?: string) {
+    super({
+      code: ErrorCode.SKILL_RESOURCE_REORDER_INVALID,
+      message: message || getErrorMessage(ErrorCode.SKILL_RESOURCE_REORDER_INVALID),
+    });
+  }
+}
+
 export class ActivityDateInvalidException extends BadRequestException {
   constructor() {
     super({
@@ -681,6 +699,8 @@ export const ErrorCodeToException = {
   [ErrorCode.TEMPLATE_NODE_INVALID_SHAPE]: TemplateNodeInvalidShapeException,
   [ErrorCode.TEMPLATE_NODE_INVALID_REFERENCE]: TemplateNodeInvalidReferenceException,
   [ErrorCode.TEMPLATE_NODE_INVALID_VALUE]: TemplateNodeInvalidValueException,
+  [ErrorCode.TEMPLATE_REORDER_INVALID]: TemplateReorderInvalidException,
+  [ErrorCode.SKILL_RESOURCE_REORDER_INVALID]: SkillResourceReorderInvalidException,
   [ErrorCode.ACTIVITY_DATE_INVALID]: ActivityDateInvalidException,
   [ErrorCode.ACTIVITY_DATE_RANGE_INVALID]: ActivityDateRangeInvalidException,
   [ErrorCode.QUIZ_SUBMISSION_INVALID]: QuizSubmissionInvalidException,

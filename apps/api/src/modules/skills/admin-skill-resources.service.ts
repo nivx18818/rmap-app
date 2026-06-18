@@ -3,8 +3,9 @@ import { type Prisma, type Resource } from '@repo/db/prisma/client';
 
 import {
   ResourceNotFoundException,
-  SkillPrimaryResourcesLimitException,
   SkillNotFoundException,
+  SkillPrimaryResourcesLimitException,
+  SkillResourceReorderInvalidException,
 } from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 
@@ -24,6 +25,7 @@ const RESOURCE_SELECT = {
   isPrimary: true,
   resourceType: true,
   skillId: true,
+  sortOrder: true,
   title: true,
   updatedAt: true,
   url: true,
@@ -39,7 +41,7 @@ export class AdminSkillResourcesService {
     await this.findSkillOrThrow(skillId);
 
     const resources = await this.prisma.resource.findMany({
-      orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+      orderBy: [{ sortOrder: 'asc' }, { isPrimary: 'desc' }, { createdAt: 'asc' }, { id: 'asc' }],
       select: RESOURCE_SELECT,
       where: { skillId },
     });
@@ -68,6 +70,7 @@ export class AdminSkillResourcesService {
           isPrimary,
           resourceType: dto.resourceType,
           skillId,
+          sortOrder: await tx.resource.count({ where: { skillId } }),
           title: dto.title,
           url: dto.url,
         },
@@ -76,6 +79,41 @@ export class AdminSkillResourcesService {
     });
 
     return this.formatResource(resource);
+  }
+
+  async reorderResources(
+    skillId: string,
+    resourceIds: number[],
+  ): Promise<SkillResourceListResponse> {
+    await this.prisma.$transaction(async (tx) => {
+      await this.findSkillOrThrow(skillId, tx);
+
+      const resources = await tx.resource.findMany({
+        select: { id: true },
+        where: {
+          id: { in: resourceIds },
+          skillId,
+        },
+      });
+
+      if (resources.length !== resourceIds.length) {
+        throw new SkillResourceReorderInvalidException(
+          'All resources must belong to the selected skill before reordering.',
+        );
+      }
+
+      await Promise.all(
+        resourceIds.map((resourceId, index) =>
+          tx.resource.update({
+            data: { sortOrder: index },
+            select: { id: true },
+            where: { id: resourceId },
+          }),
+        ),
+      );
+    });
+
+    return this.listResources(skillId);
   }
 
   async updateResource(
@@ -181,6 +219,7 @@ export class AdminSkillResourcesService {
       isPrimary: resource.isPrimary,
       resourceType: resource.resourceType,
       skillId: resource.skillId,
+      sortOrder: resource.sortOrder,
       title: resource.title,
       updatedAt: resource.updatedAt.toISOString(),
       url: resource.url,

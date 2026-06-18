@@ -17,6 +17,7 @@ describe('AdminSkillResourcesController', () => {
     createResource: jest.fn(),
     deleteResource: jest.fn(),
     listResources: jest.fn(),
+    reorderResources: jest.fn(),
     updateResource: jest.fn(),
   };
 
@@ -84,6 +85,21 @@ describe('AdminSkillResourcesController', () => {
       skillId,
       resourceId,
       dto,
+    );
+    expect(result).toEqual(response);
+  });
+
+  it('delegates resource reordering with path params and body dto', async () => {
+    const dto = { resourceIds: [resourceId] };
+    const response = { resources: [{ id: resourceId }], skillId };
+
+    mockAdminSkillResourcesService.reorderResources.mockResolvedValue(response);
+
+    const result = await controller.reorder({ skillId }, dto);
+
+    expect(mockAdminSkillResourcesService.reorderResources).toHaveBeenCalledWith(
+      skillId,
+      dto.resourceIds,
     );
     expect(result).toEqual(response);
   });

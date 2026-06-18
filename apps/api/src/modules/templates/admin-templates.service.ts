@@ -17,6 +17,7 @@ import {
   TemplateNodeInvalidReferenceException,
   TemplateNodeInvalidShapeException,
   TemplateNodeInvalidValueException,
+  TemplateReorderInvalidException,
 } from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
 import { DagreLayoutService } from '@/modules/roadmaps/services/dagre-layout.service';
@@ -204,6 +205,71 @@ export class AdminTemplatesService {
     };
   }
 
+  async reorderNodes(
+    templateId: string,
+    parentId: null | string,
+    nodeIds: string[],
+  ): Promise<TemplateNodesListResponse> {
+    await this.findTemplateOrThrow(templateId);
+
+    await this.prisma.$transaction(async (tx) => {
+      const nodes = await tx.roadmapNode.findMany({
+        select: {
+          id: true,
+          parentId: true,
+        },
+        where: {
+          id: { in: nodeIds },
+          roadmapId: templateId,
+          roadmap: { isTemplate: true },
+        },
+      });
+
+      if (nodes.length !== nodeIds.length) {
+        throw new TemplateReorderInvalidException(
+          'All reordered nodes must belong to the selected template.',
+        );
+      }
+
+      if (nodes.some((node) => node.parentId !== parentId)) {
+        throw new TemplateReorderInvalidException(
+          'All reordered nodes must belong to the requested parent scope.',
+        );
+      }
+
+      const scopedNodeCount = await tx.roadmapNode.count({
+        where: {
+          parentId,
+          roadmapId: templateId,
+          roadmap: { isTemplate: true },
+        },
+      });
+
+      if (scopedNodeCount !== nodeIds.length) {
+        throw new TemplateReorderInvalidException(
+          'Reorder requests must include every node in the affected scope.',
+        );
+      }
+
+      await Promise.all(
+        nodeIds.map((nodeId, index) =>
+          tx.roadmapNode.updateMany({
+            data: {
+              posX: index,
+              posY: index,
+            },
+            where: {
+              id: nodeId,
+              roadmapId: templateId,
+            },
+          }),
+        ),
+      );
+    });
+
+    return this.listNodes(templateId);
+  }
+
   async createNode(templateId: string, dto: CreateTemplateNodeDto): Promise<TemplateNodeResponse> {
     const template = await this.findTemplateOrThrow(templateId);
     const state = {
@@ -387,16 +453,10 @@ export class AdminTemplatesService {
         };
       }
 
-      return {
-        id,
-        message: error.message,
-      };
+      return { id, message: error.message };
     }
 
-    return {
-      id,
-      message: 'Unexpected failure while processing this item.',
-    };
+    return { id, message: 'Unexpected failure while processing this item.' };
   }
 
   private async findTemplateOrThrow(templateId: string): Promise<SelectedTemplate> {

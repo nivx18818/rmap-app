@@ -26,7 +26,6 @@ import type {
 
 import { AdminTemplatesService } from './admin-templates.service';
 import { BulkTemplateCategoryDto, BulkTemplateIdsDto } from './dto/admin-template-bulk.dto';
-import { ReorderTemplateNodesDto } from './dto/admin-template-node-reorder.dto';
 import { CreateTemplateNodeDto, UpdateTemplateNodeDto } from './dto/admin-template-node.dto';
 import { TemplateIdParamDto, TemplateNodeIdParamDto } from './dto/admin-template-params.dto';
 import { ListAdminTemplatesQueryDto } from './dto/admin-template-query.dto';
@@ -80,18 +79,6 @@ export class AdminTemplatesController {
   @Get(':templateId/nodes')
   async listNodes(@Param() params: TemplateIdParamDto): Promise<TemplateNodesListResponse> {
     return this.adminTemplatesService.listNodes(params.templateId);
-  }
-
-  @Patch(':templateId/nodes/reorder')
-  async reorderNodes(
-    @Param() params: TemplateIdParamDto,
-    @Body() dto: ReorderTemplateNodesDto,
-  ): Promise<TemplateNodesListResponse> {
-    return this.adminTemplatesService.reorderNodes(
-      params.templateId,
-      dto.parentId ?? null,
-      dto.nodeIds,
-    );
   }
 
   @Post(':templateId/nodes')

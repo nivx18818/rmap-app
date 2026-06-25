@@ -152,7 +152,6 @@ export interface AdminSkillResource {
   isPrimary: boolean;
   resourceType: ResourceType;
   skillId: string;
-  sortOrder: number;
   title: string;
   updatedAt: string;
   url: string;
@@ -169,15 +168,6 @@ export interface AdminSkillResourcePayload {
   resourceType: ResourceType;
   title: string;
   url: string;
-}
-
-export interface AdminSkillResourcesReorderPayload {
-  resourceIds: number[];
-}
-
-export interface AdminTemplateNodesReorderPayload {
-  nodeIds: string[];
-  parentId: null | string;
 }
 
 export interface ApiErrorResponse {

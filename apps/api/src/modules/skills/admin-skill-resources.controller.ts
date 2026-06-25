@@ -6,7 +6,6 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  Patch,
   Post,
   Put,
 } from '@nestjs/common';
@@ -24,7 +23,6 @@ import {
   SkillResourceListParamsDto,
   SkillResourceParamsDto,
 } from './dto/admin-skill-resource-params.dto';
-import { ReorderSkillResourcesDto } from './dto/admin-skill-resource-reorder.dto';
 import { CreateSkillResourceDto, UpdateSkillResourceDto } from './dto/admin-skill-resource.dto';
 
 @Controller('admin/skills/:skillId/resources')
@@ -44,14 +42,6 @@ export class AdminSkillResourcesController {
     @Body() dto: CreateSkillResourceDto,
   ): Promise<SkillResourceResponse> {
     return this.adminSkillResourcesService.createResource(params.skillId, dto);
-  }
-
-  @Patch('reorder')
-  async reorder(
-    @Param() params: SkillResourceListParamsDto,
-    @Body() dto: ReorderSkillResourcesDto,
-  ): Promise<SkillResourceListResponse> {
-    return this.adminSkillResourcesService.reorderResources(params.skillId, dto.resourceIds);
   }
 
   @Put(':resourceId')

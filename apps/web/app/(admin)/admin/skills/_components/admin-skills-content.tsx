@@ -1,22 +1,5 @@
 'use client';
 
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  arrayMove,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ConfirmDeleteDialog } from '@repo/design-system/components/common/confirm-delete-dialog';
 import { DrawerSubmitOverlay } from '@repo/design-system/components/common/drawer-submit-overlay';
@@ -57,13 +40,7 @@ import {
   TableRow,
 } from '@repo/design-system/components/ui/table';
 import { toast } from '@repo/design-system/lib/toast';
-import {
-  useDeferredValue,
-  useEffect,
-  useState,
-  type CSSProperties,
-  type HTMLAttributes,
-} from 'react';
+import { useDeferredValue, useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import type {
@@ -147,12 +124,6 @@ export function AdminSkillsContent() {
   const [isDeletingSkill, setIsDeletingSkill] = useState(false);
   const [isDeletingResource, setIsDeletingResource] = useState(false);
   const deferredSearchTerm = useDeferredValue(searchTerm.trim());
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
 
   const skills = skillsResponse?.data ?? EMPTY_SKILLS;
   const skillsMeta = skillsResponse?.meta;
@@ -369,36 +340,6 @@ export function AdminSkillsContent() {
     }
 
     refreshResources();
-  };
-
-  const handleResourceDragEnd = async (event: DragEndEvent) => {
-    if (!selectedSkill || event.active.id === event.over?.id) {
-      return;
-    }
-
-    const oldIndex = resources.findIndex((resource) => resource.id === event.active.id);
-    const newIndex = resources.findIndex((resource) => resource.id === event.over?.id);
-
-    if (oldIndex === -1 || newIndex === -1) {
-      return;
-    }
-
-    const previousResources = resources;
-    const nextResources = arrayMove(resources, oldIndex, newIndex);
-    setResources(nextResources);
-
-    try {
-      const response = await adminContentService.reorderResources(selectedSkill.id, {
-        resourceIds: nextResources.map((resource) => resource.id),
-      });
-      setResources(response.resources);
-      toast.success('Resources reordered');
-    } catch (error) {
-      setResources(previousResources);
-      toast.error('Resource reorder failed', {
-        description: getApiErrorMessage(error, 'Unable to save the resource order.'),
-      });
-    }
   };
 
   const handleDeleteSkill = async () => {
@@ -729,27 +670,16 @@ export function AdminSkillsContent() {
               {isLoadingResources ? (
                 <ResourcePlaceholder />
               ) : resources.length > 0 ? (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={(event) => void handleResourceDragEnd(event)}
-                >
-                  <SortableContext
-                    items={resources.map((resource) => resource.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="flex flex-col gap-3">
-                      {resources.map((resource) => (
-                        <SortableResourceCard
-                          key={resource.id}
-                          resource={resource}
-                          onDelete={() => setResourceToDelete(resource)}
-                          onEdit={() => setResourceDrawer({ mode: 'edit', resource })}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </DndContext>
+                <div className="flex flex-col gap-3">
+                  {resources.map((resource) => (
+                    <ResourceCard
+                      key={resource.id}
+                      resource={resource}
+                      onDelete={() => setResourceToDelete(resource)}
+                      onEdit={() => setResourceDrawer({ mode: 'edit', resource })}
+                    />
+                  ))}
+                </div>
               ) : selectedSkill ? (
                 <InlineNotice
                   title="No resources yet"
@@ -1109,43 +1039,11 @@ function ResourceFormDrawer({
   );
 }
 
-function SortableResourceCard({
-  onDelete,
-  onEdit,
-  resource,
-}: {
-  onDelete: () => void;
-  onEdit: () => void;
-  resource: AdminSkillResource;
-}) {
-  const { attributes, isDragging, listeners, setNodeRef, transform, transition } = useSortable({
-    id: resource.id,
-  });
-  const style: CSSProperties = {
-    opacity: isDragging ? 0.75 : undefined,
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  return (
-    <div ref={setNodeRef} style={style}>
-      <ResourceCard
-        dragHandleProps={{ ...attributes, ...listeners } as HTMLAttributes<HTMLButtonElement>}
-        resource={resource}
-        onDelete={onDelete}
-        onEdit={onEdit}
-      />
-    </div>
-  );
-}
-
 function ResourceCard({
-  dragHandleProps,
   onDelete,
   onEdit,
   resource,
 }: {
-  dragHandleProps?: HTMLAttributes<HTMLButtonElement>;
   onDelete: () => void;
   onEdit: () => void;
   resource: AdminSkillResource;
@@ -1166,9 +1064,6 @@ function ResourceCard({
             </a>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
-            <Button size="sm" variant="outline" type="button" {...dragHandleProps}>
-              Move
-            </Button>
             <Button size="sm" variant="outline" onClick={onEdit}>
               Edit
             </Button>

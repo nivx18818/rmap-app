@@ -111,7 +111,7 @@ describe('Admin skill resource management (integration)', () => {
     expect(listBody).toMatchObject({
       skillId: skill.id,
     });
-    expect(listBody.resources.map((resource) => resource.id)).toEqual([primary.id, article.id]);
+    expect(listBody.resources.map((resource) => resource.id)).toEqual([article.id, primary.id]);
 
     const updateResponse = await request(integration.app.getHttpServer())
       .put(`/api/v1/admin/skills/${skill.id}/resources/${article.id}`)

@@ -387,4 +387,100 @@ describe('Admin skill catalog management (integration)', () => {
       code: ErrorCode.SKILL_DELETE_REFERENCED,
     });
   });
+
+  it('bulk updates and bulk deletes skills with per-item results', async () => {
+    const admin = await seedUser(integration.prisma, {
+      email: uniqueEmail('skill-bulk-admin'),
+      role: UserRole.ADMIN,
+    });
+    const loginResponse = await integration.loginAs(admin.email);
+    const cookie = getCookieHeader(loginResponse, ['access_token']);
+    const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const first = await integration.prisma.skill.create({
+      data: {
+        name: `Admin Skill Bulk First ${suffix}`,
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+      },
+    });
+    const second = await integration.prisma.skill.create({
+      data: {
+        name: `Admin Skill Bulk Second ${suffix}`,
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+      },
+    });
+    const referenced = await integration.prisma.skill.create({
+      data: {
+        name: `Admin Skill Bulk Referenced ${suffix}`,
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+      },
+    });
+    const template = await integration.prisma.roadmap.create({
+      data: {
+        isTemplate: true,
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+        title: `Admin Skill Bulk Template ${suffix}`,
+      },
+    });
+
+    await integration.prisma.roadmapNode.create({
+      data: {
+        name: `Admin Skill Bulk Referenced Node ${suffix}`,
+        nodeType: NodeType.REQUIRED,
+        posX: 0,
+        posY: 0,
+        roadmapId: template.id,
+        skillId: referenced.id,
+      },
+    });
+
+    const categoryResponse = await request(integration.app.getHttpServer())
+      .patch('/api/v1/admin/skills/bulk/category')
+      .set('Cookie', cookie)
+      .send({
+        ids: [first.id, missingSkillId],
+        roleCategory: 'devops',
+      })
+      .expect(200);
+
+    expect(categoryResponse.body).toEqual({
+      failed: [
+        expect.objectContaining({
+          code: String(ErrorCode.SKILL_NOT_FOUND),
+          id: missingSkillId,
+        }),
+      ],
+      succeeded: [first.id],
+    });
+
+    await expect(
+      integration.prisma.skill.findUniqueOrThrow({ where: { id: first.id } }),
+    ).resolves.toMatchObject({
+      roleCategory: RoleCategory.DEVOPS,
+    });
+
+    const deleteResponse = await request(integration.app.getHttpServer())
+      .post('/api/v1/admin/skills/bulk-delete')
+      .set('Cookie', cookie)
+      .send({
+        ids: [second.id, referenced.id],
+      })
+      .expect(201);
+
+    expect(deleteResponse.body).toEqual({
+      failed: [
+        expect.objectContaining({
+          code: String(ErrorCode.SKILL_DELETE_REFERENCED),
+          id: referenced.id,
+        }),
+      ],
+      succeeded: [second.id],
+    });
+
+    await expect(
+      integration.prisma.skill.findUnique({ where: { id: second.id } }),
+    ).resolves.toBeNull();
+    await expect(
+      integration.prisma.skill.findUnique({ where: { id: referenced.id } }),
+    ).resolves.toMatchObject({ id: referenced.id });
+  });
 });

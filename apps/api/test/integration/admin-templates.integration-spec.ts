@@ -1,6 +1,8 @@
 import { RoleCategory, UserRole } from '@repo/db/prisma/client';
 import request from 'supertest';
 
+import { ErrorCode } from '@/common/constants/error-codes';
+
 import { getCookieHeader } from './utils/cookies';
 import { seedUser, uniqueEmail } from './utils/database';
 import { setupIntegrationTest } from './utils/integration-test-context';
@@ -113,6 +115,19 @@ describe('Admin template management (integration)', () => {
     expect(leaf.posX).toEqual(expect.any(Number));
     expect(leaf.posY).toEqual(expect.any(Number));
 
+    const optionalResponse = await request(integration.app.getHttpServer())
+      .post(`/api/v1/admin/templates/${template.id}/nodes`)
+      .set('Cookie', cookie)
+      .send({
+        estimatedHours: 3,
+        name: 'Template Optional Skill',
+        nodeType: 'optional',
+        parentId: group.id,
+        skillId: skill.id,
+      })
+      .expect(201);
+    const optional = optionalResponse.body as { id: string };
+
     const listNodesResponse = await request(integration.app.getHttpServer())
       .get(`/api/v1/admin/templates/${template.id}/nodes`)
       .set('Cookie', cookie)
@@ -134,6 +149,10 @@ describe('Admin template management (integration)', () => {
           parentId: group.id,
           posX: expect.any(Number) as number,
           posY: expect.any(Number) as number,
+        }),
+        expect.objectContaining({
+          id: optional.id,
+          parentId: group.id,
         }),
       ]),
     );
@@ -174,5 +193,77 @@ describe('Admin template management (integration)', () => {
       .delete(`/api/v1/admin/templates/${template.id}`)
       .set('Cookie', cookie)
       .expect(204);
+  });
+
+  it('bulk updates and bulk deletes templates with per-item results', async () => {
+    const admin = await seedUser(integration.prisma, {
+      email: uniqueEmail('template-bulk-admin'),
+      role: UserRole.ADMIN,
+    });
+    const loginResponse = await integration.loginAs(admin.email);
+    const cookie = getCookieHeader(loginResponse, ['access_token']);
+    const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const first = await integration.prisma.roadmap.create({
+      data: {
+        isTemplate: true,
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+        title: `Admin Template Bulk First ${suffix}`,
+      },
+    });
+    const second = await integration.prisma.roadmap.create({
+      data: {
+        isTemplate: true,
+        roleCategory: RoleCategory.WEB_DEVELOPMENT,
+        title: `Admin Template Bulk Second ${suffix}`,
+      },
+    });
+    const missingTemplateId = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+
+    const categoryResponse = await request(integration.app.getHttpServer())
+      .patch('/api/v1/admin/templates/bulk/category')
+      .set('Cookie', cookie)
+      .send({
+        ids: [first.id, missingTemplateId],
+        roleCategory: 'devops',
+      })
+      .expect(200);
+
+    expect(categoryResponse.body).toEqual({
+      failed: [
+        expect.objectContaining({
+          code: String(ErrorCode.ROADMAP_NOT_FOUND),
+          id: missingTemplateId,
+        }),
+      ],
+      succeeded: [first.id],
+    });
+
+    await expect(
+      integration.prisma.roadmap.findUniqueOrThrow({ where: { id: first.id } }),
+    ).resolves.toMatchObject({
+      roleCategory: RoleCategory.DEVOPS,
+    });
+
+    const deleteResponse = await request(integration.app.getHttpServer())
+      .post('/api/v1/admin/templates/bulk-delete')
+      .set('Cookie', cookie)
+      .send({
+        ids: [second.id, missingTemplateId],
+      })
+      .expect(201);
+
+    expect(deleteResponse.body).toEqual({
+      failed: [
+        expect.objectContaining({
+          code: String(ErrorCode.ROADMAP_NOT_FOUND),
+          id: missingTemplateId,
+        }),
+      ],
+      succeeded: [second.id],
+    });
+
+    await expect(
+      integration.prisma.roadmap.findUnique({ where: { id: second.id } }),
+    ).resolves.toBeNull();
   });
 });

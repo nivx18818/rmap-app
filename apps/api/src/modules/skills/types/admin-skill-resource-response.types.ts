@@ -7,7 +7,6 @@ export interface SkillResourceResponse {
   isPrimary: boolean;
   resourceType: ResourceType;
   skillId: string;
-  sortOrder: number;
   title: string;
   updatedAt: string;
   url: string;

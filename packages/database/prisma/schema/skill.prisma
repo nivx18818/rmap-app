@@ -38,7 +38,6 @@ model Resource {
   resourceType ResourceType @map("resource_type")
   isFree       Boolean      @default(true) @map("is_free")
   isPrimary    Boolean      @default(false) @map("is_primary")
-  sortOrder    Int          @default(0) @map("sort_order")
   createdAt    DateTime     @default(now()) @map("created_at")
   updatedAt    DateTime     @updatedAt @map("updated_at")
 

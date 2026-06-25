@@ -7,7 +7,6 @@ import type {
   AdminSkillResource,
   AdminSkillResourcePayload,
   AdminSkillResourcesResponse,
-  AdminSkillResourcesReorderPayload,
   AdminSkillsListResponse,
   AdminSkillsQuery,
   AdminDashboardResponse,
@@ -15,7 +14,6 @@ import type {
   AdminTemplateNode,
   AdminTemplateNodePayload,
   AdminTemplateNodesResponse,
-  AdminTemplateNodesReorderPayload,
   AdminTemplatePayload,
   AdminTemplatesListResponse,
   AdminTemplatesQuery,
@@ -126,20 +124,6 @@ export const adminContentService = {
   listTemplateNodes: async (templateId: string) => {
     const response = await axiosInstance.get<AdminTemplateNodesResponse>(
       ENDPOINTS.admin.templates.nodes(templateId),
-    );
-    return response.data;
-  },
-  reorderResources: async (skillId: string, payload: AdminSkillResourcesReorderPayload) => {
-    const response = await axiosInstance.patch<AdminSkillResourcesResponse>(
-      ENDPOINTS.admin.skills.resourcesReorder(skillId),
-      payload,
-    );
-    return response.data;
-  },
-  reorderTemplateNodes: async (templateId: string, payload: AdminTemplateNodesReorderPayload) => {
-    const response = await axiosInstance.patch<AdminTemplateNodesResponse>(
-      ENDPOINTS.admin.templates.nodesReorder(templateId),
-      payload,
     );
     return response.data;
   },

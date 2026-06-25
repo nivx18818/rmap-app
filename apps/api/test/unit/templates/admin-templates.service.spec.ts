@@ -12,7 +12,6 @@ import {
   TemplateNodeInvalidReferenceException,
   TemplateNodeInvalidShapeException,
   TemplateNodeInvalidValueException,
-  TemplateReorderInvalidException,
   ValidationException,
 } from '@/common/exceptions/app.exceptions';
 import { PrismaService } from '@/modules/prisma/prisma.service';
@@ -478,7 +477,7 @@ describe('AdminTemplatesService', () => {
         {
           code: String(ErrorCode.VALIDATION_ERROR),
           id: templateId,
-          message: expect.stringContaining('Validation'),
+          message: expect.stringContaining('Validation') as unknown as string,
         },
       ]);
       expect(result.succeeded).toEqual([]);
@@ -517,74 +516,6 @@ describe('AdminTemplatesService', () => {
         expect.objectContaining({ id: parentId, nodeType: NodeType.GROUP }),
         expect.objectContaining({ id: nodeId, nodeType: NodeType.REQUIRED }),
       ]);
-    });
-
-    it('reorders root nodes after validating the complete parent scope', async () => {
-      const firstNode = makeNode({
-        estimatedHours: null,
-        id: parentId,
-        name: 'Foundations',
-        nodeType: NodeType.GROUP,
-        parentId: null,
-        posX: 0,
-        posY: 0,
-        skillId: null,
-      });
-      const secondNode = makeNode({
-        estimatedHours: null,
-        id: otherTemplateId,
-        name: 'Milestone 1',
-        nodeType: NodeType.MILESTONE,
-        parentId: null,
-        posX: 1,
-        posY: 1,
-        skillId: null,
-      });
-
-      txMock.roadmapNode.findMany.mockResolvedValue([
-        { id: secondNode.id, parentId: null },
-        { id: firstNode.id, parentId: null },
-      ]);
-      txMock.roadmapNode.count.mockResolvedValue(2);
-      txMock.roadmapNode.updateMany.mockResolvedValue({ count: 1 });
-      prisma.roadmapNode.findMany.mockResolvedValue([secondNode, firstNode]);
-
-      const result = await service.reorderNodes(templateId, null, [secondNode.id, firstNode.id]);
-
-      expect(txMock.roadmapNode.findMany).toHaveBeenCalledWith({
-        select: { id: true, parentId: true },
-        where: {
-          id: { in: [secondNode.id, firstNode.id] },
-          roadmap: { isTemplate: true },
-          roadmapId: templateId,
-        },
-      });
-      expect(txMock.roadmapNode.count).toHaveBeenCalledWith({
-        where: {
-          parentId: null,
-          roadmap: { isTemplate: true },
-          roadmapId: templateId,
-        },
-      });
-      expect(txMock.roadmapNode.updateMany).toHaveBeenNthCalledWith(1, {
-        data: { posX: 0, posY: 0 },
-        where: { id: secondNode.id, roadmapId: templateId },
-      });
-      expect(txMock.roadmapNode.updateMany).toHaveBeenNthCalledWith(2, {
-        data: { posX: 1, posY: 1 },
-        where: { id: firstNode.id, roadmapId: templateId },
-      });
-      expect(result.nodes).toHaveLength(2);
-    });
-
-    it('rejects reorder requests when nodes are outside the requested parent scope', async () => {
-      const promise = service.reorderNodes(templateId, parentId, [nodeId]);
-
-      txMock.roadmapNode.findMany.mockResolvedValue([{ id: nodeId, parentId: null }]);
-
-      await expect(promise).rejects.toBeInstanceOf(TemplateReorderInvalidException);
-      await expectExceptionCode(promise, ErrorCode.TEMPLATE_REORDER_INVALID);
-      expect(txMock.roadmapNode.updateMany).not.toHaveBeenCalled();
     });
 
     it('creates a group node without parent, skill, description, or hours', async () => {
